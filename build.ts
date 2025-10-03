@@ -5,7 +5,7 @@ import { readFileSync } from 'fs';
 import { resolve } from 'path';
 
 const result = await Bun.build({
-    entrypoints: ['./src/main.js'],
+    entrypoints: ['./src/main.ts'],
     outdir: './dist',
     target: 'browser',
     format: 'iife', // Immediately Invoked Function Expression for userscript
@@ -24,7 +24,7 @@ if (!result.success) {
 console.log('Build successful!');
 
 // Post-process: wrap in IIFE and add userscript header
-const setupContent = readFileSync('./src/setup.js', 'utf-8');
+const setupContent = readFileSync('./src/setup.ts', 'utf-8');
 const headerMatch = setupContent.match(/\/\/ ==UserScript==[\s\S]*?\/\/ ==\/UserScript==/);
 const header = headerMatch ? headerMatch[0] : '';
 

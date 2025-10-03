@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Vim Mode for Text Inputs
 // @namespace    http://tampermonkey.net/
-// @version      1.0.29
+// @version      1.0.30
 // @description  Vim-like editing for textareas and inputs
 // @match        *://*/*
 // @updateURL    https://raw.githubusercontent.com/levabala/tampermonkey-vim-mode/refs/heads/main/dist/tampermonkey_vim_mode.js
@@ -9,17 +9,22 @@
 // @grant        none
 // ==/UserScript==
 
+import type { Mode, EditableElement } from './types.js';
+
 // Extract version from userscript header
 // In Tampermonkey, we can use GM_info if available, otherwise fallback to parsing the script source
-export const version = (() => {
+export const version: string = (() => {
     // Try GM_info first (Tampermonkey API)
+    // @ts-ignore - GM_info is a Tampermonkey global
     if (typeof GM_info !== 'undefined' && GM_info.script && GM_info.script.version) {
+        // @ts-ignore - GM_info is a Tampermonkey global
         return GM_info.script.version;
     }
 
     // Fallback: try to find our script in document.scripts (only if document exists)
     if (typeof document !== 'undefined' && document.scripts) {
-        for (let script of document.scripts) {
+        for (let i = 0; i < document.scripts.length; i++) {
+            const script = document.scripts[i];
             const content = script.textContent;
             if (content && content.includes('Vim Mode for Text Inputs')) {
                 const match = content.match(/@version\s+([\d.]+)/);
@@ -32,15 +37,16 @@ export const version = (() => {
 })();
 
 // Debug mode - enabled via VIM_DEBUG=1 query parameter
-export const DEBUG = (typeof window !== 'undefined' && window.location)
+export const DEBUG: boolean = (typeof window !== 'undefined' && window.location)
     ? new URLSearchParams(window.location.search).get('VIM_DEBUG') === '1'
     : false;
-export const debug = (...args) => {
+export const debug = (...args: any[]): void => {
     if (DEBUG) console.log('@@', ...args);
 };
 
 // Mode indicator - only create if document exists
-let indicator, modeText;
+let indicator: HTMLDivElement | undefined;
+let modeText: HTMLDivElement | undefined;
 
 if (typeof document !== 'undefined') {
     indicator = document.createElement('div');
@@ -80,14 +86,14 @@ if (typeof document !== 'undefined') {
         document.body.appendChild(indicator);
     } else {
         document.addEventListener('DOMContentLoaded', () => {
-            document.body.appendChild(indicator);
+            if (indicator) document.body.appendChild(indicator);
         });
     }
 }
 
 export { indicator };
 
-export function updateIndicator(mode, currentInput) {
+export function updateIndicator(mode: Mode, currentInput: EditableElement | null): void {
     if (!indicator || !modeText) return; // Guard for test environment
 
     let text, color;

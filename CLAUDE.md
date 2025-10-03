@@ -69,3 +69,4 @@ When asked to write a test and fix a bug, follow this workflow to verify the tes
 6. **Commit the fix** - `git add [fixed files] && git commit -m "Fix [bug description]"`
 
 This ensures the test actually catches the bug and isn't a false positive.
+- use bun!

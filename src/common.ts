@@ -1,18 +1,19 @@
 import { debug } from './setup.js';
+import type { EditableElement, LineInfo, UndoState } from './types.js';
 
 // Utility functions
-export function getCursorPos(currentInput) {
-    return currentInput.selectionStart;
+export function getCursorPos(currentInput: EditableElement): number {
+    return currentInput.selectionStart ?? 0;
 }
 
-export function setCursorPos(currentInput, pos) {
+export function setCursorPos(currentInput: EditableElement, pos: number): void {
     pos = Math.max(0, Math.min(pos, currentInput.value.length));
     debug('setCursorPos', { pos, valueLength: currentInput.value.length });
     currentInput.selectionStart = pos;
     currentInput.selectionEnd = pos;
 }
 
-export function getLine(currentInput, pos) {
+export function getLine(currentInput: EditableElement, pos: number): LineInfo {
     const text = currentInput.value;
     let start = pos;
     while (start > 0 && text[start - 1] !== '\n') start--;
@@ -21,19 +22,19 @@ export function getLine(currentInput, pos) {
     return { start, end, text: text.substring(start, end) };
 }
 
-export function getLineStart(currentInput, pos) {
+export function getLineStart(currentInput: EditableElement, pos: number): number {
     const text = currentInput.value;
     while (pos > 0 && text[pos - 1] !== '\n') pos--;
     return pos;
 }
 
-export function getLineEnd(currentInput, pos) {
+export function getLineEnd(currentInput: EditableElement, pos: number): number {
     const text = currentInput.value;
     while (pos < text.length && text[pos] !== '\n') pos++;
     return pos;
 }
 
-export function getFirstNonBlank(currentInput, lineStart) {
+export function getFirstNonBlank(currentInput: EditableElement, lineStart: number): number {
     const text = currentInput.value;
     let pos = lineStart;
     while (pos < text.length && text[pos] !== '\n' && /\s/.test(text[pos])) {
@@ -42,11 +43,11 @@ export function getFirstNonBlank(currentInput, lineStart) {
     return pos;
 }
 
-export function isWordChar(char) {
+export function isWordChar(char: string): boolean {
     return /\w/.test(char);
 }
 
-export function findWordStart(currentInput, pos, forward = true) {
+export function findWordStart(currentInput: EditableElement, pos: number, forward = true): number {
     const text = currentInput.value;
     if (forward) {
         // Skip current word
@@ -65,7 +66,7 @@ export function findWordStart(currentInput, pos, forward = true) {
     }
 }
 
-export function findWordEnd(currentInput, pos, forward = true) {
+export function findWordEnd(currentInput: EditableElement, pos: number, forward = true): number {
     const text = currentInput.value;
     if (forward) {
         // Move to next char if at word boundary
@@ -84,7 +85,7 @@ export function findWordEnd(currentInput, pos, forward = true) {
     }
 }
 
-export function findCharInLine(currentInput, pos, char, forward = true, till = false) {
+export function findCharInLine(currentInput: EditableElement, pos: number, char: string, forward = true, till = false): number {
     const text = currentInput.value;
     const line = getLine(currentInput, pos);
     debug('findCharInLine', { pos, char, forward, till, lineStart: line.start, lineEnd: line.end });
@@ -110,10 +111,10 @@ export function findCharInLine(currentInput, pos, char, forward = true, till = f
     return pos;
 }
 
-export function findMatchingPair(currentInput, pos) {
+export function findMatchingPair(currentInput: EditableElement, pos: number): number {
     const text = currentInput.value;
     const char = text[pos];
-    const pairs = { '(': ')', '[': ']', '{': '}', ')': '(', ']': '[', '}': '{' };
+    const pairs: Record<string, string> = { '(': ')', '[': ']', '{': '}', ')': '(', ']': '[', '}': '{' };
 
     if (!pairs[char]) return pos;
 
@@ -132,7 +133,7 @@ export function findMatchingPair(currentInput, pos) {
     return pos;
 }
 
-export function findParagraphBoundary(currentInput, pos, forward = true) {
+export function findParagraphBoundary(currentInput: EditableElement, pos: number, forward = true): number {
     const text = currentInput.value;
     const lines = text.split('\n');
     let currentLine = text.substring(0, pos).split('\n').length - 1;
@@ -156,12 +157,12 @@ export function findParagraphBoundary(currentInput, pos, forward = true) {
     }
 }
 
-export function findTextObject(currentInput, type, inner) {
+export function findTextObject(currentInput: EditableElement, type: string, inner: boolean): { start: number; end: number } {
     const pos = getCursorPos(currentInput);
     const text = currentInput.value;
     debug('findTextObject', { type, inner, pos });
 
-    const pairs = {
+    const pairs: Record<string, { open: string; close: string }> = {
         '(': { open: '(', close: ')' },
         ')': { open: '(', close: ')' },
         '[': { open: '[', close: ']' },
@@ -249,7 +250,7 @@ export function findTextObject(currentInput, type, inner) {
 }
 
 // Undo/redo functions
-export function saveState(currentInput, undoStack, redoStack) {
+export function saveState(currentInput: EditableElement, undoStack: UndoState[], redoStack: UndoState[]): void {
     if (!currentInput) return;
     debug('saveState', {
         value: currentInput.value,
@@ -259,38 +260,38 @@ export function saveState(currentInput, undoStack, redoStack) {
     });
     undoStack.push({
         value: currentInput.value,
-        selectionStart: currentInput.selectionStart,
-        selectionEnd: currentInput.selectionEnd
+        selectionStart: currentInput.selectionStart ?? 0,
+        selectionEnd: currentInput.selectionEnd ?? 0
     });
     redoStack.length = 0; // Clear redo stack
     if (undoStack.length > 100) undoStack.shift();
 }
 
-export function undo(currentInput, undoStack, redoStack) {
+export function undo(currentInput: EditableElement, undoStack: UndoState[], redoStack: UndoState[]): void {
     if (undoStack.length === 0) return;
     debug('undo', { undoStackSize: undoStack.length });
     const current = {
         value: currentInput.value,
-        selectionStart: currentInput.selectionStart,
-        selectionEnd: currentInput.selectionEnd
+        selectionStart: currentInput.selectionStart ?? 0,
+        selectionEnd: currentInput.selectionEnd ?? 0
     };
     redoStack.push(current);
-    const prev = undoStack.pop();
+    const prev = undoStack.pop()!;
     currentInput.value = prev.value;
     currentInput.selectionStart = prev.selectionStart;
     currentInput.selectionEnd = prev.selectionEnd;
 }
 
-export function redo(currentInput, undoStack, redoStack) {
+export function redo(currentInput: EditableElement, undoStack: UndoState[], redoStack: UndoState[]): void {
     if (redoStack.length === 0) return;
     debug('redo', { redoStackSize: redoStack.length });
     const current = {
         value: currentInput.value,
-        selectionStart: currentInput.selectionStart,
-        selectionEnd: currentInput.selectionEnd
+        selectionStart: currentInput.selectionStart ?? 0,
+        selectionEnd: currentInput.selectionEnd ?? 0
     };
     undoStack.push(current);
-    const next = redoStack.pop();
+    const next = redoStack.pop()!;
     currentInput.value = next.value;
     currentInput.selectionStart = next.selectionStart;
     currentInput.selectionEnd = next.selectionEnd;

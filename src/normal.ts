@@ -4,9 +4,10 @@ import {
     findWordStart, findWordEnd, findCharInLine, findMatchingPair, findParagraphBoundary,
     findTextObject, saveState, undo, redo
 } from './common.js';
+import type { EditableElement, UndoState, TextRange, State } from './types.js';
 
 // Motion functions
-export function executeMotion(currentInput, motion, count = 1) {
+export function executeMotion(currentInput: EditableElement, motion: string, count: number = 1): number {
     let pos = getCursorPos(currentInput);
     debug('executeMotion', { motion, count, startPos: pos });
 
@@ -79,7 +80,7 @@ export function executeMotion(currentInput, motion, count = 1) {
     return pos;
 }
 
-export function getMotionRange(currentInput, motion, count = 1) {
+export function getMotionRange(currentInput: EditableElement, motion: string, count: number = 1): TextRange {
     const startPos = getCursorPos(currentInput);
     debug('getMotionRange', { motion, count, startPos });
     executeMotion(currentInput, motion, count);
@@ -95,7 +96,7 @@ export function getMotionRange(currentInput, motion, count = 1) {
 }
 
 // Operator functions
-export function deleteRange(currentInput, undoStack, redoStack, start, end) {
+export function deleteRange(currentInput: EditableElement, undoStack: UndoState[], redoStack: UndoState[], start: number, end: number): void {
     debug('deleteRange', { start, end, deleted: currentInput.value.substring(start, end) });
     saveState(currentInput, undoStack, redoStack);
     const text = currentInput.value;
@@ -103,22 +104,22 @@ export function deleteRange(currentInput, undoStack, redoStack, start, end) {
     setCursorPos(currentInput, start);
 }
 
-export function yankRange(currentInput, clipboard, start, end) {
+export function yankRange(currentInput: EditableElement, clipboard: { content: string }, start: number, end: number): void {
     const yanked = currentInput.value.substring(start, end);
     debug('yankRange', { start, end, yanked });
     clipboard.content = yanked;
 }
 
-export function changeRange(currentInput, undoStack, redoStack, start, end, enterInsertMode) {
+export function changeRange(currentInput: EditableElement, undoStack: UndoState[], redoStack: UndoState[], start: number, end: number, enterInsertMode: () => void): void {
     debug('changeRange', { start, end });
     deleteRange(currentInput, undoStack, redoStack, start, end);
     enterInsertMode();
 }
 
-export function repeatLastChange(state) {
+export function repeatLastChange(state: State): void {
     const { lastChange, currentInput, undoStack, redoStack, clipboard, enterInsertMode } = state;
 
-    if (!lastChange) return;
+    if (!lastChange || !currentInput) return;
     debug('repeatLastChange', lastChange);
 
     const count = lastChange.count || 1;
@@ -146,19 +147,21 @@ export function repeatLastChange(state) {
                 break;
             case 'r':
                 state.commandBuffer = 'r';
-                processNormalCommand(lastChange.char, state);
+                processNormalCommand(lastChange.char ?? '', state);
                 break;
         }
     }
 }
 
-export function processNormalCommand(key, state) {
+export function processNormalCommand(key: string, state: State): void {
     const {
         currentInput, countBuffer, commandBuffer, operatorPending,
         undoStack, redoStack, clipboard, lastChange,
         lastFindChar, lastFindDirection, lastFindType,
         enterInsertMode, enterVisualMode
     } = state;
+
+    if (!currentInput) return;
 
     const count = parseInt(countBuffer) || 1;
     debug('processNormalCommand', {

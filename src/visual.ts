@@ -4,9 +4,10 @@ import {
 } from './common.js';
 import { executeMotion } from './normal.js';
 import { yankRange, deleteRange } from './normal.js';
+import type { EditableElement, Mode, TextRange, State, UndoState } from './types.js';
 
 // Visual selection management
-export function updateVisualSelection(currentInput, mode, visualStart, visualEnd) {
+export function updateVisualSelection(currentInput: EditableElement | null, mode: Mode, visualStart: number | null, visualEnd: number | null): void {
     if (!currentInput || visualStart === null || visualEnd === null) return;
 
     const start = Math.min(visualStart, visualEnd);
@@ -22,7 +23,7 @@ export function updateVisualSelection(currentInput, mode, visualStart, visualEnd
     currentInput.selectionEnd = selectionEnd;
 }
 
-export function extendVisualSelection(currentInput, mode, visualStart, visualEnd, newPos) {
+export function extendVisualSelection(currentInput: EditableElement, mode: Mode, visualStart: number, visualEnd: number, newPos: number): { visualStart: number; visualEnd: number } {
     if (mode !== 'visual' && mode !== 'visual-line') return { visualStart, visualEnd };
 
     debug('extendVisualSelection', { from: visualEnd, to: newPos });
@@ -45,7 +46,7 @@ export function extendVisualSelection(currentInput, mode, visualStart, visualEnd
     return { visualStart, visualEnd };
 }
 
-export function getCurrentRange(mode, visualStart, visualEnd, currentInput) {
+export function getCurrentRange(mode: Mode, visualStart: number, visualEnd: number, currentInput: EditableElement): TextRange {
     // Returns { start, end } for the current operation range
     // Works for both visual selections and operator+motion combinations
     if (mode === 'visual' || mode === 'visual-line') {
@@ -60,13 +61,15 @@ export function getCurrentRange(mode, visualStart, visualEnd, currentInput) {
     return { start: pos, end: pos };
 }
 
-export function processVisualCommand(key, state) {
+export function processVisualCommand(key: string, state: State & { exitVisualMode: () => void }): void {
     const {
         currentInput, countBuffer, commandBuffer, mode,
         visualStart, visualEnd,
         undoStack, redoStack, clipboard,
         enterInsertMode, exitVisualMode, enterVisualMode
     } = state;
+
+    if (!currentInput) return;
 
     const count = parseInt(countBuffer) || 1;
     debug('processVisualCommand', { key, count, mode });

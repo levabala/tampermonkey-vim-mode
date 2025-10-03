@@ -2,29 +2,30 @@ import { debug, updateIndicator } from './setup.js';
 import { getCursorPos, setCursorPos, getLineStart, getLineEnd, redo } from './common.js';
 import { processNormalCommand } from './normal.js';
 import { processVisualCommand, updateVisualSelection } from './visual.js';
+import type { Mode, EditableElement, UndoState, LastChange } from './types.js';
 
 // State
-let mode = 'normal'; // 'normal', 'insert', 'visual', 'visual-line'
-let currentInput = null;
-let commandBuffer = '';
-let countBuffer = '';
-let operatorPending = null;
-let lastFindChar = null;
-let lastFindDirection = null;
-let lastFindType = null; // 'f', 't', 'F', or 'T'
-let clipboard = { content: '' };
-let undoStack = [];
-let redoStack = [];
-let lastChange = null;
-let allowBlur = false; // Track whether blur is intentional
-let escapePressed = false; // Track if ESC was recently pressed
+let mode: Mode = 'normal'; // 'normal', 'insert', 'visual', 'visual-line'
+let currentInput: EditableElement | null = null;
+let commandBuffer: string = '';
+let countBuffer: string = '';
+let operatorPending: string | null = null;
+let lastFindChar: string | null = null;
+let lastFindDirection: boolean | null = null;
+let lastFindType: string | null = null; // 'f', 't', 'F', or 'T'
+let clipboard: { content: string } = { content: '' };
+let undoStack: UndoState[] = [];
+let redoStack: UndoState[] = [];
+let lastChange: LastChange | null = null;
+let allowBlur: boolean = false; // Track whether blur is intentional
+let escapePressed: boolean = false; // Track if ESC was recently pressed
 
 // Visual mode state
-let visualStart = null; // Starting position of visual selection
-let visualEnd = null; // Current end position of visual selection
+let visualStart: number | null = null; // Starting position of visual selection
+let visualEnd: number | null = null; // Current end position of visual selection
 
 // Mode transition functions
-function enterInsertMode() {
+function enterInsertMode(): void {
     debug('enterInsertMode', { from: mode });
     mode = 'insert';
     visualStart = null;
@@ -32,7 +33,7 @@ function enterInsertMode() {
     updateIndicator(mode, currentInput);
 }
 
-function enterNormalMode() {
+function enterNormalMode(): void {
     debug('enterNormalMode', { from: mode });
     mode = 'normal';
     visualStart = null;
@@ -40,33 +41,38 @@ function enterNormalMode() {
     updateIndicator(mode, currentInput);
 
     // Move cursor back one if at end of line (vim behavior)
-    const pos = getCursorPos(currentInput);
-    const lineEnd = getLineEnd(currentInput, pos);
-    if (pos === lineEnd && pos > 0 && currentInput.value[pos - 1] !== '\n') {
-        setCursorPos(currentInput, pos - 1);
+    if (currentInput) {
+        const pos = getCursorPos(currentInput);
+        const lineEnd = getLineEnd(currentInput, pos);
+        if (pos === lineEnd && pos > 0 && currentInput.value[pos - 1] !== '\n') {
+            setCursorPos(currentInput, pos - 1);
+        }
     }
 }
 
-function enterVisualMode(lineMode = false) {
+function enterVisualMode(lineMode: boolean = false): void {
     debug('enterVisualMode', { lineMode, from: mode });
     mode = lineMode ? 'visual-line' : 'visual';
-    const pos = getCursorPos(currentInput);
 
-    if (lineMode) {
-        // Visual line mode: select whole line
-        visualStart = getLineStart(currentInput, pos);
-        visualEnd = getLineEnd(currentInput, pos);
-    } else {
-        // Visual character mode: start at cursor
-        visualStart = pos;
-        visualEnd = pos;
+    if (currentInput) {
+        const pos = getCursorPos(currentInput);
+
+        if (lineMode) {
+            // Visual line mode: select whole line
+            visualStart = getLineStart(currentInput, pos);
+            visualEnd = getLineEnd(currentInput, pos);
+        } else {
+            // Visual character mode: start at cursor
+            visualStart = pos;
+            visualEnd = pos;
+        }
+
+        updateVisualSelection(currentInput, mode, visualStart, visualEnd);
     }
-
-    updateVisualSelection(currentInput, mode, visualStart, visualEnd);
     updateIndicator(mode, currentInput);
 }
 
-function exitVisualMode() {
+function exitVisualMode(): void {
     debug('exitVisualMode');
     visualStart = null;
     visualEnd = null;
@@ -74,7 +80,7 @@ function exitVisualMode() {
 }
 
 // Command processing - dispatch to mode-specific handlers
-function processCommand(key) {
+function processCommand(key: string): void {
     debug('processCommand', { key, mode });
 
     const state = {
@@ -83,15 +89,16 @@ function processCommand(key) {
         countBuffer,
         commandBuffer,
         operatorPending,
-        lastFindChar,
-        lastFindDirection,
-        lastFindType,
+        lastFindChar: lastFindChar ?? '',
+        lastFindDirection: lastFindDirection ?? false,
+        lastFindType: lastFindType ?? '',
         clipboard,
         undoStack,
         redoStack,
         lastChange,
-        visualStart,
-        visualEnd,
+        visualStart: visualStart ?? 0,
+        visualEnd: visualEnd ?? 0,
+        allowBlur,
         enterInsertMode,
         enterNormalMode,
         enterVisualMode,
@@ -99,9 +106,9 @@ function processCommand(key) {
     };
 
     if (mode === 'visual' || mode === 'visual-line') {
-        processVisualCommand(key, state);
+        processVisualCommand(key, state as any);
     } else {
-        processNormalCommand(key, state);
+        processNormalCommand(key, state as any);
     }
 
     // Update state from mutations
@@ -117,8 +124,8 @@ function processCommand(key) {
 }
 
 // Event handlers
-function handleFocus(e) {
-    const el = e.target;
+function handleFocus(e: FocusEvent): void {
+    const el = e.target as EditableElement;
     debug('handleFocus', { tag: el.tagName, isNewInput: currentInput !== el, currentMode: mode });
     if (el.tagName === 'INPUT' || el.tagName === 'TEXTAREA') {
         // Only initialize mode if this is a new input
@@ -134,7 +141,7 @@ function handleFocus(e) {
 
             // Try to intercept via onkeydown property (runs before addEventListener)
             const originalOnKeyDown = el.onkeydown;
-            el.onkeydown = (event) => {
+            el.onkeydown = (event: KeyboardEvent) => {
                 debug('onkeydown property handler', { key: event.key });
                 if (event.key === 'Escape') {
                     debug('ESC in onkeydown - calling handleKeyDown');
@@ -144,18 +151,20 @@ function handleFocus(e) {
                 if (originalOnKeyDown) {
                     return originalOnKeyDown.call(el, event);
                 }
+                return true;
             };
 
-            el.addEventListener('keydown', (event) => {
+            el.addEventListener('keydown', (event: Event) => {
+                const kbEvent = event as KeyboardEvent;
                 debug('DIRECT element keydown', {
-                    key: event.key,
-                    target: event.target.tagName,
-                    defaultPrevented: event.defaultPrevented,
-                    propagationStopped: event.cancelBubble
+                    key: kbEvent.key,
+                    target: (kbEvent.target as HTMLElement).tagName,
+                    defaultPrevented: kbEvent.defaultPrevented,
+                    propagationStopped: kbEvent.cancelBubble
                 });
-                if (event.key === 'Escape') {
+                if (kbEvent.key === 'Escape') {
                     debug('DIRECT ESC on element - calling handleKeyDown');
-                    handleKeyDown(event);
+                    handleKeyDown(kbEvent);
                 }
             }, true);
         } else {
@@ -166,7 +175,7 @@ function handleFocus(e) {
     }
 }
 
-function handleBlur(e) {
+function handleBlur(e: FocusEvent): void {
     if (e.target === currentInput) {
         debug('handleBlur', {
             mode,
@@ -189,7 +198,7 @@ function handleBlur(e) {
             // Prevent blur - stay focused in normal mode
             e.preventDefault();
             e.stopPropagation();
-            const input = currentInput;
+            const input = currentInput!;
             setTimeout(() => {
                 debug('handleBlur: refocusing in normal mode');
                 input.focus();
@@ -202,7 +211,7 @@ function handleBlur(e) {
             debug('handleBlur: unexpected blur in insert mode, preventing');
             e.preventDefault();
             e.stopPropagation();
-            const input = currentInput;
+            const input = currentInput!;
             setTimeout(() => {
                 debug('handleBlur: refocusing element');
                 input.focus();
@@ -216,13 +225,13 @@ function handleBlur(e) {
     }
 }
 
-function handleKeyDown(e) {
+function handleKeyDown(e: KeyboardEvent): void {
     debug('handleKeyDown ENTRY', {
         hasCurrentInput: !!currentInput,
         key: e.key,
         ctrl: e.ctrlKey,
         mode,
-        target: e.target.tagName,
+        target: (e.target as HTMLElement).tagName,
         defaultPrevented: e.defaultPrevented,
         propagationStopped: e.cancelBubble,
         eventPhase: e.eventPhase
@@ -233,7 +242,7 @@ function handleKeyDown(e) {
         return;
     }
 
-    debug('handleKeyDown', { key: e.key, ctrl: e.ctrlKey, mode, target: e.target.tagName });
+    debug('handleKeyDown', { key: e.key, ctrl: e.ctrlKey, mode, target: (e.target as HTMLElement).tagName });
 
     // Handle ESC/Ctrl-] early to prevent default blur behavior
     if (e.key === 'Escape' || (e.ctrlKey && e.key === ']')) {
@@ -289,10 +298,10 @@ if (typeof window === 'undefined' || typeof document === 'undefined') {
 
 // Track ESC key state at the earliest possible point
 // Use keydown on window to catch before page handlers
-window.addEventListener('keydown', (e) => {
+window.addEventListener('keydown', (e: KeyboardEvent) => {
     if (e.key === 'Escape') {
         debug('GLOBAL ESC keydown detected', {
-            target: e.target.tagName,
+            target: (e.target as HTMLElement).tagName,
             eventPhase: e.eventPhase,
             defaultPrevented: e.defaultPrevented,
             timestamp: e.timeStamp
@@ -307,20 +316,20 @@ window.addEventListener('keydown', (e) => {
 }, true);
 
 // Track keyup as well to detect if ESC was released
-window.addEventListener('keyup', (e) => {
+window.addEventListener('keyup', (e: KeyboardEvent) => {
     if (e.key === 'Escape') {
         debug('GLOBAL ESC keyup detected', {
-            target: e.target.tagName,
+            target: (e.target as HTMLElement).tagName,
             timestamp: e.timeStamp
         });
     }
 }, true);
 
 // Test if event listeners work at all
-const testListener = (e) => {
+const testListener = (e: KeyboardEvent) => {
     if (e.key === 'Escape') {
         debug('RAW ESC DETECTED on document', {
-            target: e.target.tagName,
+            target: (e.target as HTMLElement).tagName,
             currentTarget: e.currentTarget,
             eventPhase: e.eventPhase,
             defaultPrevented: e.defaultPrevented,
@@ -331,10 +340,10 @@ const testListener = (e) => {
 };
 
 // Try multiple attachment points to see which one works
-window.addEventListener('keydown', (e) => {
+window.addEventListener('keydown', (e: KeyboardEvent) => {
     if (e.key === 'Escape') {
         debug('WINDOW ESC listener', {
-            target: e.target.tagName,
+            target: (e.target as HTMLElement).tagName,
             eventPhase: e.eventPhase,
             defaultPrevented: e.defaultPrevented
         });
@@ -347,7 +356,7 @@ document.addEventListener('keydown', testListener, true);
 document.addEventListener('keydown', handleKeyDown, true);
 
 // Add a second keydown listener to verify our handler runs first
-document.addEventListener('keydown', (e) => {
+document.addEventListener('keydown', (e: KeyboardEvent) => {
     if (e.key === 'Escape') {
         debug('Secondary ESC listener (bubbling phase)', {
             defaultPrevented: e.defaultPrevented,

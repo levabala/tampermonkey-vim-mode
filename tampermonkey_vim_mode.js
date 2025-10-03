@@ -13,13 +13,14 @@
     'use strict';
 
 (() => {
-  // src/setup.js
+  // src/setup.ts
   var version = (() => {
     if (typeof GM_info !== "undefined" && GM_info.script && GM_info.script.version) {
       return GM_info.script.version;
     }
     if (typeof document !== "undefined" && document.scripts) {
-      for (let script of document.scripts) {
+      for (let i = 0;i < document.scripts.length; i++) {
+        const script = document.scripts[i];
         const content = script.textContent;
         if (content && content.includes("Vim Mode for Text Inputs")) {
           const match = content.match(/@version\s+([\d.]+)/);
@@ -71,7 +72,8 @@
       document.body.appendChild(indicator);
     } else {
       document.addEventListener("DOMContentLoaded", () => {
-        document.body.appendChild(indicator);
+        if (indicator)
+          document.body.appendChild(indicator);
       });
     }
   }
@@ -101,9 +103,9 @@
     indicator.style.display = currentInput ? "block" : "none";
   }
 
-  // src/common.js
+  // src/common.ts
   function getCursorPos(currentInput) {
-    return currentInput.selectionStart;
+    return currentInput.selectionStart ?? 0;
   }
   function setCursorPos(currentInput, pos) {
     pos = Math.max(0, Math.min(pos, currentInput.value.length));
@@ -348,8 +350,8 @@
     });
     undoStack.push({
       value: currentInput.value,
-      selectionStart: currentInput.selectionStart,
-      selectionEnd: currentInput.selectionEnd
+      selectionStart: currentInput.selectionStart ?? 0,
+      selectionEnd: currentInput.selectionEnd ?? 0
     });
     redoStack.length = 0;
     if (undoStack.length > 100)
@@ -361,8 +363,8 @@
     debug("undo", { undoStackSize: undoStack.length });
     const current = {
       value: currentInput.value,
-      selectionStart: currentInput.selectionStart,
-      selectionEnd: currentInput.selectionEnd
+      selectionStart: currentInput.selectionStart ?? 0,
+      selectionEnd: currentInput.selectionEnd ?? 0
     };
     redoStack.push(current);
     const prev = undoStack.pop();
@@ -376,8 +378,8 @@
     debug("redo", { redoStackSize: redoStack.length });
     const current = {
       value: currentInput.value,
-      selectionStart: currentInput.selectionStart,
-      selectionEnd: currentInput.selectionEnd
+      selectionStart: currentInput.selectionStart ?? 0,
+      selectionEnd: currentInput.selectionEnd ?? 0
     };
     undoStack.push(current);
     const next = redoStack.pop();
@@ -386,7 +388,7 @@
     currentInput.selectionEnd = next.selectionEnd;
   }
 
-  // src/normal.js
+  // src/normal.ts
   function executeMotion(currentInput, motion, count = 1) {
     let pos = getCursorPos(currentInput);
     debug("executeMotion", { motion, count, startPos: pos });
@@ -489,7 +491,7 @@
   }
   function repeatLastChange(state) {
     const { lastChange, currentInput, undoStack, redoStack, clipboard, enterInsertMode } = state;
-    if (!lastChange)
+    if (!lastChange || !currentInput)
       return;
     debug("repeatLastChange", lastChange);
     const count = lastChange.count || 1;
@@ -516,7 +518,7 @@
           break;
         case "r":
           state.commandBuffer = "r";
-          processNormalCommand(lastChange.char, state);
+          processNormalCommand(lastChange.char ?? "", state);
           break;
       }
     }
@@ -537,6 +539,8 @@
       enterInsertMode,
       enterVisualMode
     } = state;
+    if (!currentInput)
+      return;
     const count = parseInt(countBuffer) || 1;
     debug("processNormalCommand", {
       key,
@@ -834,7 +838,7 @@
     }
   }
 
-  // src/visual.js
+  // src/visual.ts
   function updateVisualSelection(currentInput, mode, visualStart, visualEnd) {
     if (!currentInput || visualStart === null || visualEnd === null)
       return;
@@ -887,6 +891,8 @@
       exitVisualMode,
       enterVisualMode
     } = state;
+    if (!currentInput)
+      return;
     const count = parseInt(countBuffer) || 1;
     debug("processVisualCommand", { key, count, mode });
     const motionKeys = ["h", "j", "k", "l", "w", "b", "e", "0", "^", "$", "G", "{", "}", "%"];
@@ -998,7 +1004,7 @@
     }
   }
 
-  // src/main.js
+  // src/main.ts
   var mode = "normal";
   var currentInput = null;
   var commandBuffer = "";
@@ -1028,25 +1034,29 @@
     visualStart = null;
     visualEnd = null;
     updateIndicator(mode, currentInput);
-    const pos = getCursorPos(currentInput);
-    const lineEnd = getLineEnd(currentInput, pos);
-    if (pos === lineEnd && pos > 0 && currentInput.value[pos - 1] !== `
+    if (currentInput) {
+      const pos = getCursorPos(currentInput);
+      const lineEnd = getLineEnd(currentInput, pos);
+      if (pos === lineEnd && pos > 0 && currentInput.value[pos - 1] !== `
 `) {
-      setCursorPos(currentInput, pos - 1);
+        setCursorPos(currentInput, pos - 1);
+      }
     }
   }
   function enterVisualMode(lineMode = false) {
     debug("enterVisualMode", { lineMode, from: mode });
     mode = lineMode ? "visual-line" : "visual";
-    const pos = getCursorPos(currentInput);
-    if (lineMode) {
-      visualStart = getLineStart(currentInput, pos);
-      visualEnd = getLineEnd(currentInput, pos);
-    } else {
-      visualStart = pos;
-      visualEnd = pos;
+    if (currentInput) {
+      const pos = getCursorPos(currentInput);
+      if (lineMode) {
+        visualStart = getLineStart(currentInput, pos);
+        visualEnd = getLineEnd(currentInput, pos);
+      } else {
+        visualStart = pos;
+        visualEnd = pos;
+      }
+      updateVisualSelection(currentInput, mode, visualStart, visualEnd);
     }
-    updateVisualSelection(currentInput, mode, visualStart, visualEnd);
     updateIndicator(mode, currentInput);
   }
   function exitVisualMode() {
@@ -1063,15 +1073,16 @@
       countBuffer,
       commandBuffer,
       operatorPending,
-      lastFindChar,
-      lastFindDirection,
-      lastFindType,
+      lastFindChar: lastFindChar ?? "",
+      lastFindDirection: lastFindDirection ?? false,
+      lastFindType: lastFindType ?? "",
       clipboard,
       undoStack,
       redoStack,
       lastChange,
-      visualStart,
-      visualEnd,
+      visualStart: visualStart ?? 0,
+      visualEnd: visualEnd ?? 0,
+      allowBlur,
       enterInsertMode,
       enterNormalMode,
       enterVisualMode,
@@ -1114,17 +1125,19 @@
           if (originalOnKeyDown) {
             return originalOnKeyDown.call(el, event);
           }
+          return true;
         };
         el.addEventListener("keydown", (event) => {
+          const kbEvent = event;
           debug("DIRECT element keydown", {
-            key: event.key,
-            target: event.target.tagName,
-            defaultPrevented: event.defaultPrevented,
-            propagationStopped: event.cancelBubble
+            key: kbEvent.key,
+            target: kbEvent.target.tagName,
+            defaultPrevented: kbEvent.defaultPrevented,
+            propagationStopped: kbEvent.cancelBubble
           });
-          if (event.key === "Escape") {
+          if (kbEvent.key === "Escape") {
             debug("DIRECT ESC on element - calling handleKeyDown");
-            handleKeyDown(event);
+            handleKeyDown(kbEvent);
           }
         }, true);
       } else {
