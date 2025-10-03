@@ -56,3 +56,20 @@ Refer to `SPEC.md` for the complete list of supported Vim commands. The implemen
 - Repeat: `.`
 - Counts: Numeric prefixes work with most commands
 - use bun run test to run test
+
+## Testing Workflow
+
+When asked to write a test and fix a bug, follow this workflow to verify the test catches the bug:
+
+1. **Write the test first** - Create a test that reproduces the bug
+2. **Commit the test separately** - `git add test/... && git commit -m "Add test for [bug description]"`
+3. **Verify test fails** - Run `bun run test` and confirm the new test fails
+4. **Implement the fix** - Make code changes to fix the bug
+5. **Commit the fix** - `git add [fixed files] && git commit -m "Fix [bug description]"`
+6. **Verify the workflow**:
+   - `git checkout HEAD~1 -- [fixed files]` - Restore code without the fix
+   - `bun run test` - Verify test fails
+   - `git checkout HEAD -- [fixed files]` or restore from reflog - Reapply the fix
+   - `bun run test` - Verify test passes
+
+This ensures the test actually catches the bug and isn't a false positive.
