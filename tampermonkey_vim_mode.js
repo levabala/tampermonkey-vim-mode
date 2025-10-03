@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Vim Mode for Text Inputs
 // @namespace    http://tampermonkey.net/
-// @version      1.0.23
+// @version      1.0.24
 // @description  Vim-like editing for textareas and inputs
 // @match        *://*/*
 // @updateURL    https://raw.githubusercontent.com/levabala/tampermonkey-vim-mode/refs/heads/main/tampermonkey_vim_mode.js
@@ -889,6 +889,36 @@
                 undoStack = [];
                 redoStack = [];
                 updateIndicator();
+
+                // Attach keydown directly to the element to intercept before any page handlers
+                debug('Attaching direct keydown listener to element');
+
+                // Try to intercept via onkeydown property (runs before addEventListener)
+                const originalOnKeyDown = el.onkeydown;
+                el.onkeydown = (event) => {
+                    debug('onkeydown property handler', { key: event.key });
+                    if (event.key === 'Escape') {
+                        debug('ESC in onkeydown - calling handleKeyDown');
+                        handleKeyDown(event);
+                        return false; // Prevent default
+                    }
+                    if (originalOnKeyDown) {
+                        return originalOnKeyDown.call(el, event);
+                    }
+                };
+
+                el.addEventListener('keydown', (event) => {
+                    debug('DIRECT element keydown', {
+                        key: event.key,
+                        target: event.target.tagName,
+                        defaultPrevented: event.defaultPrevented,
+                        propagationStopped: event.cancelBubble
+                    });
+                    if (event.key === 'Escape') {
+                        debug('DIRECT ESC on element - calling handleKeyDown');
+                        handleKeyDown(event);
+                    }
+                }, true);
             } else {
                 // Same input refocused - just update indicator, don't reset mode
                 debug('handleFocus: same input refocused, keeping mode', { mode });
@@ -899,7 +929,12 @@
 
     function handleBlur(e) {
         if (e.target === currentInput) {
-            debug('handleBlur', { mode, allowBlur });
+            debug('handleBlur', {
+                mode,
+                allowBlur,
+                relatedTarget: e.relatedTarget,
+                isTrusted: e.isTrusted
+            });
             // Only prevent blur in insert mode or when not explicitly allowed
             if (mode === 'insert' && !allowBlur) {
                 debug('handleBlur: preventing blur in insert mode');
@@ -907,9 +942,13 @@
                 e.stopPropagation();
                 // Refocus immediately
                 const input = currentInput;
-                setTimeout(() => input.focus(), 0);
+                setTimeout(() => {
+                    debug('handleBlur: refocusing element');
+                    input.focus();
+                }, 0);
                 return;
             }
+            debug('handleBlur: allowing blur', { mode, allowBlur });
             allowBlur = false;
             currentInput = null;
             updateIndicator();
