@@ -8,8 +8,8 @@
                 padding: 20px;
             }
             textarea {
-                width: 600px;
-                height: 300px;
+                width: 3000px;
+                height: 1500px;
                 font-size: 16px;
                 font-family: monospace;
                 padding: 10px;
@@ -58,11 +58,29 @@ Line 2: jumps over the lazy dog
 Line 3: Lorem ipsum dolor sit amet
 Line 4: consectetur adipiscing elit
 Line 5: sed do eiusmod tempor
+Line 6: incididunt ut labore et dolore
+Line 7: magna aliqua. Ut enim ad minim
+Line 8: veniam, quis nostrud exercitation
+Line 9: ullamco laboris nisi ut aliquip
+Line 10: ex ea commodo consequat
+Line 11: Duis aute irure dolor in reprehenderit
+Line 12: in voluptate velit esse cillum
+Line 13: dolore eu fugiat nulla pariatur
+Line 14: Excepteur sint occaecat cupidatat
+Line 15: non proident, sunt in culpa qui
+Line 16: officia deserunt mollit anim id
+Line 17: est laborum. Sed ut perspiciatis
+Line 18: unde omnis iste natus error sit
+Line 19: voluptatem accusantium doloremque
+Line 20: laudantium, totam rem aperiam
 
-Test visual mode:
+Test visual mode and scrolling:
 - Try selecting across lines
 - Try visual line mode with V
-- Check if blue overlay appears</textarea
+- Check if blue overlay appears
+- Test scrolling with Ctrl-e (down), Ctrl-y (up)
+- Test scrolling with Ctrl-d (half page down), Ctrl-u (half page up)
+- Scrolling should work in INSERT and NORMAL modes!</textarea
         >
 
         <script src="dist/tampermonkey_vim_mode.js"></script>

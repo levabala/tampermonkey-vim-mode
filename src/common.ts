@@ -718,8 +718,21 @@ export function scrollTextarea(
     const fontSize = parseFloat(computedStyle.fontSize);
     const effectiveLineHeight = isNaN(lineHeight) ? fontSize * 1.2 : lineHeight;
 
-    // Scroll by the calculated pixel amount
-    currentInput.scrollTop += lines * effectiveLineHeight;
+    const scrollAmount = lines * effectiveLineHeight;
+    const oldScrollTop = currentInput.scrollTop;
+
+    // Try to scroll the textarea
+    currentInput.scrollTop += scrollAmount;
+
+    // Check if textarea actually scrolled
+    const actualScroll = currentInput.scrollTop - oldScrollTop;
+    const remainingScroll = scrollAmount - actualScroll;
+
+    // If textarea couldn't scroll fully (hit top/bottom boundary),
+    // scroll the window instead
+    if (Math.abs(remainingScroll) > 1) {
+        window.scrollBy(0, remainingScroll);
+    }
 }
 
 export function scrollHalfPage(

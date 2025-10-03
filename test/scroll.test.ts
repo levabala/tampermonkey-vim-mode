@@ -29,9 +29,22 @@ describe("Scrolling commands", () => {
             value: 200,
             writable: true,
         });
-        Object.defineProperty(textarea, "scrollTop", {
-            value: 0,
+
+        // Set up scroll properties - scrollHeight should be larger than clientHeight
+        // to allow scrolling. Mock a textarea with 20 lines of 20px each = 400px
+        Object.defineProperty(textarea, "scrollHeight", {
+            value: 2000, // Total content height
             writable: true,
+        });
+
+        let scrollTopValue = 0;
+        Object.defineProperty(textarea, "scrollTop", {
+            get: () => scrollTopValue,
+            set: (value) => {
+                // Clamp between 0 and max scroll
+                const maxScroll = textarea.scrollHeight - textarea.clientHeight;
+                scrollTopValue = Math.max(0, Math.min(value, maxScroll));
+            },
         });
 
         // Mock getComputedStyle
@@ -162,5 +175,52 @@ describe("Scrolling commands", () => {
         textarea.dispatchEvent(event);
 
         expect(textarea.scrollTop).toBe(initialScrollTop + 100);
+    });
+
+    it("should scroll window when textarea reaches bottom", () => {
+        // Mock scrollBy
+        const scrollBySpy = vi.fn();
+        window.scrollBy = scrollBySpy;
+
+        // Scroll textarea to bottom
+        textarea.scrollTop = textarea.scrollHeight - textarea.clientHeight;
+        const initialScrollTop = textarea.scrollTop;
+
+        const event = new KeyboardEvent("keydown", {
+            key: "e",
+            ctrlKey: true,
+            bubbles: true,
+            cancelable: true,
+        });
+
+        textarea.dispatchEvent(event);
+
+        // Textarea shouldn't have scrolled (already at bottom)
+        expect(textarea.scrollTop).toBe(initialScrollTop);
+        // Window should have been scrolled instead
+        expect(scrollBySpy).toHaveBeenCalledWith(0, 20);
+    });
+
+    it("should scroll window when textarea reaches top", () => {
+        // Mock scrollBy
+        const scrollBySpy = vi.fn();
+        window.scrollBy = scrollBySpy;
+
+        // Textarea is already at top (scrollTop = 0)
+        textarea.scrollTop = 0;
+
+        const event = new KeyboardEvent("keydown", {
+            key: "y",
+            ctrlKey: true,
+            bubbles: true,
+            cancelable: true,
+        });
+
+        textarea.dispatchEvent(event);
+
+        // Textarea shouldn't have scrolled (already at top)
+        expect(textarea.scrollTop).toBe(0);
+        // Window should have been scrolled instead (negative = up)
+        expect(scrollBySpy).toHaveBeenCalledWith(0, -20);
     });
 });
