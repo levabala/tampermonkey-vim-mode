@@ -352,6 +352,246 @@ describe("Character Finding", () => {
         );
         expect(input.selectionStart).toBe(13);
     });
+
+    it("should find closing bracket with f", () => {
+        input.value = "function(arg)";
+        input.focus();
+        input.selectionStart = 0;
+        input.dispatchEvent(
+            new KeyboardEvent("keydown", { key: "Escape", bubbles: true }),
+        );
+        input.dispatchEvent(
+            new KeyboardEvent("keydown", { key: "f", bubbles: true }),
+        );
+        input.dispatchEvent(
+            new KeyboardEvent("keydown", { key: ")", bubbles: true }),
+        );
+        expect(input.selectionStart).toBe(12);
+    });
+
+    it("should find opening bracket with f", () => {
+        input.value = "text(arg)more";
+        input.focus();
+        input.selectionStart = 0;
+        input.dispatchEvent(
+            new KeyboardEvent("keydown", { key: "Escape", bubbles: true }),
+        );
+        input.dispatchEvent(
+            new KeyboardEvent("keydown", { key: "f", bubbles: true }),
+        );
+        input.dispatchEvent(
+            new KeyboardEvent("keydown", { key: "(", bubbles: true }),
+        );
+        expect(input.selectionStart).toBe(4);
+    });
+
+    it("should find closing curly brace with f", () => {
+        input.value = "if { code }";
+        input.focus();
+        input.selectionStart = 0;
+        input.dispatchEvent(
+            new KeyboardEvent("keydown", { key: "Escape", bubbles: true }),
+        );
+        input.dispatchEvent(
+            new KeyboardEvent("keydown", { key: "f", bubbles: true }),
+        );
+        input.dispatchEvent(
+            new KeyboardEvent("keydown", { key: "}", bubbles: true }),
+        );
+        expect(input.selectionStart).toBe(10);
+    });
+
+    it("should find closing square bracket with f", () => {
+        input.value = "array[0]";
+        input.focus();
+        input.selectionStart = 0;
+        input.dispatchEvent(
+            new KeyboardEvent("keydown", { key: "Escape", bubbles: true }),
+        );
+        input.dispatchEvent(
+            new KeyboardEvent("keydown", { key: "f", bubbles: true }),
+        );
+        input.dispatchEvent(
+            new KeyboardEvent("keydown", { key: "]", bubbles: true }),
+        );
+        expect(input.selectionStart).toBe(7);
+    });
+
+    it("should find greater than sign with f", () => {
+        input.value = "x > y";
+        input.focus();
+        input.selectionStart = 0;
+        input.dispatchEvent(
+            new KeyboardEvent("keydown", { key: "Escape", bubbles: true }),
+        );
+        input.dispatchEvent(
+            new KeyboardEvent("keydown", { key: "f", bubbles: true }),
+        );
+        input.dispatchEvent(
+            new KeyboardEvent("keydown", { key: ">", bubbles: true }),
+        );
+        expect(input.selectionStart).toBe(2);
+    });
+
+    it("should find less than sign with f", () => {
+        input.value = "x < y";
+        input.focus();
+        input.selectionStart = 0;
+        input.dispatchEvent(
+            new KeyboardEvent("keydown", { key: "Escape", bubbles: true }),
+        );
+        input.dispatchEvent(
+            new KeyboardEvent("keydown", { key: "f", bubbles: true }),
+        );
+        input.dispatchEvent(
+            new KeyboardEvent("keydown", { key: "<", bubbles: true }),
+        );
+        expect(input.selectionStart).toBe(2);
+    });
+
+    it("should find semicolon with f", () => {
+        input.value = "let x = 5;";
+        input.focus();
+        input.selectionStart = 0;
+        input.dispatchEvent(
+            new KeyboardEvent("keydown", { key: "Escape", bubbles: true }),
+        );
+        input.dispatchEvent(
+            new KeyboardEvent("keydown", { key: "f", bubbles: true }),
+        );
+        input.dispatchEvent(
+            new KeyboardEvent("keydown", { key: ";", bubbles: true }),
+        );
+        expect(input.selectionStart).toBe(9);
+    });
+
+    it("should find colon with f", () => {
+        input.value = "key: value";
+        input.focus();
+        input.selectionStart = 0;
+        input.dispatchEvent(
+            new KeyboardEvent("keydown", { key: "Escape", bubbles: true }),
+        );
+        input.dispatchEvent(
+            new KeyboardEvent("keydown", { key: "f", bubbles: true }),
+        );
+        input.dispatchEvent(
+            new KeyboardEvent("keydown", { key: ":", bubbles: true }),
+        );
+        expect(input.selectionStart).toBe(3);
+    });
+
+    it("should find comma with f", () => {
+        input.value = "a, b, c";
+        input.focus();
+        input.selectionStart = 0;
+        input.dispatchEvent(
+            new KeyboardEvent("keydown", { key: "Escape", bubbles: true }),
+        );
+        input.dispatchEvent(
+            new KeyboardEvent("keydown", { key: "f", bubbles: true }),
+        );
+        input.dispatchEvent(
+            new KeyboardEvent("keydown", { key: ",", bubbles: true }),
+        );
+        expect(input.selectionStart).toBe(1);
+    });
+
+    it("should find quote with f", () => {
+        input.value = 'say "hello"';
+        input.focus();
+        input.selectionStart = 0;
+        input.dispatchEvent(
+            new KeyboardEvent("keydown", { key: "Escape", bubbles: true }),
+        );
+        input.dispatchEvent(
+            new KeyboardEvent("keydown", { key: "f", bubbles: true }),
+        );
+        input.dispatchEvent(
+            new KeyboardEvent("keydown", { key: '"', bubbles: true }),
+        );
+        expect(input.selectionStart).toBe(4);
+    });
+
+    it("should find dot with f", () => {
+        input.value = "foo.bar";
+        input.focus();
+        input.selectionStart = 0;
+        input.dispatchEvent(
+            new KeyboardEvent("keydown", { key: "Escape", bubbles: true }),
+        );
+        input.dispatchEvent(
+            new KeyboardEvent("keydown", { key: "f", bubbles: true }),
+        );
+        input.dispatchEvent(
+            new KeyboardEvent("keydown", { key: ".", bubbles: true }),
+        );
+        expect(input.selectionStart).toBe(3);
+    });
+
+    it("should find backwards with F", () => {
+        input.value = "hello world";
+        input.focus();
+        input.selectionStart = 10;
+        input.dispatchEvent(
+            new KeyboardEvent("keydown", { key: "Escape", bubbles: true }),
+        );
+        input.dispatchEvent(
+            new KeyboardEvent("keydown", { key: "F", bubbles: true }),
+        );
+        input.dispatchEvent(
+            new KeyboardEvent("keydown", { key: "w", bubbles: true }),
+        );
+        expect(input.selectionStart).toBe(6);
+    });
+
+    it("should find opening bracket backwards with F", () => {
+        input.value = "text(arg)more";
+        input.focus();
+        input.selectionStart = 12;
+        input.dispatchEvent(
+            new KeyboardEvent("keydown", { key: "Escape", bubbles: true }),
+        );
+        input.dispatchEvent(
+            new KeyboardEvent("keydown", { key: "F", bubbles: true }),
+        );
+        input.dispatchEvent(
+            new KeyboardEvent("keydown", { key: "(", bubbles: true }),
+        );
+        expect(input.selectionStart).toBe(4);
+    });
+
+    it("should find closing bracket backwards with F", () => {
+        input.value = "function(arg)more";
+        input.focus();
+        input.selectionStart = 16;
+        input.dispatchEvent(
+            new KeyboardEvent("keydown", { key: "Escape", bubbles: true }),
+        );
+        input.dispatchEvent(
+            new KeyboardEvent("keydown", { key: "F", bubbles: true }),
+        );
+        input.dispatchEvent(
+            new KeyboardEvent("keydown", { key: ")", bubbles: true }),
+        );
+        expect(input.selectionStart).toBe(12);
+    });
+
+    it("should find greater than backwards with F", () => {
+        input.value = "x > y end";
+        input.focus();
+        input.selectionStart = 8;
+        input.dispatchEvent(
+            new KeyboardEvent("keydown", { key: "Escape", bubbles: true }),
+        );
+        input.dispatchEvent(
+            new KeyboardEvent("keydown", { key: "F", bubbles: true }),
+        );
+        input.dispatchEvent(
+            new KeyboardEvent("keydown", { key: ">", bubbles: true }),
+        );
+        expect(input.selectionStart).toBe(2);
+    });
 });
 
 describe("w motion on empty lines", () => {
