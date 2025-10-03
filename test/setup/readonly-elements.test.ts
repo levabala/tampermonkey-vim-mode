@@ -13,15 +13,18 @@ declare global {
 }
 
 describe("Readonly Elements", () => {
-	let input: HTMLInputElement;
-	let textarea: HTMLTextAreaElement;
+	let input: HTMLInputElement | null;
+	let textarea: HTMLTextAreaElement | null;
 	let readonlyInput: HTMLInputElement;
 	let readonlyTextarea: HTMLTextAreaElement;
 
 	beforeEach(() => {
 		setupVimMode();
-		({ input, textarea } = createTestElements());
 		window.getModeText = getModeText;
+
+		// Initialize to null
+		input = null;
+		textarea = null;
 
 		// Create readonly elements
 		readonlyInput = document.createElement("input");
@@ -64,12 +67,15 @@ describe("Readonly Elements", () => {
 	});
 
 	it("should enter vim mode for regular input after readonly input", () => {
+		// Create regular input for this test
+		({ input, textarea } = createTestElements());
+
 		// Focus readonly first
 		readonlyInput.focus();
 		expect(window.getModeText()).toBe("");
 
 		// Then focus regular input - should work normally
-		input.focus();
+		input!.focus();
 		expect(window.getModeText()).toBe("-- INSERT --");
 	});
 

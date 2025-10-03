@@ -127,7 +127,15 @@ function processCommand(key: string): void {
 function handleFocus(e: FocusEvent): void {
 	const el = e.target as EditableElement;
 	debug("handleFocus", { tag: el.tagName, isNewInput: currentInput !== el, currentMode: mode });
+
 	if (el.tagName === "INPUT" || el.tagName === "TEXTAREA") {
+		// Skip readonly elements - treat as if leaving vim mode
+		if (el.readOnly) {
+			debug("handleFocus: skipping readonly element");
+			currentInput = null;
+			updateIndicator(mode, currentInput);
+			return;
+		}
 		// Only initialize mode if this is a new input
 		if (currentInput !== el) {
 			currentInput = el;

@@ -63,5 +63,9 @@ export function getIndicator(): Element | null {
 
 export function getModeText(): string {
 	const indicator = getIndicator();
+	// Return empty string if indicator is hidden
+	if (indicator && (indicator as HTMLElement).style.display === "none") {
+		return "";
+	}
 	return indicator?.children[0]?.textContent || "";
 }

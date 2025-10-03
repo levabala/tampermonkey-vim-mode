@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Vim Mode for Text Inputs
 // @namespace    http://tampermonkey.net/
-// @version      1.0.33
+// @version      1.0.31
 // @description  Vim-like editing for textareas and inputs
 // @match        *://*/*
 // @updateURL    https://raw.githubusercontent.com/levabala/tampermonkey-vim-mode/refs/heads/main/dist/tampermonkey_vim_mode.js
@@ -1278,6 +1278,12 @@
 				currentMode: mode,
 			});
 			if (el.tagName === "INPUT" || el.tagName === "TEXTAREA") {
+				if (el.readOnly) {
+					debug("handleFocus: skipping readonly element");
+					currentInput = null;
+					updateIndicator(mode, currentInput);
+					return;
+				}
 				if (currentInput !== el) {
 					currentInput = el;
 					mode = "insert";

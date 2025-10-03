@@ -57,12 +57,12 @@ describe("Mode Switching", () => {
 		input.dispatchEvent(new FocusEvent("focusin", { bubbles: true }));
 		expect(window.getModeText()).toBe("-- NORMAL --");
 
-		// Second Escape - should stay in normal mode (not switch back to insert)
+		// Second Escape - should unfocus (blur the input)
 		input.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true }));
-		expect(window.getModeText()).toBe("-- NORMAL --");
+		// After unfocusing, indicator should be hidden
+		expect(window.getModeText()).toBe("");
 
 		// Simulate blur/focus cycle and verify Escape still works
-		input.dispatchEvent(new FocusEvent("focusout", { bubbles: true }));
 		input.dispatchEvent(new FocusEvent("focusin", { bubbles: true }));
 		input.dispatchEvent(new KeyboardEvent("keydown", { key: "i", bubbles: true }));
 		expect(window.getModeText()).toBe("-- INSERT --");
