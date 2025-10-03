@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Vim Mode for Text Inputs
 // @namespace    http://tampermonkey.net/
-// @version      1.0.57
+// @version      1.0.58
 // @description  Vim-like editing for textareas and inputs
 // @match        *://*/*
 // @updateURL    https://raw.githubusercontent.com/levabala/tampermonkey-vim-mode/refs/heads/main/dist/tampermonkey_vim_mode.js
@@ -2396,8 +2396,13 @@
                     return;
                 }
                 const isEscapeBlur =
-                    (escapePressed && mode === "insert") ||
-                    (mode === "insert" &&
+                    (escapePressed &&
+                        (mode === "insert" ||
+                            mode === "visual" ||
+                            mode === "visual-line")) ||
+                    ((mode === "insert" ||
+                        mode === "visual" ||
+                        mode === "visual-line") &&
                         !allowBlur &&
                         !e.relatedTarget &&
                         e.isTrusted);
@@ -2406,7 +2411,11 @@
                         "handleBlur: ESC caused blur, switching to normal mode",
                     );
                     escapePressed = false;
-                    enterNormalMode();
+                    if (mode === "visual" || mode === "visual-line") {
+                        exitVisualMode();
+                    } else {
+                        enterNormalMode();
+                    }
                     e.preventDefault();
                     e.stopPropagation();
                     const input = currentInput;
@@ -2416,9 +2425,14 @@
                     }, 0);
                     return;
                 }
-                if (mode === "insert" && !allowBlur) {
+                if (
+                    (mode === "insert" ||
+                        mode === "visual" ||
+                        mode === "visual-line") &&
+                    !allowBlur
+                ) {
                     debug(
-                        "handleBlur: unexpected blur in insert mode, preventing",
+                        "handleBlur: unexpected blur in insert/visual mode, preventing",
                     );
                     e.preventDefault();
                     e.stopPropagation();
