@@ -1,65 +1,44 @@
 // ==UserScript==
 // @name         Vim Mode for Text Inputs
 // @namespace    http://tampermonkey.net/
-// @version      1.0.29
+// @version      1.0.30
 // @description  Vim-like editing for textareas and inputs
 // @match        *://*/*
-// @updateURL    https://raw.githubusercontent.com/levabala/tampermonkey-vim-mode/refs/heads/main/tampermonkey_vim_mode.js
-// @downloadURL  https://raw.githubusercontent.com/levabala/tampermonkey-vim-mode/refs/heads/main/tampermonkey_vim_mode.js
+// @updateURL    https://raw.githubusercontent.com/levabala/tampermonkey-vim-mode/refs/heads/main/dist/tampermonkey_vim_mode.js
+// @downloadURL  https://raw.githubusercontent.com/levabala/tampermonkey-vim-mode/refs/heads/main/dist/tampermonkey_vim_mode.js
 // @grant        none
 // ==/UserScript==
 
 (function() {
     'use strict';
 
-    // Extract version from userscript header
-    // In Tampermonkey, we can use GM_info if available, otherwise fallback to parsing the script source
-    const version = (() => {
-        // Try GM_info first (Tampermonkey API)
-        if (typeof GM_info !== 'undefined' && GM_info.script && GM_info.script.version) {
-            return GM_info.script.version;
+(() => {
+  // src/setup.js
+  var version = (() => {
+    if (typeof GM_info !== "undefined" && GM_info.script && GM_info.script.version) {
+      return GM_info.script.version;
+    }
+    if (typeof document !== "undefined" && document.scripts) {
+      for (let script of document.scripts) {
+        const content = script.textContent;
+        if (content && content.includes("Vim Mode for Text Inputs")) {
+          const match = content.match(/@version\s+([\d.]+)/);
+          if (match)
+            return match[1];
         }
-
-        // Fallback: try to find our script in document.scripts
-        for (let script of document.scripts) {
-            const content = script.textContent;
-            if (content && content.includes('Vim Mode for Text Inputs')) {
-                const match = content.match(/@version\s+([\d.]+)/);
-                if (match) return match[1];
-            }
-        }
-
-        return 'unknown';
-    })();
-
-    // Debug mode - enabled via VIM_DEBUG=1 query parameter
-    const DEBUG = new URLSearchParams(window.location.search).get('VIM_DEBUG') === '1';
-    const debug = (...args) => {
-        if (DEBUG) console.log('@@', ...args);
-    };
-
-    // State
-    let mode = 'normal'; // 'normal', 'insert', 'visual', 'visual-line'
-    let currentInput = null;
-    let commandBuffer = '';
-    let countBuffer = '';
-    let operatorPending = null;
-    let lastFindChar = null;
-    let lastFindDirection = null;
-    let lastFindType = null; // 'f', 't', 'F', or 'T'
-    let clipboard = '';
-    let undoStack = [];
-    let redoStack = [];
-    let lastChange = null;
-    let allowBlur = false; // Track whether blur is intentional
-    let escapePressed = false; // Track if ESC was recently pressed
-
-    // Visual mode state
-    let visualStart = null; // Starting position of visual selection
-    let visualEnd = null; // Current end position of visual selection
-
-    // Mode indicator
-    const indicator = document.createElement('div');
+      }
+    }
+    return "unknown";
+  })();
+  var DEBUG = typeof window !== "undefined" && window.location ? new URLSearchParams(window.location.search).get("VIM_DEBUG") === "1" : false;
+  var debug = (...args) => {
+    if (DEBUG)
+      console.log("@@", ...args);
+  };
+  var indicator;
+  var modeText;
+  if (typeof document !== "undefined") {
+    indicator = document.createElement("div");
     indicator.style.cssText = `
         position: fixed;
         bottom: 10px;
@@ -75,11 +54,9 @@
         z-index: 999999;
         pointer-events: none;
     `;
-
-    const modeText = document.createElement('div');
+    modeText = document.createElement("div");
     indicator.appendChild(modeText);
-
-    const versionLabel = document.createElement('div');
+    const versionLabel = document.createElement("div");
     versionLabel.textContent = `v${version}`;
     versionLabel.style.cssText = `
         position: absolute;
@@ -90,1320 +67,1231 @@
         opacity: 0.6;
     `;
     indicator.appendChild(versionLabel);
-    document.body.appendChild(indicator);
-
-    function updateIndicator() {
-        let text, color;
-        switch (mode) {
-            case 'insert':
-                text = '-- INSERT --';
-                color = 'rgba(0, 100, 0, 0.85)';
-                break;
-            case 'visual':
-                text = '-- VISUAL --';
-                color = 'rgba(100, 100, 0, 0.85)';
-                break;
-            case 'visual-line':
-                text = '-- VISUAL LINE --';
-                color = 'rgba(100, 100, 0, 0.85)';
-                break;
-            default:
-                text = '-- NORMAL --';
-                color = 'rgba(0, 0, 0, 0.85)';
-        }
-        modeText.textContent = text;
-        indicator.style.background = color;
-        indicator.style.display = currentInput ? 'block' : 'none';
+    if (document.body) {
+      document.body.appendChild(indicator);
+    } else {
+      document.addEventListener("DOMContentLoaded", () => {
+        document.body.appendChild(indicator);
+      });
     }
-
-    // Utility functions
-    function saveState() {
-        if (!currentInput) return;
-        debug('saveState', {
-            value: currentInput.value,
-            selectionStart: currentInput.selectionStart,
-            selectionEnd: currentInput.selectionEnd,
-            undoStackSize: undoStack.length
-        });
-        undoStack.push({
-            value: currentInput.value,
-            selectionStart: currentInput.selectionStart,
-            selectionEnd: currentInput.selectionEnd
-        });
-        redoStack = [];
-        if (undoStack.length > 100) undoStack.shift();
+  }
+  function updateIndicator(mode, currentInput) {
+    if (!indicator || !modeText)
+      return;
+    let text, color;
+    switch (mode) {
+      case "insert":
+        text = "-- INSERT --";
+        color = "rgba(0, 100, 0, 0.85)";
+        break;
+      case "visual":
+        text = "-- VISUAL --";
+        color = "rgba(100, 100, 0, 0.85)";
+        break;
+      case "visual-line":
+        text = "-- VISUAL LINE --";
+        color = "rgba(100, 100, 0, 0.85)";
+        break;
+      default:
+        text = "-- NORMAL --";
+        color = "rgba(0, 0, 0, 0.85)";
     }
+    modeText.textContent = text;
+    indicator.style.background = color;
+    indicator.style.display = currentInput ? "block" : "none";
+  }
 
-    function undo() {
-        if (undoStack.length === 0) return;
-        debug('undo', { undoStackSize: undoStack.length });
-        const current = {
-            value: currentInput.value,
-            selectionStart: currentInput.selectionStart,
-            selectionEnd: currentInput.selectionEnd
-        };
-        redoStack.push(current);
-        const prev = undoStack.pop();
-        currentInput.value = prev.value;
-        currentInput.selectionStart = prev.selectionStart;
-        currentInput.selectionEnd = prev.selectionEnd;
+  // src/common.js
+  function getCursorPos(currentInput) {
+    return currentInput.selectionStart;
+  }
+  function setCursorPos(currentInput, pos) {
+    pos = Math.max(0, Math.min(pos, currentInput.value.length));
+    debug("setCursorPos", { pos, valueLength: currentInput.value.length });
+    currentInput.selectionStart = pos;
+    currentInput.selectionEnd = pos;
+  }
+  function getLine(currentInput, pos) {
+    const text = currentInput.value;
+    let start = pos;
+    while (start > 0 && text[start - 1] !== `
+`)
+      start--;
+    let end = pos;
+    while (end < text.length && text[end] !== `
+`)
+      end++;
+    return { start, end, text: text.substring(start, end) };
+  }
+  function getLineStart(currentInput, pos) {
+    const text = currentInput.value;
+    while (pos > 0 && text[pos - 1] !== `
+`)
+      pos--;
+    return pos;
+  }
+  function getLineEnd(currentInput, pos) {
+    const text = currentInput.value;
+    while (pos < text.length && text[pos] !== `
+`)
+      pos++;
+    return pos;
+  }
+  function getFirstNonBlank(currentInput, lineStart) {
+    const text = currentInput.value;
+    let pos = lineStart;
+    while (pos < text.length && text[pos] !== `
+` && /\s/.test(text[pos])) {
+      pos++;
     }
-
-    function redo() {
-        if (redoStack.length === 0) return;
-        debug('redo', { redoStackSize: redoStack.length });
-        const current = {
-            value: currentInput.value,
-            selectionStart: currentInput.selectionStart,
-            selectionEnd: currentInput.selectionEnd
-        };
-        undoStack.push(current);
-        const next = redoStack.pop();
-        currentInput.value = next.value;
-        currentInput.selectionStart = next.selectionStart;
-        currentInput.selectionEnd = next.selectionEnd;
+    return pos;
+  }
+  function isWordChar(char) {
+    return /\w/.test(char);
+  }
+  function findWordStart(currentInput, pos, forward = true) {
+    const text = currentInput.value;
+    if (forward) {
+      while (pos < text.length && isWordChar(text[pos]))
+        pos++;
+      while (pos < text.length && !isWordChar(text[pos]) && text[pos] !== `
+`)
+        pos++;
+      return pos;
+    } else {
+      if (pos > 0)
+        pos--;
+      while (pos > 0 && !isWordChar(text[pos]) && text[pos] !== `
+`)
+        pos--;
+      while (pos > 0 && isWordChar(text[pos - 1]))
+        pos--;
+      return pos;
     }
-
-    function getCursorPos() {
-        return currentInput.selectionStart;
+  }
+  function findWordEnd(currentInput, pos, forward = true) {
+    const text = currentInput.value;
+    if (forward) {
+      if (pos < text.length)
+        pos++;
+      while (pos < text.length && !isWordChar(text[pos]) && text[pos] !== `
+`)
+        pos++;
+      while (pos < text.length && isWordChar(text[pos]))
+        pos++;
+      return Math.max(0, pos - 1);
+    } else {
+      while (pos > 0 && isWordChar(text[pos]))
+        pos--;
+      while (pos > 0 && !isWordChar(text[pos]) && text[pos] !== `
+`)
+        pos--;
+      return pos;
     }
-
-    function setCursorPos(pos) {
-        pos = Math.max(0, Math.min(pos, currentInput.value.length));
-        debug('setCursorPos', { pos, valueLength: currentInput.value.length });
-        currentInput.selectionStart = pos;
-        currentInput.selectionEnd = pos;
+  }
+  function findCharInLine(currentInput, pos, char, forward = true, till = false) {
+    const text = currentInput.value;
+    const line = getLine(currentInput, pos);
+    debug("findCharInLine", { pos, char, forward, till, lineStart: line.start, lineEnd: line.end });
+    if (forward) {
+      for (let i = pos + 1;i <= line.end; i++) {
+        if (text[i] === char) {
+          const result = till ? i - 1 : i;
+          debug("findCharInLine result", { found: true, result });
+          return result;
+        }
+      }
+    } else {
+      for (let i = pos - 1;i >= line.start; i--) {
+        if (text[i] === char) {
+          const result = till ? i + 1 : i;
+          debug("findCharInLine result", { found: true, result });
+          return result;
+        }
+      }
     }
-
-    function getLine(pos) {
-        const text = currentInput.value;
-        let start = pos;
-        while (start > 0 && text[start - 1] !== '\n') start--;
-        let end = pos;
-        while (end < text.length && text[end] !== '\n') end++;
-        return { start, end, text: text.substring(start, end) };
+    debug("findCharInLine result", { found: false, result: pos });
+    return pos;
+  }
+  function findMatchingPair(currentInput, pos) {
+    const text = currentInput.value;
+    const char = text[pos];
+    const pairs = { "(": ")", "[": "]", "{": "}", ")": "(", "]": "[", "}": "{" };
+    if (!pairs[char])
+      return pos;
+    const target = pairs[char];
+    const forward = ["(", "[", "{"].includes(char);
+    const step = forward ? 1 : -1;
+    let depth = 1;
+    for (let i = pos + step;forward ? i < text.length : i >= 0; i += step) {
+      if (text[i] === char)
+        depth++;
+      else if (text[i] === target) {
+        depth--;
+        if (depth === 0)
+          return i;
+      }
     }
-
-    function getLineStart(pos) {
-        const text = currentInput.value;
-        while (pos > 0 && text[pos - 1] !== '\n') pos--;
-        return pos;
+    return pos;
+  }
+  function findParagraphBoundary(currentInput, pos, forward = true) {
+    const text = currentInput.value;
+    const lines = text.split(`
+`);
+    let currentLine = text.substring(0, pos).split(`
+`).length - 1;
+    if (forward) {
+      for (let i = currentLine + 1;i < lines.length; i++) {
+        if (lines[i].trim() === "") {
+          return text.split(`
+`).slice(0, i).join(`
+`).length + 1;
+        }
+      }
+      return text.length;
+    } else {
+      for (let i = currentLine - 1;i >= 0; i--) {
+        if (lines[i].trim() === "") {
+          return text.split(`
+`).slice(0, i + 1).join(`
+`).length;
+        }
+      }
+      return 0;
     }
-
-    function getLineEnd(pos) {
-        const text = currentInput.value;
-        while (pos < text.length && text[pos] !== '\n') pos++;
-        return pos;
-    }
-
-    function getFirstNonBlank(lineStart) {
-        const text = currentInput.value;
-        let pos = lineStart;
-        while (pos < text.length && text[pos] !== '\n' && /\s/.test(text[pos])) {
-            pos++;
-        }
-        return pos;
-    }
-
-    function isWordChar(char) {
-        return /\w/.test(char);
-    }
-
-    function findWordStart(pos, forward = true) {
-        const text = currentInput.value;
-        if (forward) {
-            // Skip current word
-            while (pos < text.length && isWordChar(text[pos])) pos++;
-            // Skip whitespace
-            while (pos < text.length && !isWordChar(text[pos]) && text[pos] !== '\n') pos++;
-            return pos;
-        } else {
-            // Move back one if we're at word start
-            if (pos > 0) pos--;
-            // Skip whitespace
-            while (pos > 0 && !isWordChar(text[pos]) && text[pos] !== '\n') pos--;
-            // Go to word start
-            while (pos > 0 && isWordChar(text[pos - 1])) pos--;
-            return pos;
-        }
-    }
-
-    function findWordEnd(pos, forward = true) {
-        const text = currentInput.value;
-        if (forward) {
-            // Move to next char if at word boundary
-            if (pos < text.length) pos++;
-            // Skip whitespace
-            while (pos < text.length && !isWordChar(text[pos]) && text[pos] !== '\n') pos++;
-            // Go to word end
-            while (pos < text.length && isWordChar(text[pos])) pos++;
-            return Math.max(0, pos - 1);
-        } else {
-            // Skip current word end
-            while (pos > 0 && isWordChar(text[pos])) pos--;
-            // Skip whitespace
-            while (pos > 0 && !isWordChar(text[pos]) && text[pos] !== '\n') pos--;
-            return pos;
-        }
-    }
-
-    function findCharInLine(pos, char, forward = true, till = false) {
-        const text = currentInput.value;
-        const line = getLine(pos);
-        debug('findCharInLine', { pos, char, forward, till, lineStart: line.start, lineEnd: line.end });
-
-        if (forward) {
-            for (let i = pos + 1; i <= line.end; i++) {
-                if (text[i] === char) {
-                    const result = till ? i - 1 : i;
-                    debug('findCharInLine result', { found: true, result });
-                    return result;
-                }
-            }
-        } else {
-            for (let i = pos - 1; i >= line.start; i--) {
-                if (text[i] === char) {
-                    const result = till ? i + 1 : i;
-                    debug('findCharInLine result', { found: true, result });
-                    return result;
-                }
-            }
-        }
-        debug('findCharInLine result', { found: false, result: pos });
-        return pos;
-    }
-
-    function findMatchingPair(pos) {
-        const text = currentInput.value;
-        const char = text[pos];
-        const pairs = { '(': ')', '[': ']', '{': '}', ')': '(', ']': '[', '}': '{' };
-
-        if (!pairs[char]) return pos;
-
-        const target = pairs[char];
-        const forward = ['(', '[', '{'].includes(char);
-        const step = forward ? 1 : -1;
-        let depth = 1;
-
-        for (let i = pos + step; forward ? i < text.length : i >= 0; i += step) {
-            if (text[i] === char) depth++;
-            else if (text[i] === target) {
-                depth--;
-                if (depth === 0) return i;
-            }
-        }
-        return pos;
-    }
-
-    function findParagraphBoundary(pos, forward = true) {
-        const text = currentInput.value;
-        const lines = text.split('\n');
-        let currentLine = text.substring(0, pos).split('\n').length - 1;
-
-        if (forward) {
-            // Find next empty line or end
-            for (let i = currentLine + 1; i < lines.length; i++) {
-                if (lines[i].trim() === '') {
-                    return text.split('\n').slice(0, i).join('\n').length + 1;
-                }
-            }
-            return text.length;
-        } else {
-            // Find previous empty line or start
-            for (let i = currentLine - 1; i >= 0; i--) {
-                if (lines[i].trim() === '') {
-                    return text.split('\n').slice(0, i + 1).join('\n').length;
-                }
-            }
-            return 0;
-        }
-    }
-
-    function findTextObject(type, inner) {
-        const pos = getCursorPos();
-        const text = currentInput.value;
-        debug('findTextObject', { type, inner, pos });
-
-        const pairs = {
-            '(': { open: '(', close: ')' },
-            ')': { open: '(', close: ')' },
-            '[': { open: '[', close: ']' },
-            ']': { open: '[', close: ']' },
-            '{': { open: '{', close: '}' },
-            '}': { open: '{', close: '}' },
-            '"': { open: '"', close: '"' },
-            "'": { open: "'", close: "'" },
-            '`': { open: '`', close: '`' }
-        };
-
-        if (!pairs[type]) {
-            debug('findTextObject: invalid type', { type });
-            return { start: pos, end: pos };
-        }
-
-        const { open, close } = pairs[type];
-        let start = -1;
-        let end = -1;
-
-        // For quotes, find the containing pair
-        if (open === close) {
-            let quoteCount = 0;
-            let firstQuote = -1;
-            for (let i = 0; i <= pos; i++) {
-                if (text[i] === open) {
-                    if (quoteCount % 2 === 0) firstQuote = i;
-                    quoteCount++;
-                }
-            }
-            if (quoteCount % 2 === 1) {
-                start = firstQuote;
-                for (let i = start + 1; i < text.length; i++) {
-                    if (text[i] === close) {
-                        end = i;
-                        break;
-                    }
-                }
-            }
-        } else {
-            // For brackets/parens/braces, find containing or next pair
-            let depth = 0;
-
-            // First try to find if we're inside a pair
-            for (let i = pos; i >= 0; i--) {
-                if (text[i] === close) {
-                    depth++;
-                } else if (text[i] === open) {
-                    if (depth === 0) {
-                        start = i;
-                        break;
-                    }
-                    depth--;
-                }
-            }
-
-            // If we found an opening, find its matching closing
-            if (start !== -1) {
-                depth = 0;
-                for (let i = start; i < text.length; i++) {
-                    if (text[i] === open) {
-                        depth++;
-                    } else if (text[i] === close) {
-                        depth--;
-                        if (depth === 0) {
-                            end = i;
-                            break;
-                        }
-                    }
-                }
-            }
-        }
-
-        // If we didn't find a pair, return empty range
-        if (start === -1 || end === -1) {
-            debug('findTextObject: no pair found');
-            return { start: pos, end: pos };
-        }
-
-        const result = inner
-            ? { start: start + 1, end: end }
-            : { start, end: end + 1 };
-        debug('findTextObject result', result);
-        return result;
-    }
-
-    // Motion functions
-    function executeMotion(motion, count = 1) {
-        let pos = getCursorPos();
-        debug('executeMotion', { motion, count, startPos: pos });
-
-        for (let i = 0; i < count; i++) {
-            switch (motion) {
-                case 'h':
-                    pos = Math.max(0, pos - 1);
-                    break;
-                case 'l':
-                    pos = Math.min(currentInput.value.length, pos + 1);
-                    break;
-                case 'j':
-                    const currentLineJ = getLine(pos);
-                    const offsetJ = pos - currentLineJ.start;
-                    const nextLineStartJ = currentLineJ.end + 1;
-                    if (nextLineStartJ < currentInput.value.length) {
-                        const nextLineJ = getLine(nextLineStartJ);
-                        pos = Math.min(nextLineJ.start + offsetJ, nextLineJ.end);
-                    }
-                    break;
-                case 'k':
-                    const currentLineK = getLine(pos);
-                    const offsetK = pos - currentLineK.start;
-                    if (currentLineK.start > 0) {
-                        const prevLineK = getLine(currentLineK.start - 1);
-                        pos = Math.min(prevLineK.start + offsetK, prevLineK.end);
-                    }
-                    break;
-                case 'w':
-                    pos = findWordStart(pos, true);
-                    break;
-                case 'b':
-                    pos = findWordStart(pos, false);
-                    break;
-                case 'e':
-                    pos = findWordEnd(pos, true);
-                    break;
-                case 'ge':
-                    pos = findWordEnd(pos, false);
-                    break;
-                case '0':
-                    pos = getLineStart(pos);
-                    break;
-                case '^':
-                    pos = getFirstNonBlank(getLineStart(pos));
-                    break;
-                case '$':
-                    pos = getLineEnd(pos);
-                    break;
-                case 'gg':
-                    pos = 0;
-                    break;
-                case 'G':
-                    pos = currentInput.value.length;
-                    break;
-                case '{':
-                    pos = findParagraphBoundary(pos, false);
-                    break;
-                case '}':
-                    pos = findParagraphBoundary(pos, true);
-                    break;
-                case '%':
-                    pos = findMatchingPair(pos);
-                    break;
-            }
-        }
-
-        debug('executeMotion result', { motion, count, endPos: pos });
-        setCursorPos(pos);
-        return pos;
-    }
-
-    function getMotionRange(motion, count = 1) {
-        const startPos = getCursorPos();
-        debug('getMotionRange', { motion, count, startPos });
-        executeMotion(motion, count);
-        const endPos = getCursorPos();
-        setCursorPos(startPos);
-
-        const range = {
-            start: Math.min(startPos, endPos),
-            end: Math.max(startPos, endPos)
-        };
-        debug('getMotionRange result', range);
-        return range;
-    }
-
-    // Operator functions
-    function deleteRange(start, end) {
-        debug('deleteRange', { start, end, deleted: currentInput.value.substring(start, end) });
-        saveState();
-        const text = currentInput.value;
-        currentInput.value = text.substring(0, start) + text.substring(end);
-        setCursorPos(start);
-    }
-
-    function yankRange(start, end) {
-        const yanked = currentInput.value.substring(start, end);
-        debug('yankRange', { start, end, yanked });
-        clipboard = yanked;
-    }
-
-    function changeRange(start, end) {
-        debug('changeRange', { start, end });
-        deleteRange(start, end);
-        switchMode('insert');
-    }
-
-    // Visual selection management
-    function updateVisualSelection() {
-        if (!currentInput || visualStart === null || visualEnd === null) return;
-
-        const start = Math.min(visualStart, visualEnd);
-        const end = Math.max(visualStart, visualEnd);
-
-        debug('updateVisualSelection', { visualStart, visualEnd, start, end });
-
-        // For visual mode, we want to include the character under the cursor
-        // so we add 1 to the end position (unless we're at the end of the text)
-        const selectionEnd = mode === 'visual-line' ? end : Math.min(end + 1, currentInput.value.length);
-
-        currentInput.selectionStart = start;
-        currentInput.selectionEnd = selectionEnd;
-    }
-
-    function extendVisualSelection(newPos) {
-        if (mode !== 'visual' && mode !== 'visual-line') return;
-
-        debug('extendVisualSelection', { from: visualEnd, to: newPos });
-
-        if (mode === 'visual-line') {
-            // In visual line mode, extend to whole lines
-            visualEnd = getLineEnd(newPos);
-            // Adjust start if moving backwards
-            if (newPos < visualStart) {
-                visualStart = getLineStart(newPos);
-            } else {
-                visualStart = getLineStart(visualStart);
-            }
-        } else {
-            // In visual character mode, just update the end
-            visualEnd = newPos;
-        }
-
-        updateVisualSelection();
-    }
-
-    function getCurrentRange() {
-        // Returns { start, end } for the current operation range
-        // Works for both visual selections and operator+motion combinations
-        if (mode === 'visual' || mode === 'visual-line') {
-            return {
-                start: Math.min(visualStart, visualEnd),
-                end: Math.max(visualStart, visualEnd)
-            };
-        }
-
-        // For non-visual modes, return cursor position
-        const pos = getCursorPos();
-        return { start: pos, end: pos };
-    }
-
-    // Mode transition functions
-    function enterInsertMode() {
-        debug('enterInsertMode', { from: mode });
-        mode = 'insert';
-        visualStart = null;
-        visualEnd = null;
-        updateIndicator();
-    }
-
-    function enterNormalMode() {
-        debug('enterNormalMode', { from: mode });
-        mode = 'normal';
-        visualStart = null;
-        visualEnd = null;
-        updateIndicator();
-
-        // Move cursor back one if at end of line (vim behavior)
-        const pos = getCursorPos();
-        const lineEnd = getLineEnd(pos);
-        if (pos === lineEnd && pos > 0 && currentInput.value[pos - 1] !== '\n') {
-            setCursorPos(pos - 1);
-        }
-    }
-
-    function enterVisualMode(lineMode = false) {
-        debug('enterVisualMode', { lineMode, from: mode });
-        mode = lineMode ? 'visual-line' : 'visual';
-        const pos = getCursorPos();
-
-        if (lineMode) {
-            // Visual line mode: select whole line
-            visualStart = getLineStart(pos);
-            visualEnd = getLineEnd(pos);
-        } else {
-            // Visual character mode: start at cursor
-            visualStart = pos;
-            visualEnd = pos;
-        }
-
-        updateVisualSelection();
-        updateIndicator();
-    }
-
-    function exitVisualMode() {
-        debug('exitVisualMode');
-        visualStart = null;
-        visualEnd = null;
-        enterNormalMode();
-    }
-
-    // Legacy function for compatibility
-    function switchMode(newMode) {
-        debug('switchMode (legacy)', { from: mode, to: newMode });
-        if (newMode === 'insert') {
-            enterInsertMode();
-        } else if (newMode === 'normal') {
-            enterNormalMode();
-        } else if (newMode === 'visual') {
-            enterVisualMode(false);
-        } else if (newMode === 'visual-line') {
-            enterVisualMode(true);
-        }
-    }
-
-    // Command processing - dispatch to mode-specific handlers
-    function processCommand(key) {
-        debug('processCommand', { key, mode });
-
-        if (mode === 'visual' || mode === 'visual-line') {
-            processVisualCommand(key);
-        } else {
-            processNormalCommand(key);
-        }
-    }
-
-    function processNormalCommand(key) {
-        const count = parseInt(countBuffer) || 1;
-        debug('processNormalCommand', {
-            key,
-            count,
-            countBuffer,
-            commandBuffer,
-            operatorPending,
-            mode
-        });
-
-        // Handle operators
-        if (operatorPending) {
-            if (key === operatorPending) {
-                // Double operator (e.g., dd, yy, cc)
-                debug('processCommand: double operator', { operator: operatorPending, count });
-                const line = getLine(getCursorPos());
-                const start = line.start;
-                const end = line.end < currentInput.value.length ? line.end + 1 : line.end;
-
-                if (operatorPending === 'd') {
-                    yankRange(start, end);
-                    deleteRange(start, end);
-                    lastChange = { operator: 'd', motion: 'd', count };
-                } else if (operatorPending === 'y') {
-                    yankRange(start, end);
-                    lastChange = { operator: 'y', motion: 'y', count };
-                } else if (operatorPending === 'c') {
-                    yankRange(start, end);
-                    changeRange(start, end);
-                    lastChange = { operator: 'c', motion: 'c', count };
-                }
-
-                operatorPending = null;
-                countBuffer = '';
-                return;
-            }
-
-            // Check if user is starting a text object (pressing 'i' or 'a')
-            if (key === 'i' || key === 'a') {
-                commandBuffer = key;
-                return;
-            }
-
-            // Text objects
-            if (commandBuffer === 'i' || commandBuffer === 'a') {
-                const inner = commandBuffer === 'i';
-                debug('processCommand: text object', { operator: operatorPending, textObject: commandBuffer + key, inner });
-                const range = findTextObject(key, inner);
-
-                if (operatorPending === 'd') {
-                    yankRange(range.start, range.end);
-                    deleteRange(range.start, range.end);
-                    lastChange = { operator: 'd', textObject: commandBuffer + key, count };
-                } else if (operatorPending === 'y') {
-                    yankRange(range.start, range.end);
-                    lastChange = { operator: 'y', textObject: commandBuffer + key, count };
-                } else if (operatorPending === 'c') {
-                    yankRange(range.start, range.end);
-                    changeRange(range.start, range.end);
-                    lastChange = { operator: 'c', textObject: commandBuffer + key, count };
-                }
-
-                operatorPending = null;
-                commandBuffer = '';
-                countBuffer = '';
-                return;
-            }
-
-            // Motion-based operations
-            debug('processCommand: motion-based operation', { operator: operatorPending, motion: key, count });
-            const range = getMotionRange(key, count);
-
-            if (operatorPending === 'd') {
-                yankRange(range.start, range.end);
-                deleteRange(range.start, range.end);
-                lastChange = { operator: 'd', motion: key, count };
-            } else if (operatorPending === 'y') {
-                yankRange(range.start, range.end);
-                lastChange = { operator: 'y', motion: key, count };
-            } else if (operatorPending === 'c') {
-                yankRange(range.start, range.end);
-                changeRange(range.start, range.end);
-                lastChange = { operator: 'c', motion: key, count };
-            }
-
-            operatorPending = null;
-            commandBuffer = '';
-            countBuffer = '';
-            return;
-        }
-
-        // Handle command sequences
-        if (commandBuffer) {
-            const fullCommand = commandBuffer + key;
-
-            if (fullCommand === 'gg') {
-                executeMotion('gg', count);
-                commandBuffer = '';
-                countBuffer = '';
-                return;
-            }
-
-            if (commandBuffer === 'g' && key === 'e') {
-                executeMotion('ge', count);
-                commandBuffer = '';
-                countBuffer = '';
-                return;
-            }
-
-            // f, F, t, T commands
-            if (['f', 'F', 't', 'T'].includes(commandBuffer)) {
-                const forward = ['f', 't'].includes(commandBuffer);
-                const till = ['t', 'T'].includes(commandBuffer);
-                lastFindChar = key;
-                lastFindDirection = forward;
-                lastFindType = commandBuffer;
-
-                for (let i = 0; i < count; i++) {
-                    const newPos = findCharInLine(getCursorPos(), key, forward, till);
-                    setCursorPos(newPos);
-                }
-
-                commandBuffer = '';
-                countBuffer = '';
-                return;
-            }
-
-            if (commandBuffer === 'r') {
-                // Replace character
-                saveState();
-                const pos = getCursorPos();
-                const text = currentInput.value;
-                currentInput.value = text.substring(0, pos) + key + text.substring(pos + 1);
-                lastChange = { command: 'r', char: key, count };
-                commandBuffer = '';
-                countBuffer = '';
-                return;
-            }
-
-            commandBuffer = '';
-        }
-
-        // Single key commands
-        switch (key) {
-            case 'h':
-            case 'j':
-            case 'k':
-            case 'l':
-            case 'w':
-            case 'b':
-            case 'e':
-            case '0':
-            case '^':
-            case '$':
-            case 'G':
-            case '{':
-            case '}':
-            case '%':
-                executeMotion(key, count);
-                countBuffer = '';
-                break;
-
-            case 'g':
-            case 'f':
-            case 'F':
-            case 't':
-            case 'T':
-            case 'r':
-                commandBuffer = key;
-                break;
-
-            case ';':
-                if (lastFindChar) {
-                    for (let i = 0; i < count; i++) {
-                        const till = ['t', 'T'].includes(lastFindType);
-                        const newPos = findCharInLine(getCursorPos(), lastFindChar, lastFindDirection, till);
-                        setCursorPos(newPos);
-                    }
-                }
-                countBuffer = '';
-                break;
-
-            case ',':
-                if (lastFindChar) {
-                    for (let i = 0; i < count; i++) {
-                        const till = ['t', 'T'].includes(lastFindType);
-                        const newPos = findCharInLine(getCursorPos(), lastFindChar, !lastFindDirection, till);
-                        setCursorPos(newPos);
-                    }
-                }
-                countBuffer = '';
-                break;
-
-            case 'i':
-                if (operatorPending) {
-                    commandBuffer = 'i';
-                } else {
-                    switchMode('insert');
-                    countBuffer = '';
-                }
-                break;
-
-            case 'a':
-                if (operatorPending) {
-                    commandBuffer = 'a';
-                } else {
-                    setCursorPos(getCursorPos() + 1);
-                    switchMode('insert');
-                    countBuffer = '';
-                }
-                break;
-
-            case 'I':
-                setCursorPos(getFirstNonBlank(getLineStart(getCursorPos())));
-                switchMode('insert');
-                countBuffer = '';
-                break;
-
-            case 'A':
-                setCursorPos(getLineEnd(getCursorPos()));
-                switchMode('insert');
-                countBuffer = '';
-                break;
-
-            case 'o':
-                saveState();
-                const posO = getLineEnd(getCursorPos());
-                currentInput.value = currentInput.value.substring(0, posO) + '\n' + currentInput.value.substring(posO);
-                setCursorPos(posO + 1);
-                switchMode('insert');
-                lastChange = { command: 'o', count };
-                countBuffer = '';
-                break;
-
-            case 'O':
-                saveState();
-                const lineStartO = getLineStart(getCursorPos());
-                currentInput.value = currentInput.value.substring(0, lineStartO) + '\n' + currentInput.value.substring(lineStartO);
-                setCursorPos(lineStartO);
-                switchMode('insert');
-                lastChange = { command: 'O', count };
-                countBuffer = '';
-                break;
-
-            case 's':
-                saveState();
-                const posS = getCursorPos();
-                currentInput.value = currentInput.value.substring(0, posS) + currentInput.value.substring(posS + 1);
-                switchMode('insert');
-                lastChange = { command: 's', count };
-                countBuffer = '';
-                break;
-
-            case 'x':
-                saveState();
-                const posX = getCursorPos();
-                const endX = Math.min(posX + count, currentInput.value.length);
-                clipboard = currentInput.value.substring(posX, endX);
-                currentInput.value = currentInput.value.substring(0, posX) + currentInput.value.substring(endX);
-                setCursorPos(posX);
-                lastChange = { command: 'x', count };
-                countBuffer = '';
-                break;
-
-            case 'X':
-                saveState();
-                for (let i = 0; i < count; i++) {
-                    const posXb = getCursorPos();
-                    if (posXb > 0) {
-                        clipboard = currentInput.value[posXb - 1];
-                        currentInput.value = currentInput.value.substring(0, posXb - 1) + currentInput.value.substring(posXb);
-                        setCursorPos(posXb - 1);
-                    }
-                }
-                lastChange = { command: 'X', count };
-                countBuffer = '';
-                break;
-
-            case 'D':
-                // D is equivalent to d$
-                saveState();
-                const posD = getCursorPos();
-                const lineEndD = getLineEnd(posD);
-                clipboard = currentInput.value.substring(posD, lineEndD);
-                currentInput.value = currentInput.value.substring(0, posD) + currentInput.value.substring(lineEndD);
-                lastChange = { command: 'D', count };
-                countBuffer = '';
-                break;
-
-            case 'd':
-            case 'c':
-            case 'y':
-                operatorPending = key;
-                break;
-
-            case 'p':
-                saveState();
-                const posP = getCursorPos() + 1;
-                currentInput.value = currentInput.value.substring(0, posP) + clipboard + currentInput.value.substring(posP);
-                setCursorPos(posP + clipboard.length - 1);
-                lastChange = { command: 'p', count };
-                countBuffer = '';
-                break;
-
-            case 'P':
-                saveState();
-                const posPb = getCursorPos();
-                currentInput.value = currentInput.value.substring(0, posPb) + clipboard + currentInput.value.substring(posPb);
-                setCursorPos(posPb + clipboard.length - 1);
-                lastChange = { command: 'P', count };
-                countBuffer = '';
-                break;
-
-            case 'u':
-                undo();
-                countBuffer = '';
-                break;
-
-            case '.':
-                if (lastChange) {
-                    repeatLastChange();
-                }
-                countBuffer = '';
-                break;
-
-            case 'v':
-                enterVisualMode(false);
-                countBuffer = '';
-                break;
-
-            case 'V':
-                enterVisualMode(true);
-                countBuffer = '';
-                break;
-
-            default:
-                if (/\d/.test(key)) {
-                    countBuffer += key;
-                } else {
-                    commandBuffer = '';
-                    countBuffer = '';
-                    operatorPending = null;
-                }
-        }
-    }
-
-    function repeatLastChange() {
-        if (!lastChange) return;
-        debug('repeatLastChange', lastChange);
-
-        const count = lastChange.count || 1;
-        countBuffer = String(count);
-
-        if (lastChange.operator) {
-            if (lastChange.motion) {
-                operatorPending = lastChange.operator;
-                processCommand(lastChange.motion);
-            } else if (lastChange.textObject) {
-                operatorPending = lastChange.operator;
-                commandBuffer = lastChange.textObject[0];
-                processCommand(lastChange.textObject[1]);
-            }
-        } else if (lastChange.command) {
-            switch (lastChange.command) {
-                case 'o':
-                case 'O':
-                case 's':
-                case 'x':
-                case 'X':
-                case 'p':
-                case 'P':
-                    processCommand(lastChange.command);
-                    break;
-                case 'r':
-                    commandBuffer = 'r';
-                    processCommand(lastChange.char);
-                    break;
-            }
-        }
-    }
-
-    function processVisualCommand(key) {
-        const count = parseInt(countBuffer) || 1;
-        debug('processVisualCommand', { key, count, mode });
-
-        // Handle motions - extend selection
-        const motionKeys = ['h', 'j', 'k', 'l', 'w', 'b', 'e', '0', '^', '$', 'G', '{', '}', '%'];
-        if (motionKeys.includes(key)) {
-            const startPos = getCursorPos();
-            executeMotion(key, count);
-            const newPos = getCursorPos();
-            extendVisualSelection(newPos);
-            countBuffer = '';
-            return;
-        }
-
-        // Handle command sequences (gg, ge, etc.)
-        if (commandBuffer) {
-            const fullCommand = commandBuffer + key;
-
-            if (fullCommand === 'gg') {
-                const startPos = getCursorPos();
-                executeMotion('gg', count);
-                const newPos = getCursorPos();
-                extendVisualSelection(newPos);
-                commandBuffer = '';
-                countBuffer = '';
-                return;
-            }
-
-            if (commandBuffer === 'g' && key === 'e') {
-                const startPos = getCursorPos();
-                executeMotion('ge', count);
-                const newPos = getCursorPos();
-                extendVisualSelection(newPos);
-                commandBuffer = '';
-                countBuffer = '';
-                return;
-            }
-
-            commandBuffer = '';
-        }
-
-        // Handle operators - operate on visual selection then exit
-        if (key === 'd') {
-            const range = getCurrentRange();
-            yankRange(range.start, range.end);
-            deleteRange(range.start, range.end);
-            exitVisualMode();
-            countBuffer = '';
-            return;
-        }
-
-        if (key === 'y') {
-            const range = getCurrentRange();
-            yankRange(range.start, range.end);
-            exitVisualMode();
-            countBuffer = '';
-            return;
-        }
-
-        if (key === 'c') {
-            const range = getCurrentRange();
-            yankRange(range.start, range.end);
-            deleteRange(range.start, range.end);
-            enterInsertMode();
-            countBuffer = '';
-            return;
-        }
-
-        // Handle visual mode toggles
-        if (key === 'v') {
-            if (mode === 'visual') {
-                exitVisualMode();
-            } else {
-                // Switch from visual-line to visual
-                enterVisualMode(false);
-            }
-            countBuffer = '';
-            return;
-        }
-
-        if (key === 'V') {
-            if (mode === 'visual-line') {
-                exitVisualMode();
-            } else {
-                // Switch from visual to visual-line
-                enterVisualMode(true);
-            }
-            countBuffer = '';
-            return;
-        }
-
-        // Handle other keys
-        switch (key) {
-            case 'g':
-                commandBuffer = 'g';
-                break;
-
-            case 'x':
-                // In visual mode, x deletes selection (same as d)
-                const range = getCurrentRange();
-                yankRange(range.start, range.end);
-                deleteRange(range.start, range.end);
-                exitVisualMode();
-                countBuffer = '';
-                break;
-
-            case 'p':
-            case 'P':
-                // Paste over selection
-                saveState();
-                const range2 = getCurrentRange();
-                deleteRange(range2.start, range2.end);
-                currentInput.value = currentInput.value.substring(0, range2.start) + clipboard + currentInput.value.substring(range2.start);
-                setCursorPos(range2.start);
-                exitVisualMode();
-                countBuffer = '';
-                break;
-
-            default:
-                if (/\d/.test(key)) {
-                    countBuffer += key;
-                } else {
-                    commandBuffer = '';
-                    countBuffer = '';
-                }
-        }
-    }
-
-    // Event handlers
-    function handleFocus(e) {
-        const el = e.target;
-        debug('handleFocus', { tag: el.tagName, isNewInput: currentInput !== el, currentMode: mode });
-        if (el.tagName === 'INPUT' || el.tagName === 'TEXTAREA') {
-            // Only initialize mode if this is a new input
-            if (currentInput !== el) {
-                currentInput = el;
-                mode = 'insert';
-                undoStack = [];
-                redoStack = [];
-                updateIndicator();
-
-                // Attach keydown directly to the element to intercept before any page handlers
-                debug('Attaching direct keydown listener to element');
-
-                // Try to intercept via onkeydown property (runs before addEventListener)
-                const originalOnKeyDown = el.onkeydown;
-                el.onkeydown = (event) => {
-                    debug('onkeydown property handler', { key: event.key });
-                    if (event.key === 'Escape') {
-                        debug('ESC in onkeydown - calling handleKeyDown');
-                        handleKeyDown(event);
-                        return false; // Prevent default
-                    }
-                    if (originalOnKeyDown) {
-                        return originalOnKeyDown.call(el, event);
-                    }
-                };
-
-                el.addEventListener('keydown', (event) => {
-                    debug('DIRECT element keydown', {
-                        key: event.key,
-                        target: event.target.tagName,
-                        defaultPrevented: event.defaultPrevented,
-                        propagationStopped: event.cancelBubble
-                    });
-                    if (event.key === 'Escape') {
-                        debug('DIRECT ESC on element - calling handleKeyDown');
-                        handleKeyDown(event);
-                    }
-                }, true);
-            } else {
-                // Same input refocused - just update indicator, don't reset mode
-                debug('handleFocus: same input refocused, keeping mode', { mode });
-                updateIndicator();
-            }
-        }
-    }
-
-    function handleBlur(e) {
-        if (e.target === currentInput) {
-            debug('handleBlur', {
-                mode,
-                allowBlur,
-                escapePressed,
-                relatedTarget: e.relatedTarget,
-                isTrusted: e.isTrusted
-            });
-
-            // Check if ESC caused the blur:
-            // 1. Via our global listener detecting ESC keydown
-            // 2. Via blur pattern: insert mode + no relatedTarget + trusted event + not explicitly allowed
-            const isEscapeBlur = (escapePressed && mode === 'insert') ||
-                                 (mode === 'insert' && !allowBlur && !e.relatedTarget && e.isTrusted);
-
-            if (isEscapeBlur) {
-                debug('handleBlur: ESC caused blur, switching to normal mode');
-                escapePressed = false; // Clear the flag
-                switchMode('normal');
-                // Prevent blur - stay focused in normal mode
-                e.preventDefault();
-                e.stopPropagation();
-                const input = currentInput;
-                setTimeout(() => {
-                    debug('handleBlur: refocusing in normal mode');
-                    input.focus();
-                }, 0);
-                return;
-            }
-
-            // This shouldn't happen now, but keep for safety
-            if (mode === 'insert' && !allowBlur) {
-                debug('handleBlur: unexpected blur in insert mode, preventing');
-                e.preventDefault();
-                e.stopPropagation();
-                const input = currentInput;
-                setTimeout(() => {
-                    debug('handleBlur: refocusing element');
-                    input.focus();
-                }, 0);
-                return;
-            }
-            debug('handleBlur: allowing blur', { mode, allowBlur });
-            allowBlur = false;
-            currentInput = null;
-            updateIndicator();
-        }
-    }
-
-    function handleKeyDown(e) {
-        debug('handleKeyDown ENTRY', {
-            hasCurrentInput: !!currentInput,
-            key: e.key,
-            ctrl: e.ctrlKey,
-            mode,
-            target: e.target.tagName,
-            defaultPrevented: e.defaultPrevented,
-            propagationStopped: e.cancelBubble,
-            eventPhase: e.eventPhase
-        });
-
-        if (!currentInput) {
-            debug('handleKeyDown: no currentInput, returning');
-            return;
-        }
-
-        debug('handleKeyDown', { key: e.key, ctrl: e.ctrlKey, mode, target: e.target.tagName });
-
-        // Handle ESC/Ctrl-] early to prevent default blur behavior
-        if (e.key === 'Escape' || (e.ctrlKey && e.key === ']')) {
-            debug('handleKeyDown: ESC/Ctrl-] pressed', { mode, eventTarget: e.target, currentInput });
-            e.preventDefault();
-            e.stopPropagation();
-            e.stopImmediatePropagation();
-
-            if (mode === 'insert') {
-                // Insert -> Normal mode
-                debug('handleKeyDown: switching from insert to normal');
-                switchMode('normal');
-                debug('handleKeyDown: mode switch complete', { newMode: mode });
-            } else {
-                // Normal mode -> unfocus
-                debug('handleKeyDown: unfocusing from normal mode');
-                commandBuffer = '';
-                countBuffer = '';
-                operatorPending = null;
-                allowBlur = true;
-                currentInput.blur();
-            }
-            debug('handleKeyDown: ESC handling complete, returning');
-            return;
-        }
-
-        // Insert mode - allow normal typing
-        if (mode === 'insert') {
-            debug('handleKeyDown: insert mode, passing through');
-            return;
-        }
-
-        // Normal mode
-        debug('handleKeyDown: normal mode, processing command');
-        e.preventDefault();
-
-        if (e.ctrlKey && e.key === 'r') {
-            debug('handleKeyDown: Ctrl-r redo');
-            redo();
-            return;
-        }
-
-        processCommand(e.key);
-    }
-
-    // Initialize
-    debug('Vim Mode initialized', { version, DEBUG });
-
-    // Track ESC key state at the earliest possible point
-    // Use keydown on window to catch before page handlers
-    window.addEventListener('keydown', (e) => {
-        if (e.key === 'Escape') {
-            debug('GLOBAL ESC keydown detected', {
-                target: e.target.tagName,
-                eventPhase: e.eventPhase,
-                defaultPrevented: e.defaultPrevented,
-                timestamp: e.timeStamp
-            });
-            escapePressed = true;
-            // Clear the flag after a short timeout
-            setTimeout(() => {
-                escapePressed = false;
-                debug('escapePressed flag cleared');
-            }, 100);
-        }
-    }, true);
-
-    // Track keyup as well to detect if ESC was released
-    window.addEventListener('keyup', (e) => {
-        if (e.key === 'Escape') {
-            debug('GLOBAL ESC keyup detected', {
-                target: e.target.tagName,
-                timestamp: e.timeStamp
-            });
-        }
-    }, true);
-
-    // Test if event listeners work at all
-    const testListener = (e) => {
-        if (e.key === 'Escape') {
-            debug('RAW ESC DETECTED on document', {
-                target: e.target.tagName,
-                currentTarget: e.currentTarget,
-                eventPhase: e.eventPhase,
-                defaultPrevented: e.defaultPrevented,
-                propagationStopped: e.cancelBubble,
-                timestamp: e.timeStamp
-            });
-        }
+  }
+  function findTextObject(currentInput, type, inner) {
+    const pos = getCursorPos(currentInput);
+    const text = currentInput.value;
+    debug("findTextObject", { type, inner, pos });
+    const pairs = {
+      "(": { open: "(", close: ")" },
+      ")": { open: "(", close: ")" },
+      "[": { open: "[", close: "]" },
+      "]": { open: "[", close: "]" },
+      "{": { open: "{", close: "}" },
+      "}": { open: "{", close: "}" },
+      '"': { open: '"', close: '"' },
+      "'": { open: "'", close: "'" },
+      "`": { open: "`", close: "`" }
     };
-
-    // Try multiple attachment points to see which one works
-    window.addEventListener('keydown', (e) => {
-        if (e.key === 'Escape') {
-            debug('WINDOW ESC listener', {
-                target: e.target.tagName,
-                eventPhase: e.eventPhase,
-                defaultPrevented: e.defaultPrevented
-            });
+    if (!pairs[type]) {
+      debug("findTextObject: invalid type", { type });
+      return { start: pos, end: pos };
+    }
+    const { open, close } = pairs[type];
+    let start = -1;
+    let end = -1;
+    if (open === close) {
+      let quoteCount = 0;
+      let firstQuote = -1;
+      for (let i = 0;i <= pos; i++) {
+        if (text[i] === open) {
+          if (quoteCount % 2 === 0)
+            firstQuote = i;
+          quoteCount++;
         }
-    }, true);
-
-    document.addEventListener('focusin', handleFocus, true);
-    document.addEventListener('focusout', handleBlur, true);
-    document.addEventListener('keydown', testListener, true);
-    document.addEventListener('keydown', handleKeyDown, true);
-
-    // Add a second keydown listener to verify our handler runs first
-    document.addEventListener('keydown', (e) => {
-        if (e.key === 'Escape') {
-            debug('Secondary ESC listener (bubbling phase)', {
-                defaultPrevented: e.defaultPrevented,
-                propagationStopped: e.cancelBubble,
-                currentInput: !!currentInput,
-                mode
-            });
+      }
+      if (quoteCount % 2 === 1) {
+        start = firstQuote;
+        for (let i = start + 1;i < text.length; i++) {
+          if (text[i] === close) {
+            end = i;
+            break;
+          }
         }
-    }, false);
-
-    debug('Event listeners attached', {
-        testListener: !!testListener,
-        handleKeyDown: !!handleKeyDown,
-        handleFocus: !!handleFocus,
-        handleBlur: !!handleBlur
+      }
+    } else {
+      let depth = 0;
+      for (let i = pos;i >= 0; i--) {
+        if (text[i] === close) {
+          depth++;
+        } else if (text[i] === open) {
+          if (depth === 0) {
+            start = i;
+            break;
+          }
+          depth--;
+        }
+      }
+      if (start !== -1) {
+        depth = 0;
+        for (let i = start;i < text.length; i++) {
+          if (text[i] === open) {
+            depth++;
+          } else if (text[i] === close) {
+            depth--;
+            if (depth === 0) {
+              end = i;
+              break;
+            }
+          }
+        }
+      }
+    }
+    if (start === -1 || end === -1) {
+      debug("findTextObject: no pair found");
+      return { start: pos, end: pos };
+    }
+    const result = inner ? { start: start + 1, end } : { start, end: end + 1 };
+    debug("findTextObject result", result);
+    return result;
+  }
+  function saveState(currentInput, undoStack, redoStack) {
+    if (!currentInput)
+      return;
+    debug("saveState", {
+      value: currentInput.value,
+      selectionStart: currentInput.selectionStart,
+      selectionEnd: currentInput.selectionEnd,
+      undoStackSize: undoStack.length
     });
+    undoStack.push({
+      value: currentInput.value,
+      selectionStart: currentInput.selectionStart,
+      selectionEnd: currentInput.selectionEnd
+    });
+    redoStack.length = 0;
+    if (undoStack.length > 100)
+      undoStack.shift();
+  }
+  function undo(currentInput, undoStack, redoStack) {
+    if (undoStack.length === 0)
+      return;
+    debug("undo", { undoStackSize: undoStack.length });
+    const current = {
+      value: currentInput.value,
+      selectionStart: currentInput.selectionStart,
+      selectionEnd: currentInput.selectionEnd
+    };
+    redoStack.push(current);
+    const prev = undoStack.pop();
+    currentInput.value = prev.value;
+    currentInput.selectionStart = prev.selectionStart;
+    currentInput.selectionEnd = prev.selectionEnd;
+  }
+  function redo(currentInput, undoStack, redoStack) {
+    if (redoStack.length === 0)
+      return;
+    debug("redo", { redoStackSize: redoStack.length });
+    const current = {
+      value: currentInput.value,
+      selectionStart: currentInput.selectionStart,
+      selectionEnd: currentInput.selectionEnd
+    };
+    undoStack.push(current);
+    const next = redoStack.pop();
+    currentInput.value = next.value;
+    currentInput.selectionStart = next.selectionStart;
+    currentInput.selectionEnd = next.selectionEnd;
+  }
 
-    updateIndicator();
+  // src/normal.js
+  function executeMotion(currentInput, motion, count = 1) {
+    let pos = getCursorPos(currentInput);
+    debug("executeMotion", { motion, count, startPos: pos });
+    for (let i = 0;i < count; i++) {
+      switch (motion) {
+        case "h":
+          pos = Math.max(0, pos - 1);
+          break;
+        case "l":
+          pos = Math.min(currentInput.value.length, pos + 1);
+          break;
+        case "j":
+          const currentLineJ = getLine(currentInput, pos);
+          const offsetJ = pos - currentLineJ.start;
+          const nextLineStartJ = currentLineJ.end + 1;
+          if (nextLineStartJ < currentInput.value.length) {
+            const nextLineJ = getLine(currentInput, nextLineStartJ);
+            pos = Math.min(nextLineJ.start + offsetJ, nextLineJ.end);
+          }
+          break;
+        case "k":
+          const currentLineK = getLine(currentInput, pos);
+          const offsetK = pos - currentLineK.start;
+          if (currentLineK.start > 0) {
+            const prevLineK = getLine(currentInput, currentLineK.start - 1);
+            pos = Math.min(prevLineK.start + offsetK, prevLineK.end);
+          }
+          break;
+        case "w":
+          pos = findWordStart(currentInput, pos, true);
+          break;
+        case "b":
+          pos = findWordStart(currentInput, pos, false);
+          break;
+        case "e":
+          pos = findWordEnd(currentInput, pos, true);
+          break;
+        case "ge":
+          pos = findWordEnd(currentInput, pos, false);
+          break;
+        case "0":
+          pos = getLineStart(currentInput, pos);
+          break;
+        case "^":
+          pos = getFirstNonBlank(currentInput, getLineStart(currentInput, pos));
+          break;
+        case "$":
+          pos = getLineEnd(currentInput, pos);
+          break;
+        case "gg":
+          pos = 0;
+          break;
+        case "G":
+          pos = currentInput.value.length;
+          break;
+        case "{":
+          pos = findParagraphBoundary(currentInput, pos, false);
+          break;
+        case "}":
+          pos = findParagraphBoundary(currentInput, pos, true);
+          break;
+        case "%":
+          pos = findMatchingPair(currentInput, pos);
+          break;
+      }
+    }
+    debug("executeMotion result", { motion, count, endPos: pos });
+    setCursorPos(currentInput, pos);
+    return pos;
+  }
+  function getMotionRange(currentInput, motion, count = 1) {
+    const startPos = getCursorPos(currentInput);
+    debug("getMotionRange", { motion, count, startPos });
+    executeMotion(currentInput, motion, count);
+    const endPos = getCursorPos(currentInput);
+    setCursorPos(currentInput, startPos);
+    const range = {
+      start: Math.min(startPos, endPos),
+      end: Math.max(startPos, endPos)
+    };
+    debug("getMotionRange result", range);
+    return range;
+  }
+  function deleteRange(currentInput, undoStack, redoStack, start, end) {
+    debug("deleteRange", { start, end, deleted: currentInput.value.substring(start, end) });
+    saveState(currentInput, undoStack, redoStack);
+    const text = currentInput.value;
+    currentInput.value = text.substring(0, start) + text.substring(end);
+    setCursorPos(currentInput, start);
+  }
+  function yankRange(currentInput, clipboard, start, end) {
+    const yanked = currentInput.value.substring(start, end);
+    debug("yankRange", { start, end, yanked });
+    clipboard.content = yanked;
+  }
+  function changeRange(currentInput, undoStack, redoStack, start, end, enterInsertMode) {
+    debug("changeRange", { start, end });
+    deleteRange(currentInput, undoStack, redoStack, start, end);
+    enterInsertMode();
+  }
+  function repeatLastChange(state) {
+    const { lastChange, currentInput, undoStack, redoStack, clipboard, enterInsertMode } = state;
+    if (!lastChange)
+      return;
+    debug("repeatLastChange", lastChange);
+    const count = lastChange.count || 1;
+    state.countBuffer = String(count);
+    if (lastChange.operator) {
+      if (lastChange.motion) {
+        state.operatorPending = lastChange.operator;
+        processNormalCommand(lastChange.motion, state);
+      } else if (lastChange.textObject) {
+        state.operatorPending = lastChange.operator;
+        state.commandBuffer = lastChange.textObject[0];
+        processNormalCommand(lastChange.textObject[1], state);
+      }
+    } else if (lastChange.command) {
+      switch (lastChange.command) {
+        case "o":
+        case "O":
+        case "s":
+        case "x":
+        case "X":
+        case "p":
+        case "P":
+          processNormalCommand(lastChange.command, state);
+          break;
+        case "r":
+          state.commandBuffer = "r";
+          processNormalCommand(lastChange.char, state);
+          break;
+      }
+    }
+  }
+  function processNormalCommand(key, state) {
+    const {
+      currentInput,
+      countBuffer,
+      commandBuffer,
+      operatorPending,
+      undoStack,
+      redoStack,
+      clipboard,
+      lastChange,
+      lastFindChar,
+      lastFindDirection,
+      lastFindType,
+      enterInsertMode,
+      enterVisualMode
+    } = state;
+    const count = parseInt(countBuffer) || 1;
+    debug("processNormalCommand", {
+      key,
+      count,
+      countBuffer,
+      commandBuffer,
+      operatorPending
+    });
+    if (operatorPending) {
+      if (key === operatorPending) {
+        debug("processCommand: double operator", { operator: operatorPending, count });
+        const line = getLine(currentInput, getCursorPos(currentInput));
+        const start = line.start;
+        const end = line.end < currentInput.value.length ? line.end + 1 : line.end;
+        if (operatorPending === "d") {
+          yankRange(currentInput, clipboard, start, end);
+          deleteRange(currentInput, undoStack, redoStack, start, end);
+          state.lastChange = { operator: "d", motion: "d", count };
+        } else if (operatorPending === "y") {
+          yankRange(currentInput, clipboard, start, end);
+          state.lastChange = { operator: "y", motion: "y", count };
+        } else if (operatorPending === "c") {
+          yankRange(currentInput, clipboard, start, end);
+          changeRange(currentInput, undoStack, redoStack, start, end, enterInsertMode);
+          state.lastChange = { operator: "c", motion: "c", count };
+        }
+        state.operatorPending = null;
+        state.countBuffer = "";
+        return;
+      }
+      if (key === "i" || key === "a") {
+        state.commandBuffer = key;
+        return;
+      }
+      if (commandBuffer === "i" || commandBuffer === "a") {
+        const inner = commandBuffer === "i";
+        debug("processCommand: text object", { operator: operatorPending, textObject: commandBuffer + key, inner });
+        const range2 = findTextObject(currentInput, key, inner);
+        if (operatorPending === "d") {
+          yankRange(currentInput, clipboard, range2.start, range2.end);
+          deleteRange(currentInput, undoStack, redoStack, range2.start, range2.end);
+          state.lastChange = { operator: "d", textObject: commandBuffer + key, count };
+        } else if (operatorPending === "y") {
+          yankRange(currentInput, clipboard, range2.start, range2.end);
+          state.lastChange = { operator: "y", textObject: commandBuffer + key, count };
+        } else if (operatorPending === "c") {
+          yankRange(currentInput, clipboard, range2.start, range2.end);
+          changeRange(currentInput, undoStack, redoStack, range2.start, range2.end, enterInsertMode);
+          state.lastChange = { operator: "c", textObject: commandBuffer + key, count };
+        }
+        state.operatorPending = null;
+        state.commandBuffer = "";
+        state.countBuffer = "";
+        return;
+      }
+      debug("processCommand: motion-based operation", { operator: operatorPending, motion: key, count });
+      const range = getMotionRange(currentInput, key, count);
+      if (operatorPending === "d") {
+        yankRange(currentInput, clipboard, range.start, range.end);
+        deleteRange(currentInput, undoStack, redoStack, range.start, range.end);
+        state.lastChange = { operator: "d", motion: key, count };
+      } else if (operatorPending === "y") {
+        yankRange(currentInput, clipboard, range.start, range.end);
+        state.lastChange = { operator: "y", motion: key, count };
+      } else if (operatorPending === "c") {
+        yankRange(currentInput, clipboard, range.start, range.end);
+        changeRange(currentInput, undoStack, redoStack, range.start, range.end, enterInsertMode);
+        state.lastChange = { operator: "c", motion: key, count };
+      }
+      state.operatorPending = null;
+      state.commandBuffer = "";
+      state.countBuffer = "";
+      return;
+    }
+    if (commandBuffer) {
+      const fullCommand = commandBuffer + key;
+      if (fullCommand === "gg") {
+        executeMotion(currentInput, "gg", count);
+        state.commandBuffer = "";
+        state.countBuffer = "";
+        return;
+      }
+      if (commandBuffer === "g" && key === "e") {
+        executeMotion(currentInput, "ge", count);
+        state.commandBuffer = "";
+        state.countBuffer = "";
+        return;
+      }
+      if (["f", "F", "t", "T"].includes(commandBuffer)) {
+        const forward = ["f", "t"].includes(commandBuffer);
+        const till = ["t", "T"].includes(commandBuffer);
+        state.lastFindChar = key;
+        state.lastFindDirection = forward;
+        state.lastFindType = commandBuffer;
+        for (let i = 0;i < count; i++) {
+          const newPos = findCharInLine(currentInput, getCursorPos(currentInput), key, forward, till);
+          setCursorPos(currentInput, newPos);
+        }
+        state.commandBuffer = "";
+        state.countBuffer = "";
+        return;
+      }
+      if (commandBuffer === "r") {
+        saveState(currentInput, undoStack, redoStack);
+        const pos = getCursorPos(currentInput);
+        const text = currentInput.value;
+        currentInput.value = text.substring(0, pos) + key + text.substring(pos + 1);
+        state.lastChange = { command: "r", char: key, count };
+        state.commandBuffer = "";
+        state.countBuffer = "";
+        return;
+      }
+      state.commandBuffer = "";
+    }
+    switch (key) {
+      case "h":
+      case "j":
+      case "k":
+      case "l":
+      case "w":
+      case "b":
+      case "e":
+      case "0":
+      case "^":
+      case "$":
+      case "G":
+      case "{":
+      case "}":
+      case "%":
+        executeMotion(currentInput, key, count);
+        state.countBuffer = "";
+        break;
+      case "g":
+      case "f":
+      case "F":
+      case "t":
+      case "T":
+      case "r":
+        state.commandBuffer = key;
+        break;
+      case ";":
+        if (state.lastFindChar) {
+          for (let i = 0;i < count; i++) {
+            const till = ["t", "T"].includes(state.lastFindType);
+            const newPos = findCharInLine(currentInput, getCursorPos(currentInput), state.lastFindChar, state.lastFindDirection, till);
+            setCursorPos(currentInput, newPos);
+          }
+        }
+        state.countBuffer = "";
+        break;
+      case ",":
+        if (state.lastFindChar) {
+          for (let i = 0;i < count; i++) {
+            const till = ["t", "T"].includes(state.lastFindType);
+            const newPos = findCharInLine(currentInput, getCursorPos(currentInput), state.lastFindChar, !state.lastFindDirection, till);
+            setCursorPos(currentInput, newPos);
+          }
+        }
+        state.countBuffer = "";
+        break;
+      case "i":
+        if (operatorPending) {
+          state.commandBuffer = "i";
+        } else {
+          enterInsertMode();
+          state.countBuffer = "";
+        }
+        break;
+      case "a":
+        if (operatorPending) {
+          state.commandBuffer = "a";
+        } else {
+          setCursorPos(currentInput, getCursorPos(currentInput) + 1);
+          enterInsertMode();
+          state.countBuffer = "";
+        }
+        break;
+      case "I":
+        setCursorPos(currentInput, getFirstNonBlank(currentInput, getLineStart(currentInput, getCursorPos(currentInput))));
+        enterInsertMode();
+        state.countBuffer = "";
+        break;
+      case "A":
+        setCursorPos(currentInput, getLineEnd(currentInput, getCursorPos(currentInput)));
+        enterInsertMode();
+        state.countBuffer = "";
+        break;
+      case "o":
+        saveState(currentInput, undoStack, redoStack);
+        const posO = getLineEnd(currentInput, getCursorPos(currentInput));
+        currentInput.value = currentInput.value.substring(0, posO) + `
+` + currentInput.value.substring(posO);
+        setCursorPos(currentInput, posO + 1);
+        enterInsertMode();
+        state.lastChange = { command: "o", count };
+        state.countBuffer = "";
+        break;
+      case "O":
+        saveState(currentInput, undoStack, redoStack);
+        const lineStartO = getLineStart(currentInput, getCursorPos(currentInput));
+        currentInput.value = currentInput.value.substring(0, lineStartO) + `
+` + currentInput.value.substring(lineStartO);
+        setCursorPos(currentInput, lineStartO);
+        enterInsertMode();
+        state.lastChange = { command: "O", count };
+        state.countBuffer = "";
+        break;
+      case "s":
+        saveState(currentInput, undoStack, redoStack);
+        const posS = getCursorPos(currentInput);
+        currentInput.value = currentInput.value.substring(0, posS) + currentInput.value.substring(posS + 1);
+        enterInsertMode();
+        state.lastChange = { command: "s", count };
+        state.countBuffer = "";
+        break;
+      case "x":
+        saveState(currentInput, undoStack, redoStack);
+        const posX = getCursorPos(currentInput);
+        const endX = Math.min(posX + count, currentInput.value.length);
+        clipboard.content = currentInput.value.substring(posX, endX);
+        currentInput.value = currentInput.value.substring(0, posX) + currentInput.value.substring(endX);
+        setCursorPos(currentInput, posX);
+        state.lastChange = { command: "x", count };
+        state.countBuffer = "";
+        break;
+      case "X":
+        saveState(currentInput, undoStack, redoStack);
+        for (let i = 0;i < count; i++) {
+          const posXb = getCursorPos(currentInput);
+          if (posXb > 0) {
+            clipboard.content = currentInput.value[posXb - 1];
+            currentInput.value = currentInput.value.substring(0, posXb - 1) + currentInput.value.substring(posXb);
+            setCursorPos(currentInput, posXb - 1);
+          }
+        }
+        state.lastChange = { command: "X", count };
+        state.countBuffer = "";
+        break;
+      case "D":
+        saveState(currentInput, undoStack, redoStack);
+        const posD = getCursorPos(currentInput);
+        const lineEndD = getLineEnd(currentInput, posD);
+        clipboard.content = currentInput.value.substring(posD, lineEndD);
+        currentInput.value = currentInput.value.substring(0, posD) + currentInput.value.substring(lineEndD);
+        state.lastChange = { command: "D", count };
+        state.countBuffer = "";
+        break;
+      case "d":
+      case "c":
+      case "y":
+        state.operatorPending = key;
+        break;
+      case "p":
+        saveState(currentInput, undoStack, redoStack);
+        const posP = getCursorPos(currentInput) + 1;
+        currentInput.value = currentInput.value.substring(0, posP) + clipboard.content + currentInput.value.substring(posP);
+        setCursorPos(currentInput, posP + clipboard.content.length - 1);
+        state.lastChange = { command: "p", count };
+        state.countBuffer = "";
+        break;
+      case "P":
+        saveState(currentInput, undoStack, redoStack);
+        const posPb = getCursorPos(currentInput);
+        currentInput.value = currentInput.value.substring(0, posPb) + clipboard.content + currentInput.value.substring(posPb);
+        setCursorPos(currentInput, posPb + clipboard.content.length - 1);
+        state.lastChange = { command: "P", count };
+        state.countBuffer = "";
+        break;
+      case "u":
+        undo(currentInput, undoStack, redoStack);
+        state.countBuffer = "";
+        break;
+      case ".":
+        if (state.lastChange) {
+          repeatLastChange(state);
+        }
+        state.countBuffer = "";
+        break;
+      case "v":
+        enterVisualMode(false);
+        state.countBuffer = "";
+        break;
+      case "V":
+        enterVisualMode(true);
+        state.countBuffer = "";
+        break;
+      default:
+        if (/\d/.test(key)) {
+          state.countBuffer += key;
+        } else {
+          state.commandBuffer = "";
+          state.countBuffer = "";
+          state.operatorPending = null;
+        }
+    }
+  }
+
+  // src/visual.js
+  function updateVisualSelection(currentInput, mode, visualStart, visualEnd) {
+    if (!currentInput || visualStart === null || visualEnd === null)
+      return;
+    const start = Math.min(visualStart, visualEnd);
+    const end = Math.max(visualStart, visualEnd);
+    debug("updateVisualSelection", { visualStart, visualEnd, start, end });
+    const selectionEnd = mode === "visual-line" ? end : Math.min(end + 1, currentInput.value.length);
+    currentInput.selectionStart = start;
+    currentInput.selectionEnd = selectionEnd;
+  }
+  function extendVisualSelection(currentInput, mode, visualStart, visualEnd, newPos) {
+    if (mode !== "visual" && mode !== "visual-line")
+      return { visualStart, visualEnd };
+    debug("extendVisualSelection", { from: visualEnd, to: newPos });
+    if (mode === "visual-line") {
+      visualEnd = getLineEnd(currentInput, newPos);
+      if (newPos < visualStart) {
+        visualStart = getLineStart(currentInput, newPos);
+      } else {
+        visualStart = getLineStart(currentInput, visualStart);
+      }
+    } else {
+      visualEnd = newPos;
+    }
+    updateVisualSelection(currentInput, mode, visualStart, visualEnd);
+    return { visualStart, visualEnd };
+  }
+  function getCurrentRange(mode, visualStart, visualEnd, currentInput) {
+    if (mode === "visual" || mode === "visual-line") {
+      return {
+        start: Math.min(visualStart, visualEnd),
+        end: Math.max(visualStart, visualEnd)
+      };
+    }
+    const pos = getCursorPos(currentInput);
+    return { start: pos, end: pos };
+  }
+  function processVisualCommand(key, state) {
+    const {
+      currentInput,
+      countBuffer,
+      commandBuffer,
+      mode,
+      visualStart,
+      visualEnd,
+      undoStack,
+      redoStack,
+      clipboard,
+      enterInsertMode,
+      exitVisualMode,
+      enterVisualMode
+    } = state;
+    const count = parseInt(countBuffer) || 1;
+    debug("processVisualCommand", { key, count, mode });
+    const motionKeys = ["h", "j", "k", "l", "w", "b", "e", "0", "^", "$", "G", "{", "}", "%"];
+    if (motionKeys.includes(key)) {
+      const startPos = getCursorPos(currentInput);
+      executeMotion(currentInput, key, count);
+      const newPos = getCursorPos(currentInput);
+      const newSelection = extendVisualSelection(currentInput, mode, visualStart, visualEnd, newPos);
+      state.visualStart = newSelection.visualStart;
+      state.visualEnd = newSelection.visualEnd;
+      state.countBuffer = "";
+      return;
+    }
+    if (commandBuffer) {
+      const fullCommand = commandBuffer + key;
+      if (fullCommand === "gg") {
+        const startPos = getCursorPos(currentInput);
+        executeMotion(currentInput, "gg", count);
+        const newPos = getCursorPos(currentInput);
+        const newSelection = extendVisualSelection(currentInput, mode, visualStart, visualEnd, newPos);
+        state.visualStart = newSelection.visualStart;
+        state.visualEnd = newSelection.visualEnd;
+        state.commandBuffer = "";
+        state.countBuffer = "";
+        return;
+      }
+      if (commandBuffer === "g" && key === "e") {
+        const startPos = getCursorPos(currentInput);
+        executeMotion(currentInput, "ge", count);
+        const newPos = getCursorPos(currentInput);
+        const newSelection = extendVisualSelection(currentInput, mode, visualStart, visualEnd, newPos);
+        state.visualStart = newSelection.visualStart;
+        state.visualEnd = newSelection.visualEnd;
+        state.commandBuffer = "";
+        state.countBuffer = "";
+        return;
+      }
+      state.commandBuffer = "";
+    }
+    if (key === "d") {
+      const range = getCurrentRange(mode, visualStart, visualEnd, currentInput);
+      yankRange(currentInput, clipboard, range.start, range.end);
+      deleteRange(currentInput, undoStack, redoStack, range.start, range.end);
+      exitVisualMode();
+      state.countBuffer = "";
+      return;
+    }
+    if (key === "y") {
+      const range = getCurrentRange(mode, visualStart, visualEnd, currentInput);
+      yankRange(currentInput, clipboard, range.start, range.end);
+      exitVisualMode();
+      state.countBuffer = "";
+      return;
+    }
+    if (key === "c") {
+      const range = getCurrentRange(mode, visualStart, visualEnd, currentInput);
+      yankRange(currentInput, clipboard, range.start, range.end);
+      deleteRange(currentInput, undoStack, redoStack, range.start, range.end);
+      enterInsertMode();
+      state.countBuffer = "";
+      return;
+    }
+    if (key === "v") {
+      if (mode === "visual") {
+        exitVisualMode();
+      } else {
+        enterVisualMode(false);
+      }
+      state.countBuffer = "";
+      return;
+    }
+    if (key === "V") {
+      if (mode === "visual-line") {
+        exitVisualMode();
+      } else {
+        enterVisualMode(true);
+      }
+      state.countBuffer = "";
+      return;
+    }
+    switch (key) {
+      case "g":
+        state.commandBuffer = "g";
+        break;
+      case "x":
+        const range = getCurrentRange(mode, visualStart, visualEnd, currentInput);
+        yankRange(currentInput, clipboard, range.start, range.end);
+        deleteRange(currentInput, undoStack, redoStack, range.start, range.end);
+        exitVisualMode();
+        state.countBuffer = "";
+        break;
+      case "p":
+      case "P":
+        saveState(currentInput, undoStack, redoStack);
+        const range2 = getCurrentRange(mode, visualStart, visualEnd, currentInput);
+        deleteRange(currentInput, undoStack, redoStack, range2.start, range2.end);
+        currentInput.value = currentInput.value.substring(0, range2.start) + clipboard.content + currentInput.value.substring(range2.start);
+        setCursorPos(currentInput, range2.start);
+        exitVisualMode();
+        state.countBuffer = "";
+        break;
+      default:
+        if (/\d/.test(key)) {
+          state.countBuffer += key;
+        } else {
+          state.commandBuffer = "";
+          state.countBuffer = "";
+        }
+    }
+  }
+
+  // src/main.js
+  var mode = "normal";
+  var currentInput = null;
+  var commandBuffer = "";
+  var countBuffer = "";
+  var operatorPending = null;
+  var lastFindChar = null;
+  var lastFindDirection = null;
+  var lastFindType = null;
+  var clipboard = { content: "" };
+  var undoStack = [];
+  var redoStack = [];
+  var lastChange = null;
+  var allowBlur = false;
+  var escapePressed = false;
+  var visualStart = null;
+  var visualEnd = null;
+  function enterInsertMode() {
+    debug("enterInsertMode", { from: mode });
+    mode = "insert";
+    visualStart = null;
+    visualEnd = null;
+    updateIndicator(mode, currentInput);
+  }
+  function enterNormalMode() {
+    debug("enterNormalMode", { from: mode });
+    mode = "normal";
+    visualStart = null;
+    visualEnd = null;
+    updateIndicator(mode, currentInput);
+    const pos = getCursorPos(currentInput);
+    const lineEnd = getLineEnd(currentInput, pos);
+    if (pos === lineEnd && pos > 0 && currentInput.value[pos - 1] !== `
+`) {
+      setCursorPos(currentInput, pos - 1);
+    }
+  }
+  function enterVisualMode(lineMode = false) {
+    debug("enterVisualMode", { lineMode, from: mode });
+    mode = lineMode ? "visual-line" : "visual";
+    const pos = getCursorPos(currentInput);
+    if (lineMode) {
+      visualStart = getLineStart(currentInput, pos);
+      visualEnd = getLineEnd(currentInput, pos);
+    } else {
+      visualStart = pos;
+      visualEnd = pos;
+    }
+    updateVisualSelection(currentInput, mode, visualStart, visualEnd);
+    updateIndicator(mode, currentInput);
+  }
+  function exitVisualMode() {
+    debug("exitVisualMode");
+    visualStart = null;
+    visualEnd = null;
+    enterNormalMode();
+  }
+  function processCommand(key) {
+    debug("processCommand", { key, mode });
+    const state = {
+      currentInput,
+      mode,
+      countBuffer,
+      commandBuffer,
+      operatorPending,
+      lastFindChar,
+      lastFindDirection,
+      lastFindType,
+      clipboard,
+      undoStack,
+      redoStack,
+      lastChange,
+      visualStart,
+      visualEnd,
+      enterInsertMode,
+      enterNormalMode,
+      enterVisualMode,
+      exitVisualMode
+    };
+    if (mode === "visual" || mode === "visual-line") {
+      processVisualCommand(key, state);
+    } else {
+      processNormalCommand(key, state);
+    }
+    countBuffer = state.countBuffer;
+    commandBuffer = state.commandBuffer;
+    operatorPending = state.operatorPending;
+    lastFindChar = state.lastFindChar;
+    lastFindDirection = state.lastFindDirection;
+    lastFindType = state.lastFindType;
+    lastChange = state.lastChange;
+    visualStart = state.visualStart;
+    visualEnd = state.visualEnd;
+  }
+  function handleFocus(e) {
+    const el = e.target;
+    debug("handleFocus", { tag: el.tagName, isNewInput: currentInput !== el, currentMode: mode });
+    if (el.tagName === "INPUT" || el.tagName === "TEXTAREA") {
+      if (currentInput !== el) {
+        currentInput = el;
+        mode = "insert";
+        undoStack = [];
+        redoStack = [];
+        updateIndicator(mode, currentInput);
+        debug("Attaching direct keydown listener to element");
+        const originalOnKeyDown = el.onkeydown;
+        el.onkeydown = (event) => {
+          debug("onkeydown property handler", { key: event.key });
+          if (event.key === "Escape") {
+            debug("ESC in onkeydown - calling handleKeyDown");
+            handleKeyDown(event);
+            return false;
+          }
+          if (originalOnKeyDown) {
+            return originalOnKeyDown.call(el, event);
+          }
+        };
+        el.addEventListener("keydown", (event) => {
+          debug("DIRECT element keydown", {
+            key: event.key,
+            target: event.target.tagName,
+            defaultPrevented: event.defaultPrevented,
+            propagationStopped: event.cancelBubble
+          });
+          if (event.key === "Escape") {
+            debug("DIRECT ESC on element - calling handleKeyDown");
+            handleKeyDown(event);
+          }
+        }, true);
+      } else {
+        debug("handleFocus: same input refocused, keeping mode", { mode });
+        updateIndicator(mode, currentInput);
+      }
+    }
+  }
+  function handleBlur(e) {
+    if (e.target === currentInput) {
+      debug("handleBlur", {
+        mode,
+        allowBlur,
+        escapePressed,
+        relatedTarget: e.relatedTarget,
+        isTrusted: e.isTrusted
+      });
+      const isEscapeBlur = escapePressed && mode === "insert" || mode === "insert" && !allowBlur && !e.relatedTarget && e.isTrusted;
+      if (isEscapeBlur) {
+        debug("handleBlur: ESC caused blur, switching to normal mode");
+        escapePressed = false;
+        enterNormalMode();
+        e.preventDefault();
+        e.stopPropagation();
+        const input = currentInput;
+        setTimeout(() => {
+          debug("handleBlur: refocusing in normal mode");
+          input.focus();
+        }, 0);
+        return;
+      }
+      if (mode === "insert" && !allowBlur) {
+        debug("handleBlur: unexpected blur in insert mode, preventing");
+        e.preventDefault();
+        e.stopPropagation();
+        const input = currentInput;
+        setTimeout(() => {
+          debug("handleBlur: refocusing element");
+          input.focus();
+        }, 0);
+        return;
+      }
+      debug("handleBlur: allowing blur", { mode, allowBlur });
+      allowBlur = false;
+      currentInput = null;
+      updateIndicator(mode, currentInput);
+    }
+  }
+  function handleKeyDown(e) {
+    debug("handleKeyDown ENTRY", {
+      hasCurrentInput: !!currentInput,
+      key: e.key,
+      ctrl: e.ctrlKey,
+      mode,
+      target: e.target.tagName,
+      defaultPrevented: e.defaultPrevented,
+      propagationStopped: e.cancelBubble,
+      eventPhase: e.eventPhase
+    });
+    if (!currentInput) {
+      debug("handleKeyDown: no currentInput, returning");
+      return;
+    }
+    debug("handleKeyDown", { key: e.key, ctrl: e.ctrlKey, mode, target: e.target.tagName });
+    if (e.key === "Escape" || e.ctrlKey && e.key === "]") {
+      debug("handleKeyDown: ESC/Ctrl-] pressed", { mode, eventTarget: e.target, currentInput });
+      e.preventDefault();
+      e.stopPropagation();
+      e.stopImmediatePropagation();
+      if (mode === "insert") {
+        debug("handleKeyDown: switching from insert to normal");
+        enterNormalMode();
+        debug("handleKeyDown: mode switch complete", { newMode: mode });
+      } else {
+        debug("handleKeyDown: unfocusing from normal mode");
+        commandBuffer = "";
+        countBuffer = "";
+        operatorPending = null;
+        allowBlur = true;
+        currentInput.blur();
+      }
+      debug("handleKeyDown: ESC handling complete, returning");
+      return;
+    }
+    if (mode === "insert") {
+      debug("handleKeyDown: insert mode, passing through");
+      return;
+    }
+    debug("handleKeyDown: normal mode, processing command");
+    e.preventDefault();
+    if (e.ctrlKey && e.key === "r") {
+      debug("handleKeyDown: Ctrl-r redo");
+      redo(currentInput, undoStack, redoStack);
+      return;
+    }
+    processCommand(e.key);
+  }
+  debug("Vim Mode initialized");
+  if (typeof window === "undefined" || typeof document === "undefined") {
+    debug("Skipping event listener setup - no window/document");
+  } else {
+    window.addEventListener("keydown", (e) => {
+      if (e.key === "Escape") {
+        debug("GLOBAL ESC keydown detected", {
+          target: e.target.tagName,
+          eventPhase: e.eventPhase,
+          defaultPrevented: e.defaultPrevented,
+          timestamp: e.timeStamp
+        });
+        escapePressed = true;
+        setTimeout(() => {
+          escapePressed = false;
+          debug("escapePressed flag cleared");
+        }, 100);
+      }
+    }, true);
+    window.addEventListener("keyup", (e) => {
+      if (e.key === "Escape") {
+        debug("GLOBAL ESC keyup detected", {
+          target: e.target.tagName,
+          timestamp: e.timeStamp
+        });
+      }
+    }, true);
+    const testListener = (e) => {
+      if (e.key === "Escape") {
+        debug("RAW ESC DETECTED on document", {
+          target: e.target.tagName,
+          currentTarget: e.currentTarget,
+          eventPhase: e.eventPhase,
+          defaultPrevented: e.defaultPrevented,
+          propagationStopped: e.cancelBubble,
+          timestamp: e.timeStamp
+        });
+      }
+    };
+    window.addEventListener("keydown", (e) => {
+      if (e.key === "Escape") {
+        debug("WINDOW ESC listener", {
+          target: e.target.tagName,
+          eventPhase: e.eventPhase,
+          defaultPrevented: e.defaultPrevented
+        });
+      }
+    }, true);
+    document.addEventListener("focusin", handleFocus, true);
+    document.addEventListener("focusout", handleBlur, true);
+    document.addEventListener("keydown", testListener, true);
+    document.addEventListener("keydown", handleKeyDown, true);
+    document.addEventListener("keydown", (e) => {
+      if (e.key === "Escape") {
+        debug("Secondary ESC listener (bubbling phase)", {
+          defaultPrevented: e.defaultPrevented,
+          propagationStopped: e.cancelBubble,
+          currentInput: !!currentInput,
+          mode
+        });
+      }
+    }, false);
+    debug("Event listeners attached", {
+      testListener: !!testListener,
+      handleKeyDown: !!handleKeyDown,
+      handleFocus: !!handleFocus,
+      handleBlur: !!handleBlur
+    });
+  }
+  updateIndicator(mode, currentInput);
+})();
+
 })();

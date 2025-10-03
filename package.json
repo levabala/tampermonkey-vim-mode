@@ -4,6 +4,7 @@
   "description": "Vim-like editing for textareas and inputs",
   "type": "module",
   "scripts": {
+    "build": "bun run build.js",
     "test": "bunx vitest run",
     "test:watch": "bunx vitest",
     "test:ui": "bunx vitest --ui",
