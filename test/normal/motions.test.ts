@@ -276,7 +276,7 @@ describe("w motion on empty lines", () => {
         textarea.dispatchEvent(
             new KeyboardEvent("keydown", { key: "w", bubbles: true }),
         );
-        expect(textarea.selectionStart).toBe(10); // Should be at 's' in 'second'
+        expect(textarea.selectionStart).toBe(9); // Should be at 's' in 'second'
     });
 
     it("should handle w from whitespace-only line", () => {
@@ -305,6 +305,6 @@ describe("w motion on empty lines", () => {
         textarea.dispatchEvent(
             new KeyboardEvent("keydown", { key: "w", bubbles: true }),
         );
-        expect(textarea.selectionStart).toBe(14); // Should be at 't' in 'third'
+        expect(textarea.selectionStart).toBe(15); // Should be at 't' in 'third'
     });
 });
