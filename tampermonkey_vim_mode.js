@@ -801,11 +801,14 @@
     function handleFocus(e) {
         const el = e.target;
         if (el.tagName === 'INPUT' || el.tagName === 'TEXTAREA') {
-            currentInput = el;
-            mode = 'insert';
-            undoStack = [];
-            redoStack = [];
-            updateIndicator();
+            // Only initialize mode if this is a new input
+            if (currentInput !== el) {
+                currentInput = el;
+                mode = 'insert';
+                undoStack = [];
+                redoStack = [];
+                updateIndicator();
+            }
         }
     }
 
