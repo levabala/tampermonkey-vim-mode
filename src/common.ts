@@ -1,6 +1,104 @@
 import { debug } from "./setup.js";
 import type { EditableElement, LineInfo, UndoState } from "./types.js";
 
+// Custom caret management
+let customCaret: HTMLDivElement | null = null;
+
+export function createCustomCaret(input: EditableElement): void {
+    if (customCaret) {
+        customCaret.remove();
+    }
+
+    // Hide native caret
+    input.style.caretColor = "transparent";
+
+    // Create custom caret element
+    customCaret = document.createElement("div");
+    customCaret.style.position = "absolute";
+    customCaret.style.pointerEvents = "none";
+    customCaret.style.zIndex = "9999";
+    customCaret.style.backgroundColor = "white";
+    customCaret.style.mixBlendMode = "difference";
+    document.body.appendChild(customCaret);
+
+    updateCustomCaret(input);
+}
+
+export function updateCustomCaret(input: EditableElement): void {
+    if (!customCaret) return;
+
+    const pos = getCursorPos(input);
+    const text = input.value;
+
+    // Measure character dimensions
+    const computedStyle = window.getComputedStyle(input);
+    const fontSize = parseFloat(computedStyle.fontSize);
+    const fontFamily = computedStyle.fontFamily;
+    const lineHeight =
+        computedStyle.lineHeight === "normal"
+            ? fontSize * 1.2
+            : parseFloat(computedStyle.lineHeight);
+
+    // Create a temporary canvas to measure character width
+    const canvas = document.createElement("canvas");
+    const ctx = canvas.getContext("2d");
+
+    // Guard against environments without canvas support (e.g., test environments)
+    if (!ctx) {
+        debug("updateCustomCaret: canvas context not available");
+        return;
+    }
+
+    ctx.font = `${fontSize}px ${fontFamily}`;
+
+    const char = text[pos] || " ";
+    const charWidth = ctx.measureText(char).width;
+
+    // Get input element position
+    const rect = input.getBoundingClientRect();
+
+    // Calculate cursor position within the input
+    // For single-line inputs (INPUT), use scrollLeft
+    // For multi-line (TEXTAREA), calculate line and column
+    let x = rect.left;
+    let y = rect.top;
+
+    if (input.tagName === "TEXTAREA") {
+        // Multi-line: calculate line number and column
+        const textBeforeCursor = text.substring(0, pos);
+        const lines = textBeforeCursor.split("\n");
+        const lineNumber = lines.length - 1;
+        const column = lines[lines.length - 1].length;
+
+        const paddingTop = parseFloat(computedStyle.paddingTop);
+        const paddingLeft = parseFloat(computedStyle.paddingLeft);
+
+        x += paddingLeft + column * charWidth - input.scrollLeft;
+        y += paddingTop + lineNumber * lineHeight - input.scrollTop;
+    } else {
+        // Single-line: use scrollLeft
+        const paddingLeft = parseFloat(computedStyle.paddingLeft);
+        x += paddingLeft + pos * charWidth - input.scrollLeft;
+        y += parseFloat(computedStyle.paddingTop);
+    }
+
+    // Position and size the caret
+    customCaret.style.left = `${x}px`;
+    customCaret.style.top = `${y}px`;
+    customCaret.style.width = `${charWidth}px`;
+    customCaret.style.height = `${lineHeight}px`;
+}
+
+export function removeCustomCaret(input: EditableElement | null): void {
+    if (customCaret) {
+        customCaret.remove();
+        customCaret = null;
+    }
+    if (input) {
+        input.style.caretColor = "";
+    }
+}
+
 // Utility functions
 export function getCursorPos(currentInput: EditableElement): number {
     return currentInput.selectionStart ?? 0;
@@ -11,6 +109,7 @@ export function setCursorPos(currentInput: EditableElement, pos: number): void {
     debug("setCursorPos", { pos, valueLength: currentInput.value.length });
     currentInput.selectionStart = pos;
     currentInput.selectionEnd = pos;
+    updateCustomCaret(currentInput);
 }
 
 export function getLine(currentInput: EditableElement, pos: number): LineInfo {

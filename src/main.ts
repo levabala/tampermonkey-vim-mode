@@ -5,6 +5,8 @@ import {
     getLineStart,
     getLineEnd,
     redo,
+    createCustomCaret,
+    removeCustomCaret,
 } from "./common.js";
 import { processNormalCommand } from "./normal.js";
 import { processVisualCommand, updateVisualSelection } from "./visual.js";
@@ -36,6 +38,7 @@ function enterInsertMode(): void {
     mode = "insert";
     visualStart = null;
     visualEnd = null;
+    removeCustomCaret(currentInput);
     updateIndicator(mode, currentInput);
 }
 
@@ -57,6 +60,7 @@ function enterNormalMode(): void {
         ) {
             setCursorPos(currentInput, pos - 1);
         }
+        createCustomCaret(currentInput);
     }
 }
 

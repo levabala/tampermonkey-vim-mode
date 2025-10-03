@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Vim Mode for Text Inputs
 // @namespace    http://tampermonkey.net/
-// @version      1.0.36
+// @version      1.0.37
 // @description  Vim-like editing for textareas and inputs
 // @match        *://*/*
 // @updateURL    https://raw.githubusercontent.com/levabala/tampermonkey-vim-mode/refs/heads/main/dist/tampermonkey_vim_mode.js
@@ -111,6 +111,73 @@
         }
 
         // src/common.ts
+        var customCaret = null;
+        function createCustomCaret(input) {
+            if (customCaret) {
+                customCaret.remove();
+            }
+            input.style.caretColor = "transparent";
+            customCaret = document.createElement("div");
+            customCaret.style.position = "absolute";
+            customCaret.style.pointerEvents = "none";
+            customCaret.style.zIndex = "9999";
+            customCaret.style.backgroundColor = "white";
+            customCaret.style.mixBlendMode = "difference";
+            document.body.appendChild(customCaret);
+            updateCustomCaret(input);
+        }
+        function updateCustomCaret(input) {
+            if (!customCaret) return;
+            const pos = getCursorPos(input);
+            const text = input.value;
+            const computedStyle = window.getComputedStyle(input);
+            const fontSize = parseFloat(computedStyle.fontSize);
+            const fontFamily = computedStyle.fontFamily;
+            const lineHeight =
+                computedStyle.lineHeight === "normal"
+                    ? fontSize * 1.2
+                    : parseFloat(computedStyle.lineHeight);
+            const canvas = document.createElement("canvas");
+            const ctx = canvas.getContext("2d");
+            if (!ctx) {
+                debug("updateCustomCaret: canvas context not available");
+                return;
+            }
+            ctx.font = `${fontSize}px ${fontFamily}`;
+            const char = text[pos] || " ";
+            const charWidth = ctx.measureText(char).width;
+            const rect = input.getBoundingClientRect();
+            let x = rect.left;
+            let y = rect.top;
+            if (input.tagName === "TEXTAREA") {
+                const textBeforeCursor = text.substring(0, pos);
+                const lines = textBeforeCursor.split(`
+`);
+                const lineNumber = lines.length - 1;
+                const column = lines[lines.length - 1].length;
+                const paddingTop = parseFloat(computedStyle.paddingTop);
+                const paddingLeft = parseFloat(computedStyle.paddingLeft);
+                x += paddingLeft + column * charWidth - input.scrollLeft;
+                y += paddingTop + lineNumber * lineHeight - input.scrollTop;
+            } else {
+                const paddingLeft = parseFloat(computedStyle.paddingLeft);
+                x += paddingLeft + pos * charWidth - input.scrollLeft;
+                y += parseFloat(computedStyle.paddingTop);
+            }
+            customCaret.style.left = `${x}px`;
+            customCaret.style.top = `${y}px`;
+            customCaret.style.width = `${charWidth}px`;
+            customCaret.style.height = `${lineHeight}px`;
+        }
+        function removeCustomCaret(input) {
+            if (customCaret) {
+                customCaret.remove();
+                customCaret = null;
+            }
+            if (input) {
+                input.style.caretColor = "";
+            }
+        }
         function getCursorPos(currentInput) {
             return currentInput.selectionStart ?? 0;
         }
@@ -122,6 +189,7 @@
             });
             currentInput.selectionStart = pos;
             currentInput.selectionEnd = pos;
+            updateCustomCaret(currentInput);
         }
         function getLine(currentInput, pos) {
             const text = currentInput.value;
@@ -1394,6 +1462,7 @@
             mode = "insert";
             visualStart = null;
             visualEnd = null;
+            removeCustomCaret(currentInput);
             updateIndicator(mode, currentInput);
         }
         function enterNormalMode() {
@@ -1414,6 +1483,7 @@
                 ) {
                     setCursorPos(currentInput, pos - 1);
                 }
+                createCustomCaret(currentInput);
             }
         }
         function enterVisualMode(lineMode = false) {
