@@ -108,8 +108,8 @@ export function calculateCaretPosition(
     const paddingLeft = parseFloat(computedStyle.paddingLeft);
     const paddingTop = parseFloat(computedStyle.paddingTop);
 
-    let x = rect.left + window.scrollX;
-    let y = rect.top + window.scrollY;
+    let x: number;
+    let y: number;
 
     if (input.tagName === "TEXTAREA") {
         // Multi-line: use mirror to measure actual text position
@@ -162,8 +162,16 @@ export function calculateCaretPosition(
         // Calculate position relative to input, accounting for scroll
         // Note: spanRect and mirrorRect already account for padding since we copied
         // padding styles to the mirror, so we don't add paddingLeft/paddingTop here
-        x = rect.left + (spanRect.left - mirrorRect.left) - input.scrollLeft;
-        y = rect.top + (spanRect.top - mirrorRect.top) - input.scrollTop;
+        x =
+            rect.left +
+            window.scrollX +
+            (spanRect.left - mirrorRect.left) -
+            input.scrollLeft;
+        y =
+            rect.top +
+            window.scrollY +
+            (spanRect.top - mirrorRect.top) -
+            input.scrollTop;
 
         // Clean up mirror element
         mirror.remove();
@@ -172,8 +180,13 @@ export function calculateCaretPosition(
         const textBeforeCursor = text.substring(0, pos);
         const textWidth = metrics.measureText(textBeforeCursor);
 
-        x = rect.left + paddingLeft + textWidth - input.scrollLeft;
-        y = rect.top + paddingTop;
+        x =
+            rect.left +
+            window.scrollX +
+            paddingLeft +
+            textWidth -
+            input.scrollLeft;
+        y = rect.top + window.scrollY + paddingTop;
     }
 
     return { x, y, width: charWidth, height: lineHeight };

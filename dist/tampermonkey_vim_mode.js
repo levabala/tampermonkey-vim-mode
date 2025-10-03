@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Vim Mode for Text Inputs
 // @namespace    http://tampermonkey.net/
-// @version      1.0.45
+// @version      1.0.46
 // @description  Vim-like editing for textareas and inputs
 // @match        *://*/*
 // @updateURL    https://raw.githubusercontent.com/levabala/tampermonkey-vim-mode/refs/heads/main/dist/tampermonkey_vim_mode.js
@@ -228,8 +228,8 @@
             const lineHeight = metrics.getLineHeight();
             const paddingLeft = parseFloat(computedStyle.paddingLeft);
             const paddingTop = parseFloat(computedStyle.paddingTop);
-            let x = rect.left + window.scrollX;
-            let y = rect.top + window.scrollY;
+            let x;
+            let y;
             if (input.tagName === "TEXTAREA") {
                 const mirror = document.createElement("div");
                 mirror.style.position = "absolute";
@@ -270,18 +270,25 @@
                 const mirrorRect = mirror.getBoundingClientRect();
                 x =
                     rect.left +
+                    window.scrollX +
                     (spanRect.left - mirrorRect.left) -
                     input.scrollLeft;
                 y =
                     rect.top +
+                    window.scrollY +
                     (spanRect.top - mirrorRect.top) -
                     input.scrollTop;
                 mirror.remove();
             } else {
                 const textBeforeCursor = text.substring(0, pos);
                 const textWidth = metrics.measureText(textBeforeCursor);
-                x = rect.left + paddingLeft + textWidth - input.scrollLeft;
-                y = rect.top + paddingTop;
+                x =
+                    rect.left +
+                    window.scrollX +
+                    paddingLeft +
+                    textWidth -
+                    input.scrollLeft;
+                y = rect.top + window.scrollY + paddingTop;
             }
             return { x, y, width: charWidth, height: lineHeight };
         }

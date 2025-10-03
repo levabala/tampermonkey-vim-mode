@@ -645,11 +645,11 @@ describe("Caret positioning relative to textarea layout", () => {
                 metrics,
             );
 
-            // For input elements, window scroll is NOT added (getBoundingClientRect already accounts for it)
-            // x = rect.left + padding + textWidth - input.scrollLeft
-            expect(position.x).toBe(94); // 20 + 10 + (8*8=64) - 0
-            // y = rect.top + padding
-            expect(position.y).toBe(60); // 50 + 10
+            // For input elements, window scroll IS added to convert viewport coords to page coords
+            // x = rect.left + window.scrollX + padding + textWidth - input.scrollLeft
+            expect(position.x).toBe(194); // 20 + 100 + 10 + (8*8=64) - 0
+            // y = rect.top + window.scrollY + padding
+            expect(position.y).toBe(260); // 50 + 200 + 10
 
             // Restore original values
             Object.defineProperty(window, "scrollX", {
