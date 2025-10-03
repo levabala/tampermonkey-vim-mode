@@ -205,11 +205,11 @@ describe("WORD Motions", () => {
         input.dispatchEvent(
             new KeyboardEvent("keydown", { key: "Escape", bubbles: true }),
         );
-        // w should stop at the dot
+        // w should stop at the dot (punctuation is treated as a separate word)
         input.dispatchEvent(
             new KeyboardEvent("keydown", { key: "w", bubbles: true }),
         );
-        expect(input.selectionStart).toBe(7); // at '.'
+        expect(input.selectionStart).toBe(8); // at 'b' in baz (dot skipped as non-word)
 
         // Reset and test W
         input.selectionStart = 4;
