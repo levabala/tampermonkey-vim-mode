@@ -52,14 +52,17 @@ export class DOMTextMetrics implements TextMetrics {
     }
 
     getFontSize(): number {
-        return parseFloat(this.computedStyle.fontSize);
+        const size = parseFloat(this.computedStyle.fontSize);
+        return isNaN(size) ? 16 : size; // Fallback to 16px for test environments
     }
 
     getLineHeight(): number {
         const lineHeight = this.computedStyle.lineHeight;
-        return lineHeight === "normal"
-            ? this.getFontSize() * 1.2
-            : parseFloat(lineHeight);
+        if (lineHeight === "normal") {
+            return this.getFontSize() * 1.2;
+        }
+        const height = parseFloat(lineHeight);
+        return isNaN(height) ? this.getFontSize() * 1.2 : height; // Fallback
     }
 }
 
@@ -669,6 +672,70 @@ export function setCursorPos(currentInput: EditableElement, pos: number): void {
     currentInput.selectionEnd = pos;
     updateCustomCaret(currentInput);
     updateLineNumbers(currentInput);
+    scrollIfNeeded(currentInput);
+}
+
+// Auto-scroll when caret reaches 90% of viewport height
+export function scrollIfNeeded(input: EditableElement): void {
+    if (input.tagName !== "TEXTAREA") return;
+
+    const textarea = input as HTMLTextAreaElement;
+    const metrics = new DOMTextMetrics(textarea);
+    const lineHeight = metrics.getLineHeight();
+    const rect = textarea.getBoundingClientRect();
+
+    // Get viewport height from style or clientHeight
+    const computedStyle = window.getComputedStyle(textarea);
+    const viewportHeight =
+        rect.height ||
+        textarea.clientHeight ||
+        parseFloat(computedStyle.height) ||
+        200; // fallback for testing
+
+    // Calculate which line the caret is on
+    const pos = getCursorPos(textarea);
+    const text = textarea.value;
+    const textBeforeCursor = text.substring(0, pos);
+    const currentLineNumber = (textBeforeCursor.match(/\n/g) || []).length;
+
+    // Calculate caret's Y position in the textarea's content (not viewport)
+    const caretYInContent = currentLineNumber * lineHeight;
+
+    // Calculate the visible range
+    const visibleTop = textarea.scrollTop;
+    const visibleBottom = visibleTop + viewportHeight;
+
+    // Calculate the 90% threshold within the visible area
+    const threshold = visibleTop + viewportHeight * 0.9;
+
+    debug("scrollIfNeeded", {
+        currentLineNumber,
+        caretYInContent,
+        visibleTop,
+        visibleBottom,
+        threshold,
+        viewportHeight,
+        rectHeight: rect.height,
+        clientHeight: textarea.clientHeight,
+        scrollTop: textarea.scrollTop,
+        lineHeight,
+    });
+
+    // If caret is at or below 90% of visible area, scroll down by one line height
+    if (caretYInContent >= threshold) {
+        textarea.scrollTop += lineHeight;
+        debug("scrollIfNeeded: scrolled down", {
+            newScrollTop: textarea.scrollTop,
+        });
+    }
+
+    // If caret is above the visible area (scrolled past top), scroll up
+    if (caretYInContent < visibleTop) {
+        textarea.scrollTop = caretYInContent;
+        debug("scrollIfNeeded: scrolled up", {
+            newScrollTop: textarea.scrollTop,
+        });
+    }
 }
 
 export function getLine(currentInput: EditableElement, pos: number): LineInfo {
