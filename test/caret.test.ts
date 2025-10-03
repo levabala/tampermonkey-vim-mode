@@ -325,3 +325,314 @@ describe("DOMCaretRenderer", () => {
         expect(carets.length).toBe(0);
     });
 });
+
+describe("Caret positioning relative to textarea layout", () => {
+    beforeEach(() => {
+        document.body.innerHTML = "";
+        vi.clearAllMocks();
+    });
+
+    describe("Normal flow layout", () => {
+        it("should position caret relative to textarea in normal document flow", () => {
+            // Create a container with some offset from the top
+            const container = document.createElement("div");
+            container.style.marginTop = "50px";
+            container.style.marginLeft = "30px";
+            document.body.appendChild(container);
+
+            // Create textarea in normal flow
+            const textarea = document.createElement("textarea");
+            textarea.value = "hello\nworld";
+            textarea.selectionStart = 3;
+            textarea.selectionEnd = 3;
+            textarea.style.fontSize = "16px";
+            textarea.style.fontFamily = "monospace";
+            textarea.style.padding = "10px";
+            textarea.style.border = "2px solid black";
+            container.appendChild(textarea);
+
+            // Mock getBoundingClientRect to simulate real layout
+            vi.spyOn(textarea, "getBoundingClientRect").mockReturnValue({
+                left: 30,
+                top: 50,
+                width: 300,
+                height: 100,
+                right: 330,
+                bottom: 150,
+                x: 30,
+                y: 50,
+                toJSON: () => ({}),
+            });
+
+            const metrics = new MockTextMetrics(16, 19.2, 8);
+            const position = calculateCaretPosition(
+                textarea as EditableElement,
+                metrics,
+            );
+
+            // Position should account for container offset
+            // x = rect.left + padding + text width - scrollLeft
+            expect(position.x).toBeGreaterThanOrEqual(30);
+            // y should account for container's margin-top
+            expect(position.y).toBeGreaterThanOrEqual(50);
+        });
+
+        it("should handle textarea in nested containers", () => {
+            // Create nested containers with various offsets
+            const outerDiv = document.createElement("div");
+            outerDiv.style.marginTop = "20px";
+            outerDiv.style.paddingLeft = "15px";
+            document.body.appendChild(outerDiv);
+
+            const innerDiv = document.createElement("div");
+            innerDiv.style.marginTop = "10px";
+            innerDiv.style.marginLeft = "25px";
+            outerDiv.appendChild(innerDiv);
+
+            const textarea = document.createElement("textarea");
+            textarea.value = "test";
+            textarea.selectionStart = 2;
+            textarea.selectionEnd = 2;
+            textarea.style.fontSize = "14px";
+            textarea.style.padding = "5px";
+            innerDiv.appendChild(textarea);
+
+            // Mock getBoundingClientRect with cumulative offsets
+            vi.spyOn(textarea, "getBoundingClientRect").mockReturnValue({
+                left: 40, // 15 + 25
+                top: 30, // 20 + 10
+                width: 200,
+                height: 80,
+                right: 240,
+                bottom: 110,
+                x: 40,
+                y: 30,
+                toJSON: () => ({}),
+            });
+
+            const metrics = new MockTextMetrics(14, 16.8, 7);
+            const position = calculateCaretPosition(
+                textarea as EditableElement,
+                metrics,
+            );
+
+            // Caret should be positioned relative to the textarea's actual position
+            expect(position.x).toBeGreaterThanOrEqual(40);
+            expect(position.y).toBeGreaterThanOrEqual(30);
+        });
+    });
+
+    describe("Absolute positioning", () => {
+        it("should position caret relative to absolutely positioned textarea", () => {
+            // Create absolutely positioned textarea
+            const textarea = document.createElement("textarea");
+            textarea.value = "absolute positioning test";
+            textarea.selectionStart = 8;
+            textarea.selectionEnd = 8;
+            textarea.style.position = "absolute";
+            textarea.style.top = "100px";
+            textarea.style.left = "200px";
+            textarea.style.fontSize = "16px";
+            textarea.style.fontFamily = "monospace";
+            textarea.style.padding = "8px";
+            document.body.appendChild(textarea);
+
+            // Mock getBoundingClientRect to match absolute position
+            vi.spyOn(textarea, "getBoundingClientRect").mockReturnValue({
+                left: 200,
+                top: 100,
+                width: 300,
+                height: 100,
+                right: 500,
+                bottom: 200,
+                x: 200,
+                y: 100,
+                toJSON: () => ({}),
+            });
+
+            const metrics = new MockTextMetrics(16, 19.2, 8);
+            const position = calculateCaretPosition(
+                textarea as EditableElement,
+                metrics,
+            );
+
+            // Caret should be positioned relative to absolute position
+            expect(position.x).toBeGreaterThanOrEqual(200);
+            expect(position.y).toBeGreaterThanOrEqual(100);
+        });
+
+        it("should handle fixed positioning", () => {
+            // Create fixed position textarea
+            const textarea = document.createElement("textarea");
+            textarea.value = "fixed";
+            textarea.selectionStart = 3;
+            textarea.selectionEnd = 3;
+            textarea.style.position = "fixed";
+            textarea.style.top = "50px";
+            textarea.style.right = "20px";
+            textarea.style.fontSize = "14px";
+            textarea.style.padding = "6px";
+            document.body.appendChild(textarea);
+
+            // Mock getBoundingClientRect for fixed position
+            vi.spyOn(textarea, "getBoundingClientRect").mockReturnValue({
+                left: 680, // assuming viewport width 1000px, right: 20px
+                top: 50,
+                width: 300,
+                height: 80,
+                right: 980,
+                bottom: 130,
+                x: 680,
+                y: 50,
+                toJSON: () => ({}),
+            });
+
+            const metrics = new MockTextMetrics(14, 16.8, 7);
+            const position = calculateCaretPosition(
+                textarea as EditableElement,
+                metrics,
+            );
+
+            // Caret should match fixed position
+            expect(position.x).toBeGreaterThanOrEqual(680);
+            expect(position.y).toBe(56); // 50 + padding(6)
+        });
+
+        it("should handle relative positioning with offsets", () => {
+            const container = document.createElement("div");
+            container.style.position = "relative";
+            container.style.top = "30px";
+            container.style.left = "40px";
+            document.body.appendChild(container);
+
+            const textarea = document.createElement("textarea");
+            textarea.value = "relative";
+            textarea.selectionStart = 4;
+            textarea.selectionEnd = 4;
+            textarea.style.position = "relative";
+            textarea.style.top = "10px";
+            textarea.style.left = "15px";
+            textarea.style.fontSize = "16px";
+            textarea.style.padding = "8px";
+            container.appendChild(textarea);
+
+            // Mock getBoundingClientRect with cumulative relative offsets
+            vi.spyOn(textarea, "getBoundingClientRect").mockReturnValue({
+                left: 55, // 40 + 15
+                top: 40, // 30 + 10
+                width: 250,
+                height: 90,
+                right: 305,
+                bottom: 130,
+                x: 55,
+                y: 40,
+                toJSON: () => ({}),
+            });
+
+            const metrics = new MockTextMetrics(16, 19.2, 8);
+            const position = calculateCaretPosition(
+                textarea as EditableElement,
+                metrics,
+            );
+
+            // Caret should account for relative positioning
+            expect(position.x).toBeGreaterThanOrEqual(55);
+            expect(position.y).toBe(48); // 40 + padding(8)
+        });
+    });
+
+    describe("Scrolled document", () => {
+        it("should account for window scroll when positioning caret in single-line input", () => {
+            const input = document.createElement("input");
+            input.value = "scrolled content";
+            input.selectionStart = 8;
+            input.selectionEnd = 8;
+            input.style.fontSize = "16px";
+            input.style.padding = "10px";
+            document.body.appendChild(input);
+
+            // Mock getBoundingClientRect (viewport-relative)
+            vi.spyOn(input, "getBoundingClientRect").mockReturnValue({
+                left: 20,
+                top: 50, // viewport-relative position
+                width: 300,
+                height: 30,
+                right: 320,
+                bottom: 80,
+                x: 20,
+                y: 50,
+                toJSON: () => ({}),
+            });
+
+            // Mock window scroll
+            const originalScrollX = window.scrollX;
+            const originalScrollY = window.scrollY;
+            Object.defineProperty(window, "scrollX", {
+                value: 100,
+                configurable: true,
+            });
+            Object.defineProperty(window, "scrollY", {
+                value: 200,
+                configurable: true,
+            });
+
+            const metrics = new MockTextMetrics(16, 19.2, 8);
+            const position = calculateCaretPosition(
+                input as EditableElement,
+                metrics,
+            );
+
+            // For input elements, window scroll is NOT added (getBoundingClientRect already accounts for it)
+            // x = rect.left + padding + textWidth - input.scrollLeft
+            expect(position.x).toBe(94); // 20 + 10 + (8*8=64) - 0
+            // y = rect.top + padding
+            expect(position.y).toBe(60); // 50 + 10
+
+            // Restore original values
+            Object.defineProperty(window, "scrollX", {
+                value: originalScrollX,
+                configurable: true,
+            });
+            Object.defineProperty(window, "scrollY", {
+                value: originalScrollY,
+                configurable: true,
+            });
+        });
+
+        it("should position caret correctly in textarea regardless of window scroll", () => {
+            const textarea = document.createElement("textarea");
+            textarea.value = "line1\nline2\nline3";
+            textarea.selectionStart = 8;
+            textarea.selectionEnd = 8;
+            textarea.style.fontSize = "16px";
+            textarea.style.padding = "10px";
+            document.body.appendChild(textarea);
+
+            // Mock getBoundingClientRect (viewport-relative)
+            vi.spyOn(textarea, "getBoundingClientRect").mockReturnValue({
+                left: 20,
+                top: 50,
+                width: 300,
+                height: 100,
+                right: 320,
+                bottom: 150,
+                x: 20,
+                y: 50,
+                toJSON: () => ({}),
+            });
+
+            const metrics = new MockTextMetrics(16, 19.2, 8);
+            const position = calculateCaretPosition(
+                textarea as EditableElement,
+                metrics,
+            );
+
+            // For textarea with mirror technique, position is calculated relative to rect
+            // which already accounts for viewport position
+            expect(position.x).toBeGreaterThanOrEqual(20);
+            expect(position.y).toBeGreaterThanOrEqual(50);
+            expect(position.width).toBe(8);
+            expect(position.height).toBe(19.2);
+        });
+    });
+});
