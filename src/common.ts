@@ -1,4 +1,4 @@
-import { debug } from "./setup.js";
+import { debug, TAMPER_VIM_MODE } from "./setup.js";
 import type { EditableElement, LineInfo, UndoState } from "./types.js";
 
 // Custom caret management
@@ -7,6 +7,12 @@ let customCaret: HTMLDivElement | null = null;
 export function createCustomCaret(input: EditableElement): void {
     if (customCaret) {
         customCaret.remove();
+    }
+
+    // Check if custom caret is disabled via config
+    if (TAMPER_VIM_MODE.disableCustomCaret) {
+        debug("createCustomCaret: disabled via config, keeping native caret");
+        return;
     }
 
     // Test if canvas is available before hiding native caret

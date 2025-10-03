@@ -45,6 +45,47 @@
         var debug = (...args) => {
             if (DEBUG) console.log("@@", ...args);
         };
+        var TAMPER_VIM_MODE =
+            typeof window !== "undefined"
+                ? (() => {
+                      const storageKey = `tamper_vim_mode_${window.location.hostname}`;
+                      const loadConfig = () => {
+                          try {
+                              const stored = localStorage.getItem(storageKey);
+                              if (stored) {
+                                  return JSON.parse(stored);
+                              }
+                          } catch (e) {
+                              debug(
+                                  "Failed to load config from localStorage",
+                                  e,
+                              );
+                          }
+                          return { disableCustomCaret: false };
+                      };
+                      const config = loadConfig();
+                      const handler = {
+                          set(target, prop, value) {
+                              target[prop] = value;
+                              try {
+                                  localStorage.setItem(
+                                      storageKey,
+                                      JSON.stringify(target),
+                                  );
+                              } catch (e) {
+                                  debug(
+                                      "Failed to save config to localStorage",
+                                      e,
+                                  );
+                              }
+                              return true;
+                          },
+                      };
+                      const proxiedConfig = new Proxy(config, handler);
+                      window.TAMPER_VIM_MODE = proxiedConfig;
+                      return proxiedConfig;
+                  })()
+                : { disableCustomCaret: false };
         var indicator;
         var modeText;
         if (typeof document !== "undefined") {
@@ -115,6 +156,12 @@
         function createCustomCaret(input) {
             if (customCaret) {
                 customCaret.remove();
+            }
+            if (TAMPER_VIM_MODE.disableCustomCaret) {
+                debug(
+                    "createCustomCaret: disabled via config, keeping native caret",
+                );
+                return;
             }
             const testCanvas = document.createElement("canvas");
             const testCtx = testCanvas.getContext("2d");

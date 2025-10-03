@@ -48,6 +48,63 @@ export const debug = (...args: unknown[]): void => {
     if (DEBUG) console.log("@@", ...args);
 };
 
+// Global configuration object
+interface TamperVimModeConfig {
+    disableCustomCaret: boolean;
+}
+
+// Extend Window interface to include TAMPER_VIM_MODE
+declare global {
+    interface Window {
+        TAMPER_VIM_MODE: TamperVimModeConfig;
+    }
+}
+
+// Initialize global config object with localStorage persistence
+export const TAMPER_VIM_MODE: TamperVimModeConfig =
+    typeof window !== "undefined"
+        ? (() => {
+              const storageKey = `tamper_vim_mode_${window.location.hostname}`;
+
+              // Load from localStorage
+              const loadConfig = (): TamperVimModeConfig => {
+                  try {
+                      const stored = localStorage.getItem(storageKey);
+                      if (stored) {
+                          return JSON.parse(stored);
+                      }
+                  } catch (e) {
+                      debug("Failed to load config from localStorage", e);
+                  }
+                  return { disableCustomCaret: false };
+              };
+
+              // Create config with getter/setter for persistence
+              const config = loadConfig();
+              const handler: ProxyHandler<TamperVimModeConfig> = {
+                  set(target, prop, value) {
+                      target[prop as keyof TamperVimModeConfig] = value;
+                      try {
+                          localStorage.setItem(
+                              storageKey,
+                              JSON.stringify(target),
+                          );
+                      } catch (e) {
+                          debug("Failed to save config to localStorage", e);
+                      }
+                      return true;
+                  },
+              };
+
+              const proxiedConfig = new Proxy(config, handler);
+
+              // Expose to window
+              window.TAMPER_VIM_MODE = proxiedConfig;
+
+              return proxiedConfig;
+          })()
+        : { disableCustomCaret: false };
+
 // Mode indicator - only create if document exists
 let indicator: HTMLDivElement | undefined;
 let modeText: HTMLDivElement | undefined;
