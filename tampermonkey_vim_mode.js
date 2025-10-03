@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Vim Mode for Text Inputs
 // @namespace    http://tampermonkey.net/
-// @version      1.0.14
+// @version      1.0.15
 // @description  Vim-like editing for textareas and inputs
 // @match        *://*/*
 // @updateURL    https://raw.githubusercontent.com/levabala/tampermonkey-vim-mode/refs/heads/main/tampermonkey_vim_mode.js
@@ -11,6 +11,11 @@
 
 (function() {
     'use strict';
+
+    // Extract version from userscript header
+    const scriptContent = document.currentScript?.textContent || '';
+    const versionMatch = scriptContent.match(/@version\s+([\d.]+)/);
+    const version = versionMatch ? versionMatch[1] : 'unknown';
 
     // State
     let mode = 'normal';
@@ -34,6 +39,7 @@
         bottom: 10px;
         left: 10px;
         padding: 8px 16px;
+        padding-bottom: 16px;
         background: rgba(0, 0, 0, 0.85);
         color: white;
         font-family: monospace;
@@ -43,16 +49,37 @@
         z-index: 999999;
         pointer-events: none;
     `;
+
+    const modeText = document.createElement('div');
+    indicator.appendChild(modeText);
+
+    const versionLabel = document.createElement('div');
+    versionLabel.textContent = `v${version}`;
+    versionLabel.style.cssText = `
+        position: absolute;
+        bottom: 2px;
+        left: 4px;
+        font-size: 8px;
+        font-weight: normal;
+        opacity: 0.6;
+    `;
+    indicator.appendChild(versionLabel);
     document.body.appendChild(indicator);
 
-    function updateIndicator() {
-        if (mode === 'insert') {
-            indicator.textContent = '-- INSERT --';
-            indicator.style.background = 'rgba(0, 100, 0, 0.85)';
-        } else {
-            indicator.textContent = '-- NORMAL --';
-            indicator.style.background = 'rgba(0, 0, 0, 0.85)';
+    // Override textContent getter for backward compatibility with tests
+    Object.defineProperty(indicator, 'textContent', {
+        get: function() {
+            return modeText.textContent;
+        },
+        set: function(value) {
+            modeText.textContent = value;
         }
+    });
+
+    function updateIndicator() {
+        const text = mode === 'insert' ? '-- INSERT --' : '-- NORMAL --';
+        modeText.textContent = text;
+        indicator.style.background = mode === 'insert' ? 'rgba(0, 100, 0, 0.85)' : 'rgba(0, 0, 0, 0.85)';
         indicator.style.display = currentInput ? 'block' : 'none';
     }
 
