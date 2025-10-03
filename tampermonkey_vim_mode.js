@@ -875,7 +875,7 @@
     // Event handlers
     function handleFocus(e) {
         const el = e.target;
-        debug('handleFocus', { tag: el.tagName, isNewInput: currentInput !== el });
+        debug('handleFocus', { tag: el.tagName, isNewInput: currentInput !== el, currentMode: mode });
         if (el.tagName === 'INPUT' || el.tagName === 'TEXTAREA') {
             // Only initialize mode if this is a new input
             if (currentInput !== el) {
@@ -883,6 +883,10 @@
                 mode = 'insert';
                 undoStack = [];
                 redoStack = [];
+                updateIndicator();
+            } else {
+                // Same input refocused - just update indicator, don't reset mode
+                debug('handleFocus: same input refocused, keeping mode', { mode });
                 updateIndicator();
             }
         }
