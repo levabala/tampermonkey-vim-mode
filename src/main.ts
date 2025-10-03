@@ -8,6 +8,7 @@ import {
     createCustomCaret,
     removeCustomCaret,
     updateCustomCaret,
+    clearVisualSelection,
 } from "./common.js";
 import { processNormalCommand } from "./normal.js";
 import { processVisualCommand, updateVisualSelection } from "./visual.js";
@@ -39,6 +40,7 @@ function enterInsertMode(): void {
     mode = "insert";
     visualStart = null;
     visualEnd = null;
+    clearVisualSelection();
     removeCustomCaret(currentInput);
     updateIndicator(mode, currentInput);
 }
@@ -48,6 +50,7 @@ function enterNormalMode(): void {
     mode = "normal";
     visualStart = null;
     visualEnd = null;
+    clearVisualSelection();
     updateIndicator(mode, currentInput);
 
     // Move cursor back one if at end of line (vim behavior)
@@ -91,6 +94,7 @@ function exitVisualMode(): void {
     debug("exitVisualMode");
     visualStart = null;
     visualEnd = null;
+    clearVisualSelection();
     enterNormalMode();
 }
 

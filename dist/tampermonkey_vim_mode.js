@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Vim Mode for Text Inputs
 // @namespace    http://tampermonkey.net/
-// @version      1.0.47
+// @version      1.0.48
 // @description  Vim-like editing for textareas and inputs
 // @match        *://*/*
 // @updateURL    https://raw.githubusercontent.com/levabala/tampermonkey-vim-mode/refs/heads/main/dist/tampermonkey_vim_mode.js
@@ -154,6 +154,7 @@
         // src/common.ts
         var customCaret = null;
         var currentRenderer = null;
+        var visualSelectionRenderer = null;
 
         class DOMTextMetrics {
             canvas;
@@ -216,6 +217,43 @@
             }
             destroy() {
                 this.element.remove();
+            }
+        }
+
+        class DOMVisualSelectionRenderer {
+            container;
+            rects = [];
+            constructor() {
+                this.container = document.createElement("div");
+                this.container.style.position = "absolute";
+                this.container.style.pointerEvents = "none";
+                this.container.style.zIndex = "9998";
+                document.body.appendChild(this.container);
+            }
+            render(rects) {
+                this.clear();
+                for (const rect of rects) {
+                    const div = document.createElement("div");
+                    div.style.position = "absolute";
+                    div.style.left = `${rect.x}px`;
+                    div.style.top = `${rect.y}px`;
+                    div.style.width = `${rect.width}px`;
+                    div.style.height = `${rect.height}px`;
+                    div.style.backgroundColor = "rgba(100, 150, 255, 0.3)";
+                    div.style.pointerEvents = "none";
+                    this.container.appendChild(div);
+                    this.rects.push(div);
+                }
+            }
+            clear() {
+                for (const rect of this.rects) {
+                    rect.remove();
+                }
+                this.rects = [];
+            }
+            destroy() {
+                this.clear();
+                this.container.remove();
             }
         }
         function calculateCaretPosition(input, metrics) {
@@ -349,6 +387,126 @@
             if (input) {
                 input.style.caretColor = "";
             }
+        }
+        function calculateSelectionRects(input, start, end, metrics) {
+            const text = input.value;
+            const rects = [];
+            const selStart = Math.min(start, end);
+            const selEnd = Math.max(start, end);
+            const computedStyle = window.getComputedStyle(input);
+            const rect = input.getBoundingClientRect();
+            const lineHeight = metrics.getLineHeight();
+            const paddingLeft = parseFloat(computedStyle.paddingLeft);
+            const paddingTop = parseFloat(computedStyle.paddingTop);
+            if (input.tagName === "TEXTAREA") {
+                const mirror = document.createElement("div");
+                mirror.style.position = "absolute";
+                mirror.style.visibility = "hidden";
+                mirror.style.whiteSpace = "pre-wrap";
+                mirror.style.wordWrap = "break-word";
+                mirror.style.width = `${rect.width}px`;
+                const stylesToCopy = [
+                    "font-family",
+                    "font-size",
+                    "font-weight",
+                    "font-style",
+                    "letter-spacing",
+                    "text-transform",
+                    "word-spacing",
+                    "text-indent",
+                    "padding-left",
+                    "padding-top",
+                    "padding-right",
+                    "padding-bottom",
+                    "border-left-width",
+                    "border-top-width",
+                    "box-sizing",
+                ];
+                stylesToCopy.forEach((prop) => {
+                    mirror.style.setProperty(
+                        prop,
+                        computedStyle.getPropertyValue(prop),
+                    );
+                });
+                document.body.appendChild(mirror);
+                const selectedText = text.substring(selStart, selEnd);
+                const textBeforeSelection = text.substring(0, selStart);
+                let lineStartInSelection = 0;
+                while (lineStartInSelection < selectedText.length) {
+                    const lineEndInSelection = selectedText.indexOf(
+                        `
+`,
+                        lineStartInSelection,
+                    );
+                    const isLastLine = lineEndInSelection === -1;
+                    const lineText = isLastLine
+                        ? selectedText.substring(lineStartInSelection)
+                        : selectedText.substring(
+                              lineStartInSelection,
+                              lineEndInSelection,
+                          );
+                    mirror.textContent =
+                        textBeforeSelection +
+                        selectedText.substring(0, lineStartInSelection);
+                    const lineStartSpan = document.createElement("span");
+                    lineStartSpan.textContent = lineText || " ";
+                    mirror.appendChild(lineStartSpan);
+                    const lineStartRect = lineStartSpan.getBoundingClientRect();
+                    const mirrorRect = mirror.getBoundingClientRect();
+                    const x =
+                        rect.left +
+                        window.scrollX +
+                        (lineStartRect.left - mirrorRect.left) -
+                        input.scrollLeft;
+                    const y =
+                        rect.top +
+                        window.scrollY +
+                        (lineStartRect.top - mirrorRect.top) -
+                        input.scrollTop;
+                    const width = lineStartRect.width;
+                    const height = lineStartRect.height;
+                    rects.push({ x, y, width, height });
+                    if (isLastLine) break;
+                    lineStartInSelection = lineEndInSelection + 1;
+                }
+                mirror.remove();
+            } else {
+                const textBeforeSelection = text.substring(0, selStart);
+                const selectedText = text.substring(selStart, selEnd);
+                const startX = metrics.measureText(textBeforeSelection);
+                const width = metrics.measureText(selectedText);
+                const x =
+                    rect.left +
+                    window.scrollX +
+                    paddingLeft +
+                    startX -
+                    input.scrollLeft;
+                const y = rect.top + window.scrollY + paddingTop;
+                rects.push({ x, y, width, height: lineHeight });
+            }
+            return rects;
+        }
+        function createVisualSelection() {
+            if (visualSelectionRenderer) {
+                visualSelectionRenderer.destroy();
+            }
+            visualSelectionRenderer = new DOMVisualSelectionRenderer();
+        }
+        function updateVisualSelection(input, start, end, metrics) {
+            if (!visualSelectionRenderer) {
+                createVisualSelection();
+            }
+            const textMetrics = metrics || new DOMTextMetrics(input);
+            const rects = calculateSelectionRects(
+                input,
+                start,
+                end,
+                textMetrics,
+            );
+            visualSelectionRenderer?.render(rects);
+        }
+        function clearVisualSelection() {
+            visualSelectionRenderer?.clear();
         }
         function getCursorPos(currentInput) {
             return currentInput.selectionStart ?? 0;
@@ -1347,7 +1505,7 @@
         }
 
         // src/visual.ts
-        function updateVisualSelection(
+        function updateVisualSelection2(
             currentInput,
             mode,
             visualStart,
@@ -1367,8 +1525,8 @@
                 mode === "visual-line"
                     ? end
                     : Math.min(end + 1, currentInput.value.length);
-            currentInput.selectionStart = start;
-            currentInput.selectionEnd = selectionEnd;
+            updateVisualSelection(currentInput, start, selectionEnd);
+            setCursorPos(currentInput, visualEnd);
         }
         function extendVisualSelection(
             currentInput,
@@ -1390,7 +1548,7 @@
             } else {
                 visualEnd = newPos;
             }
-            updateVisualSelection(currentInput, mode, visualStart, visualEnd);
+            updateVisualSelection2(currentInput, mode, visualStart, visualEnd);
             return { visualStart, visualEnd };
         }
         function getCurrentRange(mode, visualStart, visualEnd, currentInput) {
@@ -1634,6 +1792,7 @@
             mode = "insert";
             visualStart = null;
             visualEnd = null;
+            clearVisualSelection();
             removeCustomCaret(currentInput);
             updateIndicator(mode, currentInput);
         }
@@ -1642,6 +1801,7 @@
             mode = "normal";
             visualStart = null;
             visualEnd = null;
+            clearVisualSelection();
             updateIndicator(mode, currentInput);
             if (currentInput) {
                 const pos = getCursorPos(currentInput);
@@ -1670,7 +1830,7 @@
                     visualStart = pos;
                     visualEnd = pos;
                 }
-                updateVisualSelection(
+                updateVisualSelection2(
                     currentInput,
                     mode,
                     visualStart,
@@ -1683,6 +1843,7 @@
             debug("exitVisualMode");
             visualStart = null;
             visualEnd = null;
+            clearVisualSelection();
             enterNormalMode();
         }
         function processCommand(key) {

@@ -6,11 +6,16 @@ import type {
     LineInfo,
     TextMetrics,
     UndoState,
+    SelectionRect,
+    VisualSelectionRenderer,
 } from "./types.js";
 
 // Custom caret management
 let customCaret: HTMLDivElement | null = null;
 let currentRenderer: CaretRenderer | null = null;
+
+// Visual selection management
+let visualSelectionRenderer: VisualSelectionRenderer | null = null;
 
 // DOM-based text metrics implementation
 export class DOMTextMetrics implements TextMetrics {
@@ -86,6 +91,52 @@ export class DOMCaretRenderer implements CaretRenderer {
 
     destroy(): void {
         this.element.remove();
+    }
+}
+
+// DOM-based visual selection renderer
+export class DOMVisualSelectionRenderer implements VisualSelectionRenderer {
+    private container: HTMLDivElement;
+    private rects: HTMLDivElement[] = [];
+
+    constructor() {
+        this.container = document.createElement("div");
+        this.container.style.position = "absolute";
+        this.container.style.pointerEvents = "none";
+        this.container.style.zIndex = "9998"; // Below caret but above content
+        document.body.appendChild(this.container);
+    }
+
+    render(rects: SelectionRect[]): void {
+        // Clear existing rectangles
+        this.clear();
+
+        // Create new rectangles for each selection rect
+        for (const rect of rects) {
+            const div = document.createElement("div");
+            div.style.position = "absolute";
+            div.style.left = `${rect.x}px`;
+            div.style.top = `${rect.y}px`;
+            div.style.width = `${rect.width}px`;
+            div.style.height = `${rect.height}px`;
+            div.style.backgroundColor = "rgba(100, 150, 255, 0.3)";
+            div.style.pointerEvents = "none";
+            this.container.appendChild(div);
+            this.rects.push(div);
+        }
+    }
+
+    clear(): void {
+        // Remove all rectangles
+        for (const rect of this.rects) {
+            rect.remove();
+        }
+        this.rects = [];
+    }
+
+    destroy(): void {
+        this.clear();
+        this.container.remove();
     }
 }
 
@@ -267,6 +318,173 @@ export function removeCustomCaret(input: EditableElement | null): void {
     }
     if (input) {
         input.style.caretColor = "";
+    }
+}
+
+// Calculate selection rectangles for visual mode (supports multiline)
+export function calculateSelectionRects(
+    input: EditableElement,
+    start: number,
+    end: number,
+    metrics: TextMetrics,
+): SelectionRect[] {
+    const text = input.value;
+    const rects: SelectionRect[] = [];
+
+    // Ensure start < end
+    const selStart = Math.min(start, end);
+    const selEnd = Math.max(start, end);
+
+    const computedStyle = window.getComputedStyle(input);
+    const rect = input.getBoundingClientRect();
+    const lineHeight = metrics.getLineHeight();
+    const paddingLeft = parseFloat(computedStyle.paddingLeft);
+    const paddingTop = parseFloat(computedStyle.paddingTop);
+
+    if (input.tagName === "TEXTAREA") {
+        // Multi-line: calculate rectangles for each line in selection
+        // Use mirror technique similar to caret positioning
+        const mirror = document.createElement("div");
+        mirror.style.position = "absolute";
+        mirror.style.visibility = "hidden";
+        mirror.style.whiteSpace = "pre-wrap";
+        mirror.style.wordWrap = "break-word";
+        mirror.style.width = `${rect.width}px`;
+
+        const stylesToCopy = [
+            "font-family",
+            "font-size",
+            "font-weight",
+            "font-style",
+            "letter-spacing",
+            "text-transform",
+            "word-spacing",
+            "text-indent",
+            "padding-left",
+            "padding-top",
+            "padding-right",
+            "padding-bottom",
+            "border-left-width",
+            "border-top-width",
+            "box-sizing",
+        ];
+
+        stylesToCopy.forEach((prop) => {
+            mirror.style.setProperty(
+                prop,
+                computedStyle.getPropertyValue(prop),
+            );
+        });
+
+        document.body.appendChild(mirror);
+
+        // Split selection into lines
+        const selectedText = text.substring(selStart, selEnd);
+        const textBeforeSelection = text.substring(0, selStart);
+
+        // Find line breaks in selection
+        let lineStartInSelection = 0;
+
+        while (lineStartInSelection < selectedText.length) {
+            const lineEndInSelection = selectedText.indexOf(
+                "\n",
+                lineStartInSelection,
+            );
+            const isLastLine = lineEndInSelection === -1;
+            const lineText = isLastLine
+                ? selectedText.substring(lineStartInSelection)
+                : selectedText.substring(
+                      lineStartInSelection,
+                      lineEndInSelection,
+                  );
+
+            // Measure this line's selection
+            mirror.textContent =
+                textBeforeSelection +
+                selectedText.substring(0, lineStartInSelection);
+
+            const lineStartSpan = document.createElement("span");
+            lineStartSpan.textContent = lineText || " ";
+            mirror.appendChild(lineStartSpan);
+
+            const lineStartRect = lineStartSpan.getBoundingClientRect();
+            const mirrorRect = mirror.getBoundingClientRect();
+
+            const x =
+                rect.left +
+                window.scrollX +
+                (lineStartRect.left - mirrorRect.left) -
+                input.scrollLeft;
+            const y =
+                rect.top +
+                window.scrollY +
+                (lineStartRect.top - mirrorRect.top) -
+                input.scrollTop;
+            const width = lineStartRect.width;
+            const height = lineStartRect.height;
+
+            rects.push({ x, y, width, height });
+
+            if (isLastLine) break;
+
+            // Move to next line
+            lineStartInSelection = lineEndInSelection + 1;
+        }
+
+        mirror.remove();
+    } else {
+        // Single-line: simple rectangle calculation
+        const textBeforeSelection = text.substring(0, selStart);
+        const selectedText = text.substring(selStart, selEnd);
+
+        const startX = metrics.measureText(textBeforeSelection);
+        const width = metrics.measureText(selectedText);
+
+        const x =
+            rect.left +
+            window.scrollX +
+            paddingLeft +
+            startX -
+            input.scrollLeft;
+        const y = rect.top + window.scrollY + paddingTop;
+
+        rects.push({ x, y, width, height: lineHeight });
+    }
+
+    return rects;
+}
+
+// Create and manage visual selection renderer
+export function createVisualSelection(): void {
+    if (visualSelectionRenderer) {
+        visualSelectionRenderer.destroy();
+    }
+    visualSelectionRenderer = new DOMVisualSelectionRenderer();
+}
+
+export function updateVisualSelection(
+    input: EditableElement,
+    start: number,
+    end: number,
+    metrics?: TextMetrics,
+): void {
+    if (!visualSelectionRenderer) {
+        createVisualSelection();
+    }
+
+    const textMetrics = metrics || new DOMTextMetrics(input);
+    const rects = calculateSelectionRects(input, start, end, textMetrics);
+    visualSelectionRenderer?.render(rects);
+}
+
+export function clearVisualSelection(): void {
+    visualSelectionRenderer?.clear();
+}
+
+export function removeVisualSelection(): void {
+    if (visualSelectionRenderer) {
+        visualSelectionRenderer.destroy();
+        visualSelectionRenderer = null;
     }
 }
 

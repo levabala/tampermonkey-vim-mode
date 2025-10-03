@@ -5,12 +5,13 @@ import {
     getLineStart,
     getLineEnd,
     saveState,
+    updateVisualSelection as updateVisualSelectionRender,
 } from "./common.js";
 import { executeMotion } from "./normal.js";
 import { yankRange, deleteRange } from "./normal.js";
 import type { EditableElement, Mode, State, TextRange } from "./types.js";
 
-// Visual selection management
+// Visual selection management (now using virtual selection, not native)
 export function updateVisualSelection(
     currentInput: EditableElement | null,
     mode: Mode,
@@ -31,8 +32,11 @@ export function updateVisualSelection(
             ? end
             : Math.min(end + 1, currentInput.value.length);
 
-    currentInput.selectionStart = start;
-    currentInput.selectionEnd = selectionEnd;
+    // Use virtual selection rendering instead of native selection
+    updateVisualSelectionRender(currentInput, start, selectionEnd);
+
+    // Keep cursor at the end position for navigation
+    setCursorPos(currentInput, visualEnd);
 }
 
 export function extendVisualSelection(

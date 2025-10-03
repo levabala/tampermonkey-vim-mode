@@ -46,6 +46,24 @@ export interface CaretRenderer {
     isActive(): boolean;
 }
 
+export interface SelectionRect {
+    x: number;
+    y: number;
+    width: number;
+    height: number;
+}
+
+export interface VisualSelection {
+    start: number;
+    end: number;
+}
+
+export interface VisualSelectionRenderer {
+    render(rects: SelectionRect[]): void;
+    clear(): void;
+    destroy(): void;
+}
+
 export interface TextMetrics {
     measureText(text: string): number;
     getCharWidth(char: string): number;
