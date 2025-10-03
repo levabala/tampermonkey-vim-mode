@@ -68,35 +68,90 @@ export function updateCustomCaret(input: EditableElement): void {
     const char = text[pos] || " ";
     const charWidth = ctx.measureText(char).width;
 
-    // Get input element position
+    // Get input element position (viewport-relative coordinates)
     const rect = input.getBoundingClientRect();
 
-    // Calculate cursor position within the input
-    // For single-line inputs (INPUT), use scrollLeft
-    // For multi-line (TEXTAREA), calculate line and column
-    let x = rect.left;
-    let y = rect.top;
+    // Calculate cursor position within the input using a mirror element
+    const mirror = document.createElement("div");
+    mirror.style.position = "absolute";
+    mirror.style.visibility = "hidden";
+    mirror.style.whiteSpace = input.tagName === "TEXTAREA" ? "pre-wrap" : "pre";
+    mirror.style.wordWrap = "break-word";
+    mirror.style.width = `${rect.width}px`;
+
+    // Copy all relevant styles from input to mirror
+    const stylesToCopy = [
+        "font-family",
+        "font-size",
+        "font-weight",
+        "font-style",
+        "letter-spacing",
+        "text-transform",
+        "word-spacing",
+        "text-indent",
+        "padding-left",
+        "padding-top",
+        "padding-right",
+        "padding-bottom",
+        "border-left-width",
+        "border-top-width",
+        "box-sizing",
+    ];
+
+    stylesToCopy.forEach((prop) => {
+        mirror.style.setProperty(prop, computedStyle.getPropertyValue(prop));
+    });
+
+    document.body.appendChild(mirror);
+
+    // Calculate position
+    let x = rect.left + window.scrollX;
+    let y = rect.top + window.scrollY;
 
     if (input.tagName === "TEXTAREA") {
-        // Multi-line: calculate line number and column
+        // Multi-line: use mirror to measure actual text position
         const textBeforeCursor = text.substring(0, pos);
-        const lines = textBeforeCursor.split("\n");
-        const lineNumber = lines.length - 1;
-        const column = lines[lines.length - 1].length;
+        mirror.textContent = textBeforeCursor;
 
+        // Create a span at the cursor position to measure
+        const cursorSpan = document.createElement("span");
+        cursorSpan.textContent = text[pos] || " ";
+        mirror.appendChild(cursorSpan);
+
+        const spanRect = cursorSpan.getBoundingClientRect();
+        const mirrorRect = mirror.getBoundingClientRect();
+
+        // Get padding values
+        const paddingLeft = parseFloat(computedStyle.paddingLeft);
         const paddingTop = parseFloat(computedStyle.paddingTop);
-        const paddingLeft = parseFloat(computedStyle.paddingLeft);
 
-        x += paddingLeft + column * charWidth - input.scrollLeft;
-        y += paddingTop + lineNumber * lineHeight - input.scrollTop;
+        // Calculate position relative to input, accounting for scroll
+        x =
+            rect.left +
+            (spanRect.left - mirrorRect.left) +
+            paddingLeft -
+            input.scrollLeft;
+        y =
+            rect.top +
+            (spanRect.top - mirrorRect.top) +
+            paddingTop -
+            input.scrollTop;
     } else {
-        // Single-line: use scrollLeft
+        // Single-line: use canvas measurement for accuracy
+        const textBeforeCursor = text.substring(0, pos);
+        const textWidth = ctx.measureText(textBeforeCursor).width;
+
         const paddingLeft = parseFloat(computedStyle.paddingLeft);
-        x += paddingLeft + pos * charWidth - input.scrollLeft;
-        y += parseFloat(computedStyle.paddingTop);
+        const paddingTop = parseFloat(computedStyle.paddingTop);
+
+        x = rect.left + paddingLeft + textWidth - input.scrollLeft;
+        y = rect.top + paddingTop;
     }
 
-    // Position and size the caret
+    // Clean up mirror element
+    mirror.remove();
+
+    // Position and size the caret (using viewport coordinates)
     customCaret.style.left = `${x}px`;
     customCaret.style.top = `${y}px`;
     customCaret.style.width = `${charWidth}px`;

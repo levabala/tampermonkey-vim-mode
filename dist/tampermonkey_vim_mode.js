@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Vim Mode for Text Inputs
 // @namespace    http://tampermonkey.net/
-// @version      1.0.40
+// @version      1.0.41
 // @description  Vim-like editing for textareas and inputs
 // @match        *://*/*
 // @updateURL    https://raw.githubusercontent.com/levabala/tampermonkey-vim-mode/refs/heads/main/dist/tampermonkey_vim_mode.js
@@ -202,23 +202,68 @@
             const char = text[pos] || " ";
             const charWidth = ctx.measureText(char).width;
             const rect = input.getBoundingClientRect();
-            let x = rect.left;
-            let y = rect.top;
+            const mirror = document.createElement("div");
+            mirror.style.position = "absolute";
+            mirror.style.visibility = "hidden";
+            mirror.style.whiteSpace =
+                input.tagName === "TEXTAREA" ? "pre-wrap" : "pre";
+            mirror.style.wordWrap = "break-word";
+            mirror.style.width = `${rect.width}px`;
+            const stylesToCopy = [
+                "font-family",
+                "font-size",
+                "font-weight",
+                "font-style",
+                "letter-spacing",
+                "text-transform",
+                "word-spacing",
+                "text-indent",
+                "padding-left",
+                "padding-top",
+                "padding-right",
+                "padding-bottom",
+                "border-left-width",
+                "border-top-width",
+                "box-sizing",
+            ];
+            stylesToCopy.forEach((prop) => {
+                mirror.style.setProperty(
+                    prop,
+                    computedStyle.getPropertyValue(prop),
+                );
+            });
+            document.body.appendChild(mirror);
+            let x = rect.left + window.scrollX;
+            let y = rect.top + window.scrollY;
             if (input.tagName === "TEXTAREA") {
                 const textBeforeCursor = text.substring(0, pos);
-                const lines = textBeforeCursor.split(`
-`);
-                const lineNumber = lines.length - 1;
-                const column = lines[lines.length - 1].length;
+                mirror.textContent = textBeforeCursor;
+                const cursorSpan = document.createElement("span");
+                cursorSpan.textContent = text[pos] || " ";
+                mirror.appendChild(cursorSpan);
+                const spanRect = cursorSpan.getBoundingClientRect();
+                const mirrorRect = mirror.getBoundingClientRect();
+                const paddingLeft = parseFloat(computedStyle.paddingLeft);
                 const paddingTop = parseFloat(computedStyle.paddingTop);
-                const paddingLeft = parseFloat(computedStyle.paddingLeft);
-                x += paddingLeft + column * charWidth - input.scrollLeft;
-                y += paddingTop + lineNumber * lineHeight - input.scrollTop;
+                x =
+                    rect.left +
+                    (spanRect.left - mirrorRect.left) +
+                    paddingLeft -
+                    input.scrollLeft;
+                y =
+                    rect.top +
+                    (spanRect.top - mirrorRect.top) +
+                    paddingTop -
+                    input.scrollTop;
             } else {
+                const textBeforeCursor = text.substring(0, pos);
+                const textWidth = ctx.measureText(textBeforeCursor).width;
                 const paddingLeft = parseFloat(computedStyle.paddingLeft);
-                x += paddingLeft + pos * charWidth - input.scrollLeft;
-                y += parseFloat(computedStyle.paddingTop);
+                const paddingTop = parseFloat(computedStyle.paddingTop);
+                x = rect.left + paddingLeft + textWidth - input.scrollLeft;
+                y = rect.top + paddingTop;
             }
+            mirror.remove();
             customCaret.style.left = `${x}px`;
             customCaret.style.top = `${y}px`;
             customCaret.style.width = `${charWidth}px`;
