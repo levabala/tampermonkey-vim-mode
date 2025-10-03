@@ -226,6 +226,10 @@
             constructor() {
                 this.container = document.createElement("div");
                 this.container.style.position = "absolute";
+                this.container.style.top = "0";
+                this.container.style.left = "0";
+                this.container.style.width = "0";
+                this.container.style.height = "0";
                 this.container.style.pointerEvents = "none";
                 this.container.style.zIndex = "9998";
                 document.body.appendChild(this.container);
