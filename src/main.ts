@@ -216,6 +216,16 @@ function handleBlur(e: FocusEvent): void {
             isTrusted: e.isTrusted,
         });
 
+        // Check if blur is caused by clicking on another element
+        // If relatedTarget exists, user is moving focus to another element - allow it
+        if (e.relatedTarget) {
+            debug("handleBlur: focus moving to another element, allowing blur");
+            allowBlur = false;
+            currentInput = null;
+            updateIndicator(mode, currentInput);
+            return;
+        }
+
         // Check if ESC caused the blur:
         // 1. Via our global listener detecting ESC keydown
         // 2. Via blur pattern: insert mode + no relatedTarget + trusted event + not explicitly allowed

@@ -67,8 +67,9 @@ describe("Click handling while focused in input", () => {
         input.focus();
         expect(document.activeElement).toBe(input);
 
-        // Click on button - this causes blur
+        // Click on button - this causes blur and focus on button
         button.dispatchEvent(new MouseEvent("mousedown", { bubbles: true }));
+        button.focus(); // Manually focus button to simulate real behavior
 
         // Wait for any async refocusing
         await new Promise<void>((resolve) => {
@@ -89,6 +90,7 @@ describe("Click handling while focused in input", () => {
 
         // Click on button
         button.dispatchEvent(new MouseEvent("mousedown", { bubbles: true }));
+        button.focus(); // Manually focus button to simulate real behavior
 
         // Wait for any async refocusing
         await new Promise<void>((resolve) => {
