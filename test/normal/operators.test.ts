@@ -6,8 +6,15 @@ import {
 	getModeText,
 } from "../setup/test-helpers.js";
 
+declare global {
+	interface Window {
+		getModeText: () => string;
+	}
+}
+
 describe("Operators - Delete", () => {
-	let input, textarea;
+	let input: HTMLInputElement;
+	let textarea: HTMLTextAreaElement;
 
 	beforeEach(() => {
 		setupVimMode();
@@ -70,7 +77,8 @@ describe("Operators - Delete", () => {
 });
 
 describe("Yank and Paste", () => {
-	let input, textarea;
+	let input: HTMLInputElement;
+	let textarea: HTMLTextAreaElement;
 
 	beforeEach(() => {
 		setupVimMode();
@@ -98,7 +106,8 @@ describe("Yank and Paste", () => {
 });
 
 describe("Change Operator", () => {
-	let input, textarea;
+	let input: HTMLInputElement;
+	let textarea: HTMLTextAreaElement;
 
 	beforeEach(() => {
 		setupVimMode();
@@ -135,7 +144,8 @@ describe("Change Operator", () => {
 });
 
 describe("Counts", () => {
-	let input, textarea;
+	let input: HTMLInputElement;
+	let textarea: HTMLTextAreaElement;
 
 	beforeEach(() => {
 		setupVimMode();
@@ -179,7 +189,8 @@ describe("Counts", () => {
 });
 
 describe("Dot Repeat", () => {
-	let input, textarea;
+	let input: HTMLInputElement;
+	let textarea: HTMLTextAreaElement;
 
 	beforeEach(() => {
 		setupVimMode();

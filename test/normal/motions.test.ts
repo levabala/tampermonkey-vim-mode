@@ -2,7 +2,8 @@ import { describe, it, expect, beforeEach, afterEach } from "vitest";
 import { setupVimMode, createTestElements, cleanupTestElements } from "../setup/test-helpers.js";
 
 describe("Basic Motions", () => {
-	let input, textarea;
+	let input: HTMLInputElement;
+	let textarea: HTMLTextAreaElement;
 
 	beforeEach(() => {
 		setupVimMode();
@@ -74,7 +75,8 @@ describe("Basic Motions", () => {
 });
 
 describe("Multiline Operations", () => {
-	let input, textarea;
+	let input: HTMLInputElement;
+	let textarea: HTMLTextAreaElement;
 
 	beforeEach(() => {
 		setupVimMode();

@@ -7,7 +7,7 @@ const __dirname = dirname(__filename);
 
 let scriptLoaded = false;
 
-export function setupVimMode() {
+export function setupVimMode(): void {
 	if (!scriptLoaded) {
 		const scriptPath = join(__dirname, "..", "..", "dist", "tampermonkey_vim_mode.js");
 		const scriptContent = readFileSync(scriptPath, "utf-8");
@@ -21,7 +21,10 @@ export function setupVimMode() {
 	}
 }
 
-export function createTestElements() {
+export function createTestElements(): {
+	input: HTMLInputElement;
+	textarea: HTMLTextAreaElement;
+} {
 	// Remove only test elements, not the indicator
 	const oldInput = document.getElementById("test-input");
 	const oldTextarea = document.getElementById("test-textarea");
@@ -40,7 +43,10 @@ export function createTestElements() {
 	return { input, textarea };
 }
 
-export function cleanupTestElements(input, textarea) {
+export function cleanupTestElements(
+	input: HTMLInputElement | null,
+	textarea: HTMLTextAreaElement | null
+): void {
 	if (input && input.parentNode) {
 		input.blur();
 		input.remove();
@@ -51,11 +57,11 @@ export function cleanupTestElements(input, textarea) {
 	}
 }
 
-export function getIndicator() {
+export function getIndicator(): Element | null {
 	return document.querySelector('div[style*="position: fixed"]');
 }
 
-export function getModeText() {
+export function getModeText(): string {
 	const indicator = getIndicator();
 	return indicator?.children[0]?.textContent || "";
 }

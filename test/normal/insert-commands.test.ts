@@ -6,8 +6,15 @@ import {
 	getModeText,
 } from "../setup/test-helpers.js";
 
+declare global {
+	interface Window {
+		getModeText: () => string;
+	}
+}
+
 describe("Insert Commands", () => {
-	let input, textarea;
+	let input: HTMLInputElement;
+	let textarea: HTMLTextAreaElement;
 
 	beforeEach(() => {
 		setupVimMode();

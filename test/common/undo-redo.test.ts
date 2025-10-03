@@ -2,7 +2,8 @@ import { describe, it, expect, beforeEach, afterEach } from "vitest";
 import { setupVimMode, createTestElements, cleanupTestElements } from "../setup/test-helpers.js";
 
 describe("Undo/Redo", () => {
-	let input, textarea;
+	let input: HTMLInputElement;
+	let textarea: HTMLTextAreaElement;
 
 	beforeEach(() => {
 		setupVimMode();

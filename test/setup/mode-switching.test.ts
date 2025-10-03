@@ -6,8 +6,15 @@ import {
 	getModeText,
 } from "./test-helpers.js";
 
+declare global {
+	interface Window {
+		getModeText: () => string;
+	}
+}
+
 describe("Mode Switching", () => {
-	let input, textarea;
+	let input: HTMLInputElement;
+	let textarea: HTMLTextAreaElement;
 
 	beforeEach(() => {
 		setupVimMode();
