@@ -116,6 +116,14 @@
             if (customCaret) {
                 customCaret.remove();
             }
+            const testCanvas = document.createElement("canvas");
+            const testCtx = testCanvas.getContext("2d");
+            if (!testCtx) {
+                debug(
+                    "createCustomCaret: canvas not available, keeping native caret",
+                );
+                return;
+            }
             input.style.caretColor = "transparent";
             customCaret = document.createElement("div");
             customCaret.style.position = "absolute";

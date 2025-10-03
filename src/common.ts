@@ -9,6 +9,14 @@ export function createCustomCaret(input: EditableElement): void {
         customCaret.remove();
     }
 
+    // Test if canvas is available before hiding native caret
+    const testCanvas = document.createElement("canvas");
+    const testCtx = testCanvas.getContext("2d");
+    if (!testCtx) {
+        debug("createCustomCaret: canvas not available, keeping native caret");
+        return;
+    }
+
     // Hide native caret
     input.style.caretColor = "transparent";
 
