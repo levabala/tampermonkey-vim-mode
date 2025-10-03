@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Vim Mode for Text Inputs
 // @namespace    http://tampermonkey.net/
-// @version      1.0.21
+// @version      1.0.22
 // @description  Vim-like editing for textareas and inputs
 // @match        *://*/*
 // @updateURL    https://raw.githubusercontent.com/levabala/tampermonkey-vim-mode/refs/heads/main/tampermonkey_vim_mode.js
@@ -917,13 +917,27 @@
     }
 
     function handleKeyDown(e) {
-        if (!currentInput) return;
+        debug('handleKeyDown ENTRY', {
+            hasCurrentInput: !!currentInput,
+            key: e.key,
+            ctrl: e.ctrlKey,
+            mode,
+            target: e.target.tagName,
+            defaultPrevented: e.defaultPrevented,
+            propagationStopped: e.cancelBubble,
+            eventPhase: e.eventPhase
+        });
+
+        if (!currentInput) {
+            debug('handleKeyDown: no currentInput, returning');
+            return;
+        }
 
         debug('handleKeyDown', { key: e.key, ctrl: e.ctrlKey, mode, target: e.target.tagName });
 
         // Handle ESC/Ctrl-] early to prevent default blur behavior
         if (e.key === 'Escape' || (e.ctrlKey && e.key === ']')) {
-            debug('handleKeyDown: ESC/Ctrl-] pressed', { mode });
+            debug('handleKeyDown: ESC/Ctrl-] pressed', { mode, eventTarget: e.target, currentInput });
             e.preventDefault();
             e.stopPropagation();
             e.stopImmediatePropagation();
@@ -932,6 +946,7 @@
                 // Insert -> Normal mode
                 debug('handleKeyDown: switching from insert to normal');
                 switchMode('normal');
+                debug('handleKeyDown: mode switch complete', { newMode: mode });
             } else {
                 // Normal mode -> unfocus
                 debug('handleKeyDown: unfocusing from normal mode');
@@ -941,6 +956,7 @@
                 allowBlur = true;
                 currentInput.blur();
             }
+            debug('handleKeyDown: ESC handling complete, returning');
             return;
         }
 
@@ -968,6 +984,18 @@
     document.addEventListener('focusin', handleFocus, true);
     document.addEventListener('focusout', handleBlur, true);
     document.addEventListener('keydown', handleKeyDown, true);
+
+    // Add a second keydown listener to verify our handler runs first
+    document.addEventListener('keydown', (e) => {
+        if (e.key === 'Escape') {
+            debug('Secondary ESC listener', {
+                defaultPrevented: e.defaultPrevented,
+                propagationStopped: e.cancelBubble,
+                currentInput: !!currentInput,
+                mode
+            });
+        }
+    }, false);
 
     updateIndicator();
 })();
