@@ -914,16 +914,18 @@
     function handleKeyDown(e) {
         if (!currentInput) return;
 
-        debug('handleKeyDown', { key: e.key, ctrl: e.ctrlKey, mode });
+        debug('handleKeyDown', { key: e.key, ctrl: e.ctrlKey, mode, target: e.target.tagName });
 
         // Handle ESC/Ctrl-] early to prevent default blur behavior
         if (e.key === 'Escape' || (e.ctrlKey && e.key === ']')) {
-            debug('handleKeyDown: ESC/Ctrl-] pressed');
+            debug('handleKeyDown: ESC/Ctrl-] pressed', { mode });
             e.preventDefault();
             e.stopPropagation();
+            e.stopImmediatePropagation();
 
             if (mode === 'insert') {
                 // Insert -> Normal mode
+                debug('handleKeyDown: switching from insert to normal');
                 switchMode('normal');
             } else {
                 // Normal mode -> unfocus

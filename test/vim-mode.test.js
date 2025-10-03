@@ -101,6 +101,19 @@ describe('Vim Mode Integration Tests', () => {
       expect(getIndicator().textContent).toBe('-- NORMAL --');
     });
 
+    it('should switch to normal mode even with blur/focus cycles', () => {
+      input.focus();
+      expect(getIndicator().textContent).toBe('-- INSERT --');
+
+      // Simulate blur then immediate refocus (what happens with blur prevention)
+      input.dispatchEvent(new FocusEvent('focusout', { bubbles: true }));
+      input.dispatchEvent(new FocusEvent('focusin', { bubbles: true }));
+
+      // Now press Escape - should still switch to normal mode
+      input.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
+      expect(getIndicator().textContent).toBe('-- NORMAL --');
+    });
+
     it('should switch back to insert mode with i', () => {
       input.focus();
       input.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
