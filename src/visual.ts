@@ -8,6 +8,7 @@ import {
     updateVisualSelection as updateVisualSelectionRender,
     updateCustomCaret,
     updateLineNumbers,
+    findCharInLine,
 } from "./common.js";
 import { executeMotion } from "./normal.js";
 import { yankRange, deleteRange } from "./normal.js";
@@ -89,9 +90,16 @@ export function getCurrentRange(
     // Returns { start, end } for the current operation range
     // Works for both visual selections and operator+motion combinations
     if (mode === "visual" || mode === "visual-line") {
+        const start = Math.min(visualStart, visualEnd);
+        const end = Math.max(visualStart, visualEnd);
+        // In visual mode, selection is inclusive of the character at visualEnd
+        // so we add 1 to include it in the range for operators
         return {
-            start: Math.min(visualStart, visualEnd),
-            end: Math.max(visualStart, visualEnd),
+            start,
+            end:
+                mode === "visual-line"
+                    ? end
+                    : Math.min(end + 1, currentInput.value.length),
         };
     }
 
@@ -124,40 +132,9 @@ export function processVisualCommand(
     const count = parseInt(countBuffer) || 1;
     debug("processVisualCommand", { key, count, mode });
 
-    // Handle motions - extend selection
-    const motionKeys = [
-        "h",
-        "j",
-        "k",
-        "l",
-        "w",
-        "b",
-        "e",
-        "0",
-        "^",
-        "$",
-        "G",
-        "{",
-        "}",
-        "%",
-    ];
-    if (motionKeys.includes(key)) {
-        executeMotion(currentInput, key, count);
-        const newPos = getCursorPos(currentInput);
-        const newSelection = extendVisualSelection(
-            currentInput,
-            mode,
-            visualStart,
-            visualEnd,
-            newPos,
-        );
-        state.visualStart = newSelection.visualStart;
-        state.visualEnd = newSelection.visualEnd;
-        state.countBuffer = "";
-        return;
-    }
-
-    // Handle command sequences (gg, ge, etc.)
+    // Handle command sequences FIRST (gg, ge, f, t, F, T, etc.)
+    // This must come before motion keys check because some motion keys
+    // (like 'w') can also be used as arguments to find commands (fw)
     if (commandBuffer) {
         const fullCommand = commandBuffer + key;
 
@@ -195,7 +172,74 @@ export function processVisualCommand(
             return;
         }
 
+        // f, F, t, T commands
+        if (["f", "F", "t", "T"].includes(commandBuffer)) {
+            const forward = ["f", "t"].includes(commandBuffer);
+            const till = ["t", "T"].includes(commandBuffer);
+            state.lastFindChar = key;
+            state.lastFindDirection = forward;
+            state.lastFindType = commandBuffer;
+
+            let newPos = getCursorPos(currentInput);
+            for (let i = 0; i < count; i++) {
+                newPos = findCharInLine(
+                    currentInput,
+                    newPos,
+                    key,
+                    forward,
+                    till,
+                );
+            }
+
+            setCursorPos(currentInput, newPos);
+            const newSelection = extendVisualSelection(
+                currentInput,
+                mode,
+                visualStart,
+                visualEnd,
+                newPos,
+            );
+            state.visualStart = newSelection.visualStart;
+            state.visualEnd = newSelection.visualEnd;
+            state.commandBuffer = "";
+            state.countBuffer = "";
+            return;
+        }
+
         state.commandBuffer = "";
+    }
+
+    // Handle motions - extend selection
+    const motionKeys = [
+        "h",
+        "j",
+        "k",
+        "l",
+        "w",
+        "b",
+        "e",
+        "0",
+        "^",
+        "$",
+        "G",
+        "{",
+        "}",
+        "%",
+    ];
+    if (motionKeys.includes(key)) {
+        executeMotion(currentInput, key, count);
+        const newPos = getCursorPos(currentInput);
+        const newSelection = extendVisualSelection(
+            currentInput,
+            mode,
+            visualStart,
+            visualEnd,
+            newPos,
+        );
+        state.visualStart = newSelection.visualStart;
+        state.visualEnd = newSelection.visualEnd;
+        state.countBuffer = "";
+        return;
     }
 
     // Handle operators - operate on visual selection then exit
@@ -263,10 +307,71 @@ export function processVisualCommand(
         return;
     }
 
+    // Handle ; and , for repeating find
+    if (key === ";") {
+        if (state.lastFindChar) {
+            let newPos = getCursorPos(currentInput);
+            for (let i = 0; i < count; i++) {
+                const till = ["t", "T"].includes(state.lastFindType);
+                newPos = findCharInLine(
+                    currentInput,
+                    newPos,
+                    state.lastFindChar,
+                    state.lastFindDirection,
+                    till,
+                );
+            }
+            setCursorPos(currentInput, newPos);
+            const newSelection = extendVisualSelection(
+                currentInput,
+                mode,
+                visualStart,
+                visualEnd,
+                newPos,
+            );
+            state.visualStart = newSelection.visualStart;
+            state.visualEnd = newSelection.visualEnd;
+        }
+        state.countBuffer = "";
+        return;
+    }
+
+    if (key === ",") {
+        if (state.lastFindChar) {
+            let newPos = getCursorPos(currentInput);
+            for (let i = 0; i < count; i++) {
+                const till = ["t", "T"].includes(state.lastFindType);
+                newPos = findCharInLine(
+                    currentInput,
+                    newPos,
+                    state.lastFindChar,
+                    !state.lastFindDirection,
+                    till,
+                );
+            }
+            setCursorPos(currentInput, newPos);
+            const newSelection = extendVisualSelection(
+                currentInput,
+                mode,
+                visualStart,
+                visualEnd,
+                newPos,
+            );
+            state.visualStart = newSelection.visualStart;
+            state.visualEnd = newSelection.visualEnd;
+        }
+        state.countBuffer = "";
+        return;
+    }
+
     // Handle other keys
     switch (key) {
         case "g":
-            state.commandBuffer = "g";
+        case "f":
+        case "F":
+        case "t":
+        case "T":
+            state.commandBuffer = key;
             break;
 
         case "x":

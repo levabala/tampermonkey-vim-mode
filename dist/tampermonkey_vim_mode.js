@@ -1694,9 +1694,14 @@
         }
         function getCurrentRange(mode, visualStart, visualEnd, currentInput) {
             if (mode === "visual" || mode === "visual-line") {
+                const start = Math.min(visualStart, visualEnd);
+                const end = Math.max(visualStart, visualEnd);
                 return {
-                    start: Math.min(visualStart, visualEnd),
-                    end: Math.max(visualStart, visualEnd),
+                    start,
+                    end:
+                        mode === "visual-line"
+                            ? end
+                            : Math.min(end + 1, currentInput.value.length),
                 };
             }
             const pos = getCursorPos(currentInput);
@@ -1720,37 +1725,6 @@
             if (!currentInput) return;
             const count = parseInt(countBuffer) || 1;
             debug("processVisualCommand", { key, count, mode });
-            const motionKeys = [
-                "h",
-                "j",
-                "k",
-                "l",
-                "w",
-                "b",
-                "e",
-                "0",
-                "^",
-                "$",
-                "G",
-                "{",
-                "}",
-                "%",
-            ];
-            if (motionKeys.includes(key)) {
-                executeMotion(currentInput, key, count);
-                const newPos = getCursorPos(currentInput);
-                const newSelection = extendVisualSelection(
-                    currentInput,
-                    mode,
-                    visualStart,
-                    visualEnd,
-                    newPos,
-                );
-                state.visualStart = newSelection.visualStart;
-                state.visualEnd = newSelection.visualEnd;
-                state.countBuffer = "";
-                return;
-            }
             if (commandBuffer) {
                 const fullCommand = commandBuffer + key;
                 if (fullCommand === "gg") {
@@ -1785,7 +1759,68 @@
                     state.countBuffer = "";
                     return;
                 }
+                if (["f", "F", "t", "T"].includes(commandBuffer)) {
+                    const forward = ["f", "t"].includes(commandBuffer);
+                    const till = ["t", "T"].includes(commandBuffer);
+                    state.lastFindChar = key;
+                    state.lastFindDirection = forward;
+                    state.lastFindType = commandBuffer;
+                    let newPos = getCursorPos(currentInput);
+                    for (let i = 0; i < count; i++) {
+                        newPos = findCharInLine(
+                            currentInput,
+                            newPos,
+                            key,
+                            forward,
+                            till,
+                        );
+                    }
+                    setCursorPos(currentInput, newPos);
+                    const newSelection = extendVisualSelection(
+                        currentInput,
+                        mode,
+                        visualStart,
+                        visualEnd,
+                        newPos,
+                    );
+                    state.visualStart = newSelection.visualStart;
+                    state.visualEnd = newSelection.visualEnd;
+                    state.commandBuffer = "";
+                    state.countBuffer = "";
+                    return;
+                }
                 state.commandBuffer = "";
+            }
+            const motionKeys = [
+                "h",
+                "j",
+                "k",
+                "l",
+                "w",
+                "b",
+                "e",
+                "0",
+                "^",
+                "$",
+                "G",
+                "{",
+                "}",
+                "%",
+            ];
+            if (motionKeys.includes(key)) {
+                executeMotion(currentInput, key, count);
+                const newPos = getCursorPos(currentInput);
+                const newSelection = extendVisualSelection(
+                    currentInput,
+                    mode,
+                    visualStart,
+                    visualEnd,
+                    newPos,
+                );
+                state.visualStart = newSelection.visualStart;
+                state.visualEnd = newSelection.visualEnd;
+                state.countBuffer = "";
+                return;
             }
             if (key === "d") {
                 const range = getCurrentRange(
@@ -1855,9 +1890,67 @@
                 state.countBuffer = "";
                 return;
             }
+            if (key === ";") {
+                if (state.lastFindChar) {
+                    let newPos = getCursorPos(currentInput);
+                    for (let i = 0; i < count; i++) {
+                        const till = ["t", "T"].includes(state.lastFindType);
+                        newPos = findCharInLine(
+                            currentInput,
+                            newPos,
+                            state.lastFindChar,
+                            state.lastFindDirection,
+                            till,
+                        );
+                    }
+                    setCursorPos(currentInput, newPos);
+                    const newSelection = extendVisualSelection(
+                        currentInput,
+                        mode,
+                        visualStart,
+                        visualEnd,
+                        newPos,
+                    );
+                    state.visualStart = newSelection.visualStart;
+                    state.visualEnd = newSelection.visualEnd;
+                }
+                state.countBuffer = "";
+                return;
+            }
+            if (key === ",") {
+                if (state.lastFindChar) {
+                    let newPos = getCursorPos(currentInput);
+                    for (let i = 0; i < count; i++) {
+                        const till = ["t", "T"].includes(state.lastFindType);
+                        newPos = findCharInLine(
+                            currentInput,
+                            newPos,
+                            state.lastFindChar,
+                            !state.lastFindDirection,
+                            till,
+                        );
+                    }
+                    setCursorPos(currentInput, newPos);
+                    const newSelection = extendVisualSelection(
+                        currentInput,
+                        mode,
+                        visualStart,
+                        visualEnd,
+                        newPos,
+                    );
+                    state.visualStart = newSelection.visualStart;
+                    state.visualEnd = newSelection.visualEnd;
+                }
+                state.countBuffer = "";
+                return;
+            }
             switch (key) {
                 case "g":
-                    state.commandBuffer = "g";
+                case "f":
+                case "F":
+                case "t":
+                case "T":
+                    state.commandBuffer = key;
                     break;
                 case "x":
                     const range = getCurrentRange(
