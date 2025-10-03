@@ -611,6 +611,22 @@
     }
     return pos;
   }
+  function scrollTextarea(currentInput, lines) {
+    const computedStyle = window.getComputedStyle(currentInput);
+    const lineHeight = parseFloat(computedStyle.lineHeight);
+    const fontSize = parseFloat(computedStyle.fontSize);
+    const effectiveLineHeight = isNaN(lineHeight) ? fontSize * 1.2 : lineHeight;
+    currentInput.scrollTop += lines * effectiveLineHeight;
+  }
+  function scrollHalfPage(currentInput, down) {
+    const computedStyle = window.getComputedStyle(currentInput);
+    const lineHeight = parseFloat(computedStyle.lineHeight);
+    const fontSize = parseFloat(computedStyle.fontSize);
+    const effectiveLineHeight = isNaN(lineHeight) ? fontSize * 1.2 : lineHeight;
+    const visibleHeight = currentInput.clientHeight;
+    const halfPageLines = Math.floor(visibleHeight / effectiveLineHeight / 2);
+    scrollTextarea(currentInput, down ? halfPageLines : -halfPageLines);
+  }
   function isWordChar(char) {
     return /\w/.test(char);
   }
@@ -1981,11 +1997,31 @@
       debug("handleKeyDown: insert mode, passing through");
       return;
     }
-    debug("handleKeyDown: normal mode, processing command");
+    debug("handleKeyDown: normal/visual mode, processing command");
     e.preventDefault();
     if (e.ctrlKey && e.key === "r") {
       debug("handleKeyDown: Ctrl-r redo");
       redo(currentInput, undoStack, redoStack);
+      return;
+    }
+    if (e.ctrlKey && e.key === "e") {
+      debug("handleKeyDown: Ctrl-e scroll down one line");
+      scrollTextarea(currentInput, 1);
+      return;
+    }
+    if (e.ctrlKey && e.key === "y") {
+      debug("handleKeyDown: Ctrl-y scroll up one line");
+      scrollTextarea(currentInput, -1);
+      return;
+    }
+    if (e.ctrlKey && e.key === "d") {
+      debug("handleKeyDown: Ctrl-d scroll down half page");
+      scrollHalfPage(currentInput, true);
+      return;
+    }
+    if (e.ctrlKey && e.key === "u") {
+      debug("handleKeyDown: Ctrl-u scroll up half page");
+      scrollHalfPage(currentInput, false);
       return;
     }
     processCommand(e.key);

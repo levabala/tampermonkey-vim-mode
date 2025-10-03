@@ -11,6 +11,8 @@ import {
     clearVisualSelection,
     updateLineNumbers,
     removeLineNumbers,
+    scrollTextarea,
+    scrollHalfPage,
 } from "./common.js";
 import { processNormalCommand } from "./normal.js";
 import { processVisualCommand, updateVisualSelection } from "./visual.js";
@@ -395,16 +397,43 @@ function handleKeyDown(e: KeyboardEvent): void {
         return;
     }
 
-    // Normal mode
-    debug("handleKeyDown: normal mode, processing command");
+    // Normal/Visual mode commands that work in both modes
+    debug("handleKeyDown: normal/visual mode, processing command");
     e.preventDefault();
 
+    // Redo (works in both normal and visual modes)
     if (e.ctrlKey && e.key === "r") {
         debug("handleKeyDown: Ctrl-r redo");
         redo(currentInput, undoStack, redoStack);
         return;
     }
 
+    // Scrolling commands (work in both normal and visual modes)
+    if (e.ctrlKey && e.key === "e") {
+        debug("handleKeyDown: Ctrl-e scroll down one line");
+        scrollTextarea(currentInput, 1);
+        return;
+    }
+
+    if (e.ctrlKey && e.key === "y") {
+        debug("handleKeyDown: Ctrl-y scroll up one line");
+        scrollTextarea(currentInput, -1);
+        return;
+    }
+
+    if (e.ctrlKey && e.key === "d") {
+        debug("handleKeyDown: Ctrl-d scroll down half page");
+        scrollHalfPage(currentInput, true);
+        return;
+    }
+
+    if (e.ctrlKey && e.key === "u") {
+        debug("handleKeyDown: Ctrl-u scroll up half page");
+        scrollHalfPage(currentInput, false);
+        return;
+    }
+
+    // Mode-specific command handling
     processCommand(e.key);
 }
 

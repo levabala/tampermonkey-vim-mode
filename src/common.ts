@@ -707,6 +707,38 @@ export function getFirstNonBlank(
     return pos;
 }
 
+// Scrolling functions
+export function scrollTextarea(
+    currentInput: EditableElement,
+    lines: number,
+): void {
+    // Calculate line height from element styles
+    const computedStyle = window.getComputedStyle(currentInput);
+    const lineHeight = parseFloat(computedStyle.lineHeight);
+    const fontSize = parseFloat(computedStyle.fontSize);
+    const effectiveLineHeight = isNaN(lineHeight) ? fontSize * 1.2 : lineHeight;
+
+    // Scroll by the calculated pixel amount
+    currentInput.scrollTop += lines * effectiveLineHeight;
+}
+
+export function scrollHalfPage(
+    currentInput: EditableElement,
+    down: boolean,
+): void {
+    const computedStyle = window.getComputedStyle(currentInput);
+    const lineHeight = parseFloat(computedStyle.lineHeight);
+    const fontSize = parseFloat(computedStyle.fontSize);
+    const effectiveLineHeight = isNaN(lineHeight) ? fontSize * 1.2 : lineHeight;
+
+    // Calculate visible lines (half page)
+    const visibleHeight = currentInput.clientHeight;
+    const halfPageLines = Math.floor(visibleHeight / effectiveLineHeight / 2);
+
+    // Scroll by half page
+    scrollTextarea(currentInput, down ? halfPageLines : -halfPageLines);
+}
+
 export function isWordChar(char: string): boolean {
     return /\w/.test(char);
 }
