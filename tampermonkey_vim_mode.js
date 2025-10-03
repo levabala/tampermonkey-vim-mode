@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Vim Mode for Text Inputs
 // @namespace    http://tampermonkey.net/
-// @version      1.0.20
+// @version      1.0.21
 // @description  Vim-like editing for textareas and inputs
 // @match        *://*/*
 // @updateURL    https://raw.githubusercontent.com/levabala/tampermonkey-vim-mode/refs/heads/main/tampermonkey_vim_mode.js
@@ -13,17 +13,30 @@
     'use strict';
 
     // Extract version from userscript header
-    const scriptContent = document.currentScript?.textContent || '';
-    const versionMatch = scriptContent.match(/@version\s+([\d.]+)/);
-    const version = versionMatch ? versionMatch[1] : 'unknown';
+    // In Tampermonkey, we can use GM_info if available, otherwise fallback to parsing the script source
+    const version = (() => {
+        // Try GM_info first (Tampermonkey API)
+        if (typeof GM_info !== 'undefined' && GM_info.script && GM_info.script.version) {
+            return GM_info.script.version;
+        }
+
+        // Fallback: try to find our script in document.scripts
+        for (let script of document.scripts) {
+            const content = script.textContent;
+            if (content && content.includes('Vim Mode for Text Inputs')) {
+                const match = content.match(/@version\s+([\d.]+)/);
+                if (match) return match[1];
+            }
+        }
+
+        return 'unknown';
+    })();
 
     // Debug mode - enabled via VIM_DEBUG=1 query parameter
     const DEBUG = new URLSearchParams(window.location.search).get('VIM_DEBUG') === '1';
     const debug = (...args) => {
         if (DEBUG) console.log('@@', ...args);
     };
-
-    debug({ scriptContent, versionMatch, version });
 
     // State
     let mode = 'normal';
