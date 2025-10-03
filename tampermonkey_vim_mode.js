@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Vim Mode for Text Inputs
 // @namespace    http://tampermonkey.net/
-// @version      1.0.24
+// @version      1.0.25
 // @description  Vim-like editing for textareas and inputs
 // @match        *://*/*
 // @updateURL    https://raw.githubusercontent.com/levabala/tampermonkey-vim-mode/refs/heads/main/tampermonkey_vim_mode.js
@@ -52,6 +52,7 @@
     let redoStack = [];
     let lastChange = null;
     let allowBlur = false; // Track whether blur is intentional
+    let escapePressed = false; // Track if ESC was recently pressed
 
     // Mode indicator
     const indicator = document.createElement('div');
@@ -932,9 +933,27 @@
             debug('handleBlur', {
                 mode,
                 allowBlur,
+                escapePressed,
                 relatedTarget: e.relatedTarget,
                 isTrusted: e.isTrusted
             });
+
+            // Check if ESC caused the blur (detected by our global listener)
+            if (escapePressed && mode === 'insert') {
+                debug('handleBlur: ESC caused blur, switching to normal mode');
+                escapePressed = false; // Clear the flag
+                switchMode('normal');
+                // Prevent blur - stay focused in normal mode
+                e.preventDefault();
+                e.stopPropagation();
+                const input = currentInput;
+                setTimeout(() => {
+                    debug('handleBlur: refocusing in normal mode');
+                    input.focus();
+                }, 0);
+                return;
+            }
+
             // Only prevent blur in insert mode or when not explicitly allowed
             if (mode === 'insert' && !allowBlur) {
                 debug('handleBlur: preventing blur in insert mode');
@@ -1020,6 +1039,35 @@
 
     // Initialize
     debug('Vim Mode initialized', { version, DEBUG });
+
+    // Track ESC key state at the earliest possible point
+    // Use keydown on window to catch before page handlers
+    window.addEventListener('keydown', (e) => {
+        if (e.key === 'Escape') {
+            debug('GLOBAL ESC keydown detected', {
+                target: e.target.tagName,
+                eventPhase: e.eventPhase,
+                defaultPrevented: e.defaultPrevented,
+                timestamp: e.timeStamp
+            });
+            escapePressed = true;
+            // Clear the flag after a short timeout
+            setTimeout(() => {
+                escapePressed = false;
+                debug('escapePressed flag cleared');
+            }, 100);
+        }
+    }, true);
+
+    // Track keyup as well to detect if ESC was released
+    window.addEventListener('keyup', (e) => {
+        if (e.key === 'Escape') {
+            debug('GLOBAL ESC keyup detected', {
+                target: e.target.tagName,
+                timestamp: e.timeStamp
+            });
+        }
+    }, true);
 
     // Test if event listeners work at all
     const testListener = (e) => {
