@@ -8,6 +8,8 @@ import {
     getFirstNonBlank,
     findWordStart,
     findWordEnd,
+    findWORDStart,
+    findWORDEnd,
     findCharInLine,
     findMatchingPair,
     findParagraphBoundary,
@@ -57,11 +59,20 @@ export function executeMotion(
             case "w":
                 pos = findWordStart(currentInput, pos, true);
                 break;
+            case "W":
+                pos = findWORDStart(currentInput, pos, true);
+                break;
             case "b":
                 pos = findWordStart(currentInput, pos, false);
                 break;
+            case "B":
+                pos = findWORDStart(currentInput, pos, false);
+                break;
             case "e":
                 pos = findWordEnd(currentInput, pos, true);
+                break;
+            case "E":
+                pos = findWORDEnd(currentInput, pos, true);
                 break;
             case "ge":
                 pos = findWordEnd(currentInput, pos, false);
@@ -427,8 +438,11 @@ export function processNormalCommand(key: string, state: State): void {
         case "k":
         case "l":
         case "w":
+        case "W":
         case "b":
+        case "B":
         case "e":
+        case "E":
         case "0":
         case "^":
         case "$":

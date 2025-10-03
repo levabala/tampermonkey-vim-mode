@@ -711,6 +711,57 @@ export function isWordChar(char: string): boolean {
     return /\w/.test(char);
 }
 
+export function isWhitespace(char: string): boolean {
+    return /\s/.test(char);
+}
+
+// WORD motion functions (whitespace-separated)
+export function findWORDStart(
+    currentInput: EditableElement,
+    pos: number,
+    forward = true,
+): number {
+    const text = currentInput.value;
+    if (forward) {
+        // Skip current WORD (non-whitespace)
+        while (pos < text.length && !isWhitespace(text[pos])) pos++;
+        // Skip whitespace
+        while (pos < text.length && isWhitespace(text[pos])) pos++;
+        return pos;
+    } else {
+        // Move back one if we're at WORD start
+        if (pos > 0) pos--;
+        // Skip whitespace
+        while (pos > 0 && isWhitespace(text[pos])) pos--;
+        // Go to WORD start
+        while (pos > 0 && !isWhitespace(text[pos - 1])) pos--;
+        return pos;
+    }
+}
+
+export function findWORDEnd(
+    currentInput: EditableElement,
+    pos: number,
+    forward = true,
+): number {
+    const text = currentInput.value;
+    if (forward) {
+        // Move to next char if at WORD boundary
+        if (pos < text.length) pos++;
+        // Skip whitespace
+        while (pos < text.length && isWhitespace(text[pos])) pos++;
+        // Go to WORD end
+        while (pos < text.length && !isWhitespace(text[pos])) pos++;
+        return Math.max(0, pos - 1);
+    } else {
+        // Skip current WORD end
+        while (pos > 0 && !isWhitespace(text[pos])) pos--;
+        // Skip whitespace
+        while (pos > 0 && isWhitespace(text[pos])) pos--;
+        return pos;
+    }
+}
+
 export function findWordStart(
     currentInput: EditableElement,
     pos: number,

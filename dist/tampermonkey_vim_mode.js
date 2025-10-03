@@ -253,7 +253,7 @@
                     div.style.width = `${rect.width}px`;
                     div.style.height = `${rect.height}px`;
                     div.style.backgroundColor = "rgba(80, 120, 255, 0.3)";
-                    div.style.border = "1px solid rgba(80, 120, 255, 0.5)";
+                    div.style.border = "none";
                     div.style.pointerEvents = "none";
                     this.container.appendChild(div);
                     this.rects.push(div);
@@ -719,6 +719,35 @@
         function isWordChar(char) {
             return /\w/.test(char);
         }
+        function isWhitespace(char) {
+            return /\s/.test(char);
+        }
+        function findWORDStart(currentInput, pos, forward = true) {
+            const text = currentInput.value;
+            if (forward) {
+                while (pos < text.length && !isWhitespace(text[pos])) pos++;
+                while (pos < text.length && isWhitespace(text[pos])) pos++;
+                return pos;
+            } else {
+                if (pos > 0) pos--;
+                while (pos > 0 && isWhitespace(text[pos])) pos--;
+                while (pos > 0 && !isWhitespace(text[pos - 1])) pos--;
+                return pos;
+            }
+        }
+        function findWORDEnd(currentInput, pos, forward = true) {
+            const text = currentInput.value;
+            if (forward) {
+                if (pos < text.length) pos++;
+                while (pos < text.length && isWhitespace(text[pos])) pos++;
+                while (pos < text.length && !isWhitespace(text[pos])) pos++;
+                return Math.max(0, pos - 1);
+            } else {
+                while (pos > 0 && !isWhitespace(text[pos])) pos--;
+                while (pos > 0 && isWhitespace(text[pos])) pos--;
+                return pos;
+            }
+        }
         function findWordStart(currentInput, pos, forward = true) {
             const text = currentInput.value;
             if (forward) {
@@ -1036,11 +1065,20 @@
                     case "w":
                         pos = findWordStart(currentInput, pos, true);
                         break;
+                    case "W":
+                        pos = findWORDStart(currentInput, pos, true);
+                        break;
                     case "b":
                         pos = findWordStart(currentInput, pos, false);
                         break;
+                    case "B":
+                        pos = findWORDStart(currentInput, pos, false);
+                        break;
                     case "e":
                         pos = findWordEnd(currentInput, pos, true);
+                        break;
+                    case "E":
+                        pos = findWORDEnd(currentInput, pos, true);
                         break;
                     case "ge":
                         pos = findWordEnd(currentInput, pos, false);
@@ -1387,8 +1425,11 @@
                 case "k":
                 case "l":
                 case "w":
+                case "W":
                 case "b":
+                case "B":
                 case "e":
+                case "E":
                 case "0":
                 case "^":
                 case "$":
