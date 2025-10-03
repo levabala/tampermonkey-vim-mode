@@ -214,6 +214,15 @@ describe('Vim Mode Integration Tests', () => {
       input.dispatchEvent(new KeyboardEvent('keydown', { key: '$', bubbles: true }));
       expect(input.value).toBe('hello ');
     });
+
+    it('should delete to end of line with D', () => {
+      input.value = 'hello world';
+      input.focus();
+      input.selectionStart = 6;
+      input.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
+      input.dispatchEvent(new KeyboardEvent('keydown', { key: 'D', bubbles: true }));
+      expect(input.value).toBe('hello ');
+    });
   });
 
   describe('Yank and Paste', () => {
