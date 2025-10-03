@@ -279,6 +279,97 @@ export function processNormalCommand(key: string, state: State): void {
             return;
         }
 
+        // Check if user is starting a find motion (pressing 'f', 'F', 't', or 'T')
+        if (["f", "F", "t", "T"].includes(key)) {
+            state.commandBuffer = key;
+            return;
+        }
+
+        // Find motions (f, F, t, T followed by a character)
+        if (["f", "F", "t", "T"].includes(commandBuffer)) {
+            debug("processCommand: find motion with operator", {
+                operator: operatorPending,
+                findMotion: commandBuffer,
+                char: key,
+                count,
+            });
+            const forward = ["f", "t"].includes(commandBuffer);
+            const till = ["t", "T"].includes(commandBuffer);
+            state.lastFindChar = key;
+            state.lastFindDirection = forward;
+            state.lastFindType = commandBuffer;
+
+            const startPos = getCursorPos(currentInput);
+            for (let i = 0; i < count; i++) {
+                const newPos = findCharInLine(
+                    currentInput,
+                    getCursorPos(currentInput),
+                    key,
+                    forward,
+                    till,
+                );
+                setCursorPos(currentInput, newPos);
+            }
+            const endPos = getCursorPos(currentInput);
+            debug("processCommand: find motion result", {
+                startPos,
+                endPos,
+                moved: startPos !== endPos,
+            });
+            setCursorPos(currentInput, startPos);
+
+            // For f/F motions with operators, include the target character
+            // For t/T motions, stop before the character
+            const inclusiveEnd = till ? endPos : endPos + 1;
+            const range = {
+                start: Math.min(startPos, inclusiveEnd),
+                end: Math.max(startPos, inclusiveEnd),
+            };
+
+            if (operatorPending === "d") {
+                yankRange(currentInput, clipboard, range.start, range.end);
+                deleteRange(
+                    currentInput,
+                    undoStack,
+                    redoStack,
+                    range.start,
+                    range.end,
+                );
+                state.lastChange = {
+                    operator: "d",
+                    motion: commandBuffer + key,
+                    count,
+                };
+            } else if (operatorPending === "y") {
+                yankRange(currentInput, clipboard, range.start, range.end);
+                state.lastChange = {
+                    operator: "y",
+                    motion: commandBuffer + key,
+                    count,
+                };
+            } else if (operatorPending === "c") {
+                yankRange(currentInput, clipboard, range.start, range.end);
+                changeRange(
+                    currentInput,
+                    undoStack,
+                    redoStack,
+                    range.start,
+                    range.end,
+                    enterInsertMode,
+                );
+                state.lastChange = {
+                    operator: "c",
+                    motion: commandBuffer + key,
+                    count,
+                };
+            }
+
+            state.operatorPending = null;
+            state.commandBuffer = "";
+            state.countBuffer = "";
+            return;
+        }
+
         // Text objects
         if (commandBuffer === "i" || commandBuffer === "a") {
             const inner = commandBuffer === "i";
