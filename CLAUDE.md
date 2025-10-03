@@ -11,6 +11,7 @@ This is a Tampermonkey userscript that adds Vim-like modal editing to all text i
 **Single-file design**: The entire userscript lives in `tampermonkey_vim_mode.js`. There is no build process, no dependencies, and no module system - it's pure vanilla JavaScript wrapped in an IIFE.
 
 **State management**: Global state is maintained through closure variables at the top level:
+
 - `mode`: Current editing mode ('normal' or 'insert')
 - `currentInput`: The currently focused input/textarea element
 - `commandBuffer`, `countBuffer`, `operatorPending`: Used to parse multi-character Vim commands
@@ -19,6 +20,7 @@ This is a Tampermonkey userscript that adds Vim-like modal editing to all text i
 - `lastChange`: Tracks the last change for dot-repeat (`.` command)
 
 **Command processing flow**:
+
 1. `handleKeyDown()` intercepts all keyboard events
 2. In insert mode, keys are passed through normally
 3. In normal mode, keys are fed to `processCommand()`
@@ -47,6 +49,7 @@ This is a Tampermonkey userscript that adds Vim-like modal editing to all text i
 ## Vim Feature Coverage
 
 Refer to `SPEC.md` for the complete list of supported Vim commands. The implementation covers:
+
 - Basic motions: `h`, `j`, `k`, `l`, `w`, `b`, `e`, `0`, `^`, `$`, `gg`, `G`
 - Advanced motions: `f`, `t`, `%`, `{`, `}`
 - Operators: `d`, `c`, `y` combined with motions or text objects
@@ -69,4 +72,6 @@ When asked to write a test and fix a bug, follow this workflow to verify the tes
 6. **Commit the fix** - `git add [fixed files] && git commit -m "Fix [bug description]"`
 
 This ensures the test actually catches the bug and isn't a false positive.
+
 - use bun!
+- run lint:fix and format via bun run before committing changes

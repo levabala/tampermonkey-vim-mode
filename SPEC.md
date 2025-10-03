@@ -1,6 +1,5 @@
 Movement
 
-
 - h j k l — left, down, up, right
 
 - w / b — next/previous word start
@@ -22,7 +21,6 @@ Movement
 - % — jump between matching pairs ((), {}, [])
 
 Editing (actions + motions)
-
 
 - i / a — insert before/after cursor
 
@@ -58,9 +56,7 @@ Editing (actions + motions)
 
 Counts and operators
 
-
 - [number][command] — repeat (e.g., 5j, 3w, 2dw)
 
 - Operators combine with motions: d (delete), c (change), y (yank), > (indent), < (outdent), = (reindent), g~ (toggle case)
-	- Examples: d3w, y}, >i), =%
-
+    - Examples: d3w, y}, >i), =%

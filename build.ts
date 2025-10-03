@@ -1,33 +1,33 @@
 #!/usr/bin/env bun
 
 // Build script for bundling the userscript with bun
-import { readFileSync, unlinkSync } from 'fs';
+import { readFileSync, unlinkSync } from "fs";
 
 const result = await Bun.build({
-    entrypoints: ['./src/main.ts'],
-    outdir: './dist',
-    target: 'browser',
-    format: 'iife', // Immediately Invoked Function Expression for userscript
-    minify: false, // Keep readable for userscript
-    sourcemap: 'none',
+	entrypoints: ["./src/main.ts"],
+	outdir: "./dist",
+	target: "browser",
+	format: "iife", // Immediately Invoked Function Expression for userscript
+	minify: false, // Keep readable for userscript
+	sourcemap: "none",
 });
 
 if (!result.success) {
-    console.error('Build failed');
-    for (const message of result.logs) {
-        console.error(message);
-    }
-    process.exit(1);
+	console.error("Build failed");
+	for (const message of result.logs) {
+		console.error(message);
+	}
+	process.exit(1);
 }
 
-console.log('Build successful!');
+console.log("Build successful!");
 
 // Post-process: wrap in IIFE and add userscript header
-const setupContent = readFileSync('./src/setup.ts', 'utf-8');
+const setupContent = readFileSync("./src/setup.ts", "utf-8");
 const headerMatch = setupContent.match(/\/\/ ==UserScript==[\s\S]*?\/\/ ==\/UserScript==/);
-const header = headerMatch ? headerMatch[0] : '';
+const header = headerMatch ? headerMatch[0] : "";
 
-const bundledContent = readFileSync('./dist/main.js', 'utf-8');
+const bundledContent = readFileSync("./dist/main.js", "utf-8");
 
 // Wrap the bundle in an IIFE and add the header
 const finalContent = `${header}
@@ -39,10 +39,10 @@ ${bundledContent}
 })();
 `;
 
-await Bun.write('./dist/tampermonkey_vim_mode.js', finalContent);
+await Bun.write("./dist/tampermonkey_vim_mode.js", finalContent);
 
 // Clean up intermediate main.js file
-unlinkSync('./dist/main.js');
+unlinkSync("./dist/main.js");
 
-console.log('Created dist/tampermonkey_vim_mode.js');
-console.log('Cleaned up intermediate build artifacts');
+console.log("Created dist/tampermonkey_vim_mode.js");
+console.log("Cleaned up intermediate build artifacts");
