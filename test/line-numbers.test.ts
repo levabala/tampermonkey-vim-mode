@@ -112,6 +112,34 @@ describe("Line Numbers with Text Wrap", () => {
             expect(lines.length).toBe(3);
         });
 
+        it("should have proper line-height matching textarea for visual alignment", () => {
+            // This is the key test - line numbers should use same line-height as textarea
+            // so they align properly even when lines wrap
+            const longLine = "X".repeat(150);
+            const textarea = createMockTextarea(
+                `line1\n${longLine}\nline3`,
+                0,
+                200,
+            );
+
+            // Set explicit line-height on textarea
+            textarea.style.lineHeight = "24px";
+
+            renderer.render(textarea, 1, 3);
+
+            const container = document.querySelector(
+                'div[style*="position: absolute"]',
+            ) as HTMLElement;
+
+            // Line numbers container should match the textarea's line-height
+            expect(container.style.lineHeight).toBe("24px");
+
+            // Font size should also match
+            expect(container.style.fontSize).toBe(
+                window.getComputedStyle(textarea).fontSize,
+            );
+        });
+
         it("should align line numbers vertically with wrapped text", () => {
             // This test verifies that line numbers align with the first visual line
             // of each logical line, even when lines wrap
