@@ -358,6 +358,11 @@ function handleKeyDown(e: KeyboardEvent): void {
             debug("handleKeyDown: switching from insert to normal");
             enterNormalMode();
             debug("handleKeyDown: mode switch complete", { newMode: mode });
+        } else if (mode === "visual" || mode === "visual-line") {
+            // Visual/Visual-line -> Normal mode (stay focused)
+            debug("handleKeyDown: switching from visual to normal");
+            exitVisualMode();
+            debug("handleKeyDown: mode switch complete", { newMode: mode });
         } else {
             // Normal mode -> unfocus
             debug("handleKeyDown: unfocusing from normal mode");

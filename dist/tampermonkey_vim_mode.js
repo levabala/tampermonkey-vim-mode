@@ -2309,6 +2309,12 @@
                     debug("handleKeyDown: mode switch complete", {
                         newMode: mode,
                     });
+                } else if (mode === "visual" || mode === "visual-line") {
+                    debug("handleKeyDown: switching from visual to normal");
+                    exitVisualMode();
+                    debug("handleKeyDown: mode switch complete", {
+                        newMode: mode,
+                    });
                 } else {
                     debug("handleKeyDown: unfocusing from normal mode");
                     commandBuffer = "";
