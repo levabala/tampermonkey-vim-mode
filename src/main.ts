@@ -410,47 +410,52 @@ function handleKeyDown(e: KeyboardEvent): void {
         return;
     }
 
-    // Insert mode - allow normal typing
-    if (mode === "insert") {
-        debug("handleKeyDown: insert mode, passing through");
-        return;
-    }
-
-    // Normal/Visual mode commands that work in both modes
-    debug("handleKeyDown: normal/visual mode, processing command");
-    e.preventDefault();
-
-    // Redo (works in both normal and visual modes)
-    if (e.ctrlKey && e.key === "r") {
-        debug("handleKeyDown: Ctrl-r redo");
-        redo(currentInput, undoStack, redoStack);
-        return;
-    }
-
-    // Scrolling commands (work in both normal and visual modes)
+    // Scrolling commands (work in all modes - insert, normal, and visual)
     if (e.ctrlKey && e.key === "e") {
         debug("handleKeyDown: Ctrl-e scroll down one line");
+        e.preventDefault();
         scrollTextarea(currentInput, 1);
         return;
     }
 
     if (e.ctrlKey && e.key === "y") {
         debug("handleKeyDown: Ctrl-y scroll up one line");
+        e.preventDefault();
         scrollTextarea(currentInput, -1);
         return;
     }
 
     if (e.ctrlKey && e.key === "d") {
         debug("handleKeyDown: Ctrl-d scroll down half page");
+        e.preventDefault();
         scrollHalfPage(currentInput, true);
         return;
     }
 
     if (e.ctrlKey && e.key === "u") {
         debug("handleKeyDown: Ctrl-u scroll up half page");
+        e.preventDefault();
         scrollHalfPage(currentInput, false);
         return;
     }
+
+    // Redo (works in both normal and visual modes, but not insert)
+    if (e.ctrlKey && e.key === "r" && mode !== "insert") {
+        debug("handleKeyDown: Ctrl-r redo");
+        e.preventDefault();
+        redo(currentInput, undoStack, redoStack);
+        return;
+    }
+
+    // Insert mode - allow normal typing
+    if (mode === "insert") {
+        debug("handleKeyDown: insert mode, passing through");
+        return;
+    }
+
+    // Normal/Visual mode commands
+    debug("handleKeyDown: normal/visual mode, processing command");
+    e.preventDefault();
 
     // Mode-specific command handling
     processCommand(e.key);

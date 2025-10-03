@@ -49,7 +49,7 @@ describe("Scrolling commands", () => {
         textarea.focus();
     });
 
-    it("should scroll down one line with Ctrl-e", () => {
+    it("should scroll down one line with Ctrl-e in insert mode", () => {
         const initialScrollTop = textarea.scrollTop;
 
         const event = new KeyboardEvent("keydown", {
@@ -65,7 +65,7 @@ describe("Scrolling commands", () => {
         expect(textarea.scrollTop).toBe(initialScrollTop + 20); // one line height
     });
 
-    it("should scroll up one line with Ctrl-y", () => {
+    it("should scroll up one line with Ctrl-y in insert mode", () => {
         // First scroll down to have room to scroll up
         textarea.scrollTop = 100;
         const initialScrollTop = textarea.scrollTop;
@@ -83,7 +83,7 @@ describe("Scrolling commands", () => {
         expect(textarea.scrollTop).toBe(initialScrollTop - 20); // one line height
     });
 
-    it("should scroll down half page with Ctrl-d", () => {
+    it("should scroll down half page with Ctrl-d in insert mode", () => {
         const initialScrollTop = textarea.scrollTop;
 
         const event = new KeyboardEvent("keydown", {
@@ -99,7 +99,7 @@ describe("Scrolling commands", () => {
         expect(textarea.scrollTop).toBe(initialScrollTop + 100);
     });
 
-    it("should scroll up half page with Ctrl-u", () => {
+    it("should scroll up half page with Ctrl-u in insert mode", () => {
         // First scroll down to have room to scroll up
         textarea.scrollTop = 200;
         const initialScrollTop = textarea.scrollTop;
@@ -115,5 +115,52 @@ describe("Scrolling commands", () => {
 
         // clientHeight = 200, lineHeight = 20, so half page = 5 lines = 100px
         expect(textarea.scrollTop).toBe(initialScrollTop - 100);
+    });
+
+    it("should scroll down one line with Ctrl-e in normal mode", () => {
+        // Enter normal mode
+        const escEvent = new KeyboardEvent("keydown", {
+            key: "Escape",
+            bubbles: true,
+            cancelable: true,
+        });
+        textarea.dispatchEvent(escEvent);
+
+        const initialScrollTop = textarea.scrollTop;
+
+        const event = new KeyboardEvent("keydown", {
+            key: "e",
+            ctrlKey: true,
+            bubbles: true,
+            cancelable: true,
+        });
+
+        textarea.dispatchEvent(event);
+
+        expect(textarea.scrollTop).toBeGreaterThan(initialScrollTop);
+        expect(textarea.scrollTop).toBe(initialScrollTop + 20);
+    });
+
+    it("should scroll down half page with Ctrl-d in normal mode", () => {
+        // Enter normal mode
+        const escEvent = new KeyboardEvent("keydown", {
+            key: "Escape",
+            bubbles: true,
+            cancelable: true,
+        });
+        textarea.dispatchEvent(escEvent);
+
+        const initialScrollTop = textarea.scrollTop;
+
+        const event = new KeyboardEvent("keydown", {
+            key: "d",
+            ctrlKey: true,
+            bubbles: true,
+            cancelable: true,
+        });
+
+        textarea.dispatchEvent(event);
+
+        expect(textarea.scrollTop).toBe(initialScrollTop + 100);
     });
 });
