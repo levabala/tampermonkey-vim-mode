@@ -7,6 +7,7 @@ import {
     redo,
     createCustomCaret,
     removeCustomCaret,
+    updateCustomCaret,
 } from "./common.js";
 import { processNormalCommand } from "./normal.js";
 import { processVisualCommand, updateVisualSelection } from "./visual.js";
@@ -202,6 +203,10 @@ function handleFocus(e: FocusEvent): void {
             // Same input refocused - just update indicator, don't reset mode
             debug("handleFocus: same input refocused, keeping mode", { mode });
             updateIndicator(mode, currentInput);
+            // Recreate custom caret if in normal mode
+            if (mode === "normal") {
+                createCustomCaret(currentInput);
+            }
         }
     }
 }
@@ -221,6 +226,7 @@ function handleBlur(e: FocusEvent): void {
         if (e.relatedTarget) {
             debug("handleBlur: focus moving to another element, allowing blur");
             allowBlur = false;
+            removeCustomCaret(currentInput);
             currentInput = null;
             updateIndicator(mode, currentInput);
             return;
@@ -265,6 +271,7 @@ function handleBlur(e: FocusEvent): void {
         }
         debug("handleBlur: allowing blur", { mode, allowBlur });
         allowBlur = false;
+        removeCustomCaret(currentInput);
         currentInput = null;
         updateIndicator(mode, currentInput);
     }
@@ -435,6 +442,25 @@ if (typeof window === "undefined" || typeof document === "undefined") {
         },
         false,
     );
+
+    // Update custom caret position on scroll and resize
+    window.addEventListener(
+        "scroll",
+        () => {
+            if (currentInput && mode === "normal") {
+                debug("scroll event: updating custom caret");
+                updateCustomCaret(currentInput);
+            }
+        },
+        true,
+    );
+
+    window.addEventListener("resize", () => {
+        if (currentInput && mode === "normal") {
+            debug("resize event: updating custom caret");
+            updateCustomCaret(currentInput);
+        }
+    });
 
     debug("Event listeners attached", {
         testListener: !!testListener,

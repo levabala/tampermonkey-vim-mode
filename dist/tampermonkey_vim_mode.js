@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Vim Mode for Text Inputs
 // @namespace    http://tampermonkey.net/
-// @version      1.0.46
+// @version      1.0.47
 // @description  Vim-like editing for textareas and inputs
 // @match        *://*/*
 // @updateURL    https://raw.githubusercontent.com/levabala/tampermonkey-vim-mode/refs/heads/main/dist/tampermonkey_vim_mode.js
@@ -1784,6 +1784,9 @@
                         mode,
                     });
                     updateIndicator(mode, currentInput);
+                    if (mode === "normal") {
+                        createCustomCaret(currentInput);
+                    }
                 }
             }
         }
@@ -1801,6 +1804,7 @@
                         "handleBlur: focus moving to another element, allowing blur",
                     );
                     allowBlur = false;
+                    removeCustomCaret(currentInput);
                     currentInput = null;
                     updateIndicator(mode, currentInput);
                     return;
@@ -1841,6 +1845,7 @@
                 }
                 debug("handleBlur: allowing blur", { mode, allowBlur });
                 allowBlur = false;
+                removeCustomCaret(currentInput);
                 currentInput = null;
                 updateIndicator(mode, currentInput);
             }
@@ -1983,6 +1988,22 @@
                 },
                 false,
             );
+            window.addEventListener(
+                "scroll",
+                () => {
+                    if (currentInput && mode === "normal") {
+                        debug("scroll event: updating custom caret");
+                        updateCustomCaret(currentInput);
+                    }
+                },
+                true,
+            );
+            window.addEventListener("resize", () => {
+                if (currentInput && mode === "normal") {
+                    debug("resize event: updating custom caret");
+                    updateCustomCaret(currentInput);
+                }
+            });
             debug("Event listeners attached", {
                 testListener: !!testListener,
                 handleKeyDown: !!handleKeyDown,
