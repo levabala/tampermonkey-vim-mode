@@ -263,33 +263,65 @@
         if (!pairs[type]) return { start: pos, end: pos };
 
         const { open, close } = pairs[type];
-        let start = pos;
-        let end = pos;
+        let start = -1;
+        let end = -1;
 
-        // Find opening
-        let depth = 0;
-        for (let i = pos; i >= 0; i--) {
-            if (text[i] === close) depth++;
-            if (text[i] === open) {
-                if (depth === 0) {
-                    start = i;
-                    break;
+        // For quotes, find the containing pair
+        if (open === close) {
+            let quoteCount = 0;
+            let firstQuote = -1;
+            for (let i = 0; i <= pos; i++) {
+                if (text[i] === open) {
+                    if (quoteCount % 2 === 0) firstQuote = i;
+                    quoteCount++;
                 }
-                depth--;
+            }
+            if (quoteCount % 2 === 1) {
+                start = firstQuote;
+                for (let i = start + 1; i < text.length; i++) {
+                    if (text[i] === close) {
+                        end = i;
+                        break;
+                    }
+                }
+            }
+        } else {
+            // For brackets/parens/braces, find containing or next pair
+            let depth = 0;
+
+            // First try to find if we're inside a pair
+            for (let i = pos; i >= 0; i--) {
+                if (text[i] === close) {
+                    depth++;
+                } else if (text[i] === open) {
+                    if (depth === 0) {
+                        start = i;
+                        break;
+                    }
+                    depth--;
+                }
+            }
+
+            // If we found an opening, find its matching closing
+            if (start !== -1) {
+                depth = 0;
+                for (let i = start; i < text.length; i++) {
+                    if (text[i] === open) {
+                        depth++;
+                    } else if (text[i] === close) {
+                        depth--;
+                        if (depth === 0) {
+                            end = i;
+                            break;
+                        }
+                    }
+                }
             }
         }
 
-        // Find closing
-        depth = 0;
-        for (let i = pos; i < text.length; i++) {
-            if (text[i] === open) depth++;
-            if (text[i] === close) {
-                if (depth === 0) {
-                    end = i;
-                    break;
-                }
-                depth--;
-            }
+        // If we didn't find a pair, return empty range
+        if (start === -1 || end === -1) {
+            return { start: pos, end: pos };
         }
 
         if (inner) {
@@ -442,6 +474,12 @@
 
                 operatorPending = null;
                 countBuffer = '';
+                return;
+            }
+
+            // Check if user is starting a text object (pressing 'i' or 'a')
+            if (key === 'i' || key === 'a') {
+                commandBuffer = key;
                 return;
             }
 
@@ -655,13 +693,11 @@
 
             case 'x':
                 saveState();
-                for (let i = 0; i < count; i++) {
-                    const posX = getCursorPos();
-                    if (posX < currentInput.value.length) {
-                        clipboard = currentInput.value[posX];
-                        currentInput.value = currentInput.value.substring(0, posX) + currentInput.value.substring(posX + 1);
-                    }
-                }
+                const posX = getCursorPos();
+                const endX = Math.min(posX + count, currentInput.value.length);
+                clipboard = currentInput.value.substring(posX, endX);
+                currentInput.value = currentInput.value.substring(0, posX) + currentInput.value.substring(endX);
+                setCursorPos(posX);
                 lastChange = { command: 'x', count };
                 countBuffer = '';
                 break;
@@ -731,6 +767,7 @@
         if (!lastChange) return;
 
         const count = lastChange.count || 1;
+        countBuffer = String(count);
 
         if (lastChange.operator) {
             if (lastChange.motion) {
