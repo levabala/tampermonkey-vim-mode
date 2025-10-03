@@ -73,6 +73,18 @@ describe('Vim Mode Integration Tests', () => {
       expect(indicator.textContent).toBe('-- NORMAL --');
     });
 
+    it('should remain in normal mode after Escape even if focusin fires', () => {
+      input.focus();
+      input.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
+      expect(getIndicator().textContent).toBe('-- NORMAL --');
+
+      // Simulate a focusin event (which might happen due to blur prevention logic)
+      input.dispatchEvent(new FocusEvent('focusin', { bubbles: true }));
+
+      // Should still be in normal mode
+      expect(getIndicator().textContent).toBe('-- NORMAL --');
+    });
+
     it('should switch back to insert mode with i', () => {
       input.focus();
       input.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
