@@ -1,0 +1,70 @@
+<!doctype html>
+<html>
+    <head>
+        <title>Test Visual Mode</title>
+        <style>
+            body {
+                font-family: monospace;
+                padding: 20px;
+            }
+            textarea {
+                width: 600px;
+                height: 300px;
+                font-size: 16px;
+                font-family: monospace;
+                padding: 10px;
+            }
+            .instructions {
+                background: #f0f0f0;
+                padding: 15px;
+                margin-bottom: 20px;
+                border-radius: 4px;
+            }
+        </style>
+    </head>
+    <body>
+        <div class="instructions">
+            <h2>Test Visual Mode Selection</h2>
+            <ol>
+                <li>Click in the textarea below</li>
+                <li>Press <kbd>ESC</kbd> to enter normal mode</li>
+                <li>
+                    Move cursor to middle of line (e.g., press <kbd>5l</kbd>)
+                </li>
+                <li>Press <kbd>v</kbd> to enter visual mode</li>
+                <li>
+                    Move with <kbd>h</kbd>, <kbd>j</kbd>, <kbd>k</kbd>,
+                    <kbd>l</kbd> or <kbd>w</kbd>, <kbd>b</kbd>
+                </li>
+                <li>
+                    You should see a
+                    <strong>white semi-transparent overlay</strong> highlighting
+                    the selection from where you pressed <kbd>v</kbd>
+                </li>
+                <li>
+                    Press <kbd>y</kbd> to yank (copy), <kbd>d</kbd> to delete,
+                    or <kbd>c</kbd> to change
+                </li>
+            </ol>
+            <p>
+                <strong>Debug:</strong> Open DevTools Console and add
+                <code>?VIM_DEBUG=1</code> to URL to see debug logs
+            </p>
+        </div>
+
+        <textarea>
+Line 1: The quick brown fox
+Line 2: jumps over the lazy dog
+Line 3: Lorem ipsum dolor sit amet
+Line 4: consectetur adipiscing elit
+Line 5: sed do eiusmod tempor
+
+Test visual mode:
+- Try selecting across lines
+- Try visual line mode with V
+- Check if blue overlay appears</textarea
+        >
+
+        <script src="dist/tampermonkey_vim_mode.js"></script>
+    </body>
+</html>

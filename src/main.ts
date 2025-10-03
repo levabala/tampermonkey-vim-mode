@@ -109,7 +109,7 @@ function exitVisualMode(): void {
 
 // Command processing - dispatch to mode-specific handlers
 function processCommand(key: string): void {
-    debug("processCommand", { key, mode });
+    debug("processCommand", { key, mode, visualStart, visualEnd });
 
     const state = {
         currentInput,
@@ -132,6 +132,12 @@ function processCommand(key: string): void {
         enterVisualMode,
         exitVisualMode,
     };
+    debug("processCommand state", {
+        stateVisualStart: state.visualStart,
+        stateVisualEnd: state.visualEnd,
+    });
+
+    const oldMode = mode;
 
     if (mode === "visual" || mode === "visual-line") {
         processVisualCommand(key, state);
@@ -147,8 +153,26 @@ function processCommand(key: string): void {
     lastFindDirection = state.lastFindDirection;
     lastFindType = state.lastFindType;
     lastChange = state.lastChange;
-    visualStart = state.visualStart;
-    visualEnd = state.visualEnd;
+
+    // Only update visualStart/visualEnd if we didn't just transition TO visual mode
+    // because enterVisualMode() already set them correctly
+    const enteredVisualMode =
+        oldMode !== "visual" &&
+        oldMode !== "visual-line" &&
+        (mode === "visual" || mode === "visual-line");
+
+    if (!enteredVisualMode) {
+        visualStart = state.visualStart;
+        visualEnd = state.visualEnd;
+    }
+
+    debug("processCommand end", {
+        oldMode,
+        newMode: mode,
+        enteredVisualMode,
+        visualStart,
+        visualEnd,
+    });
 }
 
 // Event handlers
@@ -241,6 +265,7 @@ function handleBlur(e: FocusEvent): void {
             allowBlur = false;
             removeCustomCaret(currentInput);
             removeLineNumbers();
+            clearVisualSelection();
             currentInput = null;
             updateIndicator(mode, currentInput);
             return;
@@ -287,6 +312,7 @@ function handleBlur(e: FocusEvent): void {
         allowBlur = false;
         removeCustomCaret(currentInput);
         removeLineNumbers();
+        clearVisualSelection();
         currentInput = null;
         updateIndicator(mode, currentInput);
     }

@@ -22,20 +22,19 @@ export function updateVisualSelection(
 ): void {
     if (!currentInput || visualStart === null || visualEnd === null) return;
 
-    const start = Math.min(visualStart, visualEnd);
-    const end = Math.max(visualStart, visualEnd);
-
-    debug("updateVisualSelection", { visualStart, visualEnd, start, end });
+    debug("updateVisualSelection", { visualStart, visualEnd });
 
     // For visual mode, we want to include the character under the cursor
     // so we add 1 to the end position (unless we're at the end of the text)
-    const selectionEnd =
+    // The rendering function will handle min/max ordering internally
+    const adjustedEnd =
         mode === "visual-line"
-            ? end
-            : Math.min(end + 1, currentInput.value.length);
+            ? visualEnd
+            : Math.min(visualEnd + 1, currentInput.value.length);
 
     // Use virtual selection rendering instead of native selection
-    updateVisualSelectionRender(currentInput, start, selectionEnd);
+    // Pass visualStart and adjustedEnd directly - don't normalize with min/max here
+    updateVisualSelectionRender(currentInput, visualStart, adjustedEnd);
 
     // Update the custom caret to show at visualEnd (current cursor position)
     // Keep native selection collapsed at visualEnd to track position without showing
@@ -55,7 +54,12 @@ export function extendVisualSelection(
     if (mode !== "visual" && mode !== "visual-line")
         return { visualStart, visualEnd };
 
-    debug("extendVisualSelection", { from: visualEnd, to: newPos });
+    debug("extendVisualSelection BEFORE", {
+        visualStart,
+        visualEnd,
+        newPos,
+        mode,
+    });
 
     if (mode === "visual-line") {
         // In visual line mode, extend to whole lines
@@ -71,6 +75,7 @@ export function extendVisualSelection(
         visualEnd = newPos;
     }
 
+    debug("extendVisualSelection AFTER", { visualStart, visualEnd });
     updateVisualSelection(currentInput, mode, visualStart, visualEnd);
     return { visualStart, visualEnd };
 }
