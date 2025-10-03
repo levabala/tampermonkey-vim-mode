@@ -723,14 +723,7 @@
             const text = currentInput.value;
             if (forward) {
                 while (pos < text.length && isWordChar(text[pos])) pos++;
-                while (
-                    pos < text.length &&
-                    !isWordChar(text[pos]) &&
-                    text[pos] !==
-                        `
-`
-                )
-                    pos++;
+                while (pos < text.length && !isWordChar(text[pos])) pos++;
                 return pos;
             } else {
                 if (pos > 0) pos--;

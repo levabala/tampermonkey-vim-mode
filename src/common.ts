@@ -720,13 +720,8 @@ export function findWordStart(
     if (forward) {
         // Skip current word
         while (pos < text.length && isWordChar(text[pos])) pos++;
-        // Skip whitespace
-        while (
-            pos < text.length &&
-            !isWordChar(text[pos]) &&
-            text[pos] !== "\n"
-        )
-            pos++;
+        // Skip whitespace and newlines until we find a word character
+        while (pos < text.length && !isWordChar(text[pos])) pos++;
         return pos;
     } else {
         // Move back one if we're at word start
