@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Vim Mode for Text Inputs
 // @namespace    http://tampermonkey.net/
-// @version      1.0.22
+// @version      1.0.23
 // @description  Vim-like editing for textareas and inputs
 // @match        *://*/*
 // @updateURL    https://raw.githubusercontent.com/levabala/tampermonkey-vim-mode/refs/heads/main/tampermonkey_vim_mode.js
@@ -981,14 +981,41 @@
 
     // Initialize
     debug('Vim Mode initialized', { version, DEBUG });
+
+    // Test if event listeners work at all
+    const testListener = (e) => {
+        if (e.key === 'Escape') {
+            debug('RAW ESC DETECTED on document', {
+                target: e.target.tagName,
+                currentTarget: e.currentTarget,
+                eventPhase: e.eventPhase,
+                defaultPrevented: e.defaultPrevented,
+                propagationStopped: e.cancelBubble,
+                timestamp: e.timeStamp
+            });
+        }
+    };
+
+    // Try multiple attachment points to see which one works
+    window.addEventListener('keydown', (e) => {
+        if (e.key === 'Escape') {
+            debug('WINDOW ESC listener', {
+                target: e.target.tagName,
+                eventPhase: e.eventPhase,
+                defaultPrevented: e.defaultPrevented
+            });
+        }
+    }, true);
+
     document.addEventListener('focusin', handleFocus, true);
     document.addEventListener('focusout', handleBlur, true);
+    document.addEventListener('keydown', testListener, true);
     document.addEventListener('keydown', handleKeyDown, true);
 
     // Add a second keydown listener to verify our handler runs first
     document.addEventListener('keydown', (e) => {
         if (e.key === 'Escape') {
-            debug('Secondary ESC listener', {
+            debug('Secondary ESC listener (bubbling phase)', {
                 defaultPrevented: e.defaultPrevented,
                 propagationStopped: e.cancelBubble,
                 currentInput: !!currentInput,
@@ -996,6 +1023,13 @@
             });
         }
     }, false);
+
+    debug('Event listeners attached', {
+        testListener: !!testListener,
+        handleKeyDown: !!handleKeyDown,
+        handleFocus: !!handleFocus,
+        handleBlur: !!handleBlur
+    });
 
     updateIndicator();
 })();
