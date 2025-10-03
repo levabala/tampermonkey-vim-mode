@@ -128,7 +128,7 @@ export class DOMVisualSelectionRenderer implements VisualSelectionRenderer {
             div.style.width = `${rect.width}px`;
             div.style.height = `${rect.height}px`;
             div.style.backgroundColor = "rgba(80, 120, 255, 0.3)";
-            div.style.border = "1px solid rgba(80, 120, 255, 0.5)";
+            div.style.border = "none";
             div.style.pointerEvents = "none";
             this.container.appendChild(div);
             this.rects.push(div);

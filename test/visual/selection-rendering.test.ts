@@ -261,7 +261,8 @@ describe("Visual Selection Rendering", () => {
             expect(rect.style.width).toBe("50px");
             expect(rect.style.height).toBe("20px");
             expect(rect.style.backgroundColor).toBe("rgba(80, 120, 255, 0.3)");
-            expect(rect.style.border).toBe("1px solid rgba(80, 120, 255, 0.5)");
+            // border: "none" normalizes to empty string in jsdom
+            expect(rect.style.border).toBe("");
         });
 
         it("should have no border and match caret height", () => {
@@ -277,8 +278,8 @@ describe("Visual Selection Rendering", () => {
             ) as HTMLElement;
             const rect = container?.children[0] as HTMLElement;
 
-            // Visual selection should have no border
-            expect(rect.style.border).toBe("none");
+            // Visual selection should have no border (normalizes to empty string in jsdom)
+            expect(rect.style.border).toBe("");
             // Height should match caret height exactly
             expect(rect.style.height).toBe(`${caretHeight}px`);
         });
