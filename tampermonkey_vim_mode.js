@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Vim Mode for Text Inputs
 // @namespace    http://tampermonkey.net/
-// @version      1.0.25
+// @version      1.0.26
 // @description  Vim-like editing for textareas and inputs
 // @match        *://*/*
 // @updateURL    https://raw.githubusercontent.com/levabala/tampermonkey-vim-mode/refs/heads/main/tampermonkey_vim_mode.js
@@ -938,8 +938,13 @@
                 isTrusted: e.isTrusted
             });
 
-            // Check if ESC caused the blur (detected by our global listener)
-            if (escapePressed && mode === 'insert') {
+            // Check if ESC caused the blur:
+            // 1. Via our global listener detecting ESC keydown
+            // 2. Via blur pattern: insert mode + no relatedTarget + trusted event + not explicitly allowed
+            const isEscapeBlur = (escapePressed && mode === 'insert') ||
+                                 (mode === 'insert' && !allowBlur && !e.relatedTarget && e.isTrusted);
+
+            if (isEscapeBlur) {
                 debug('handleBlur: ESC caused blur, switching to normal mode');
                 escapePressed = false; // Clear the flag
                 switchMode('normal');
@@ -954,12 +959,11 @@
                 return;
             }
 
-            // Only prevent blur in insert mode or when not explicitly allowed
+            // This shouldn't happen now, but keep for safety
             if (mode === 'insert' && !allowBlur) {
-                debug('handleBlur: preventing blur in insert mode');
+                debug('handleBlur: unexpected blur in insert mode, preventing');
                 e.preventDefault();
                 e.stopPropagation();
-                // Refocus immediately
                 const input = currentInput;
                 setTimeout(() => {
                     debug('handleBlur: refocusing element');
