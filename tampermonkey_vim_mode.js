@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Vim Mode for Text Inputs
 // @namespace    http://tampermonkey.net/
-// @version      1.0.15
+// @version      1.0.16
 // @description  Vim-like editing for textareas and inputs
 // @match        *://*/*
 // @updateURL    https://raw.githubusercontent.com/levabala/tampermonkey-vim-mode/refs/heads/main/tampermonkey_vim_mode.js
@@ -16,6 +16,12 @@
     const scriptContent = document.currentScript?.textContent || '';
     const versionMatch = scriptContent.match(/@version\s+([\d.]+)/);
     const version = versionMatch ? versionMatch[1] : 'unknown';
+
+    // Debug mode - enabled via VIM_DEBUG=1 query parameter
+    const DEBUG = new URLSearchParams(window.location.search).get('VIM_DEBUG') === '1';
+    const debug = (...args) => {
+        if (DEBUG) console.log('@@', ...args);
+    };
 
     // State
     let mode = 'normal';
@@ -86,6 +92,12 @@
     // Utility functions
     function saveState() {
         if (!currentInput) return;
+        debug('saveState', {
+            value: currentInput.value,
+            selectionStart: currentInput.selectionStart,
+            selectionEnd: currentInput.selectionEnd,
+            undoStackSize: undoStack.length
+        });
         undoStack.push({
             value: currentInput.value,
             selectionStart: currentInput.selectionStart,
@@ -97,6 +109,7 @@
 
     function undo() {
         if (undoStack.length === 0) return;
+        debug('undo', { undoStackSize: undoStack.length });
         const current = {
             value: currentInput.value,
             selectionStart: currentInput.selectionStart,
@@ -111,6 +124,7 @@
 
     function redo() {
         if (redoStack.length === 0) return;
+        debug('redo', { redoStackSize: redoStack.length });
         const current = {
             value: currentInput.value,
             selectionStart: currentInput.selectionStart,
@@ -129,6 +143,7 @@
 
     function setCursorPos(pos) {
         pos = Math.max(0, Math.min(pos, currentInput.value.length));
+        debug('setCursorPos', { pos, valueLength: currentInput.value.length });
         currentInput.selectionStart = pos;
         currentInput.selectionEnd = pos;
     }
@@ -208,20 +223,26 @@
     function findCharInLine(pos, char, forward = true, till = false) {
         const text = currentInput.value;
         const line = getLine(pos);
+        debug('findCharInLine', { pos, char, forward, till, lineStart: line.start, lineEnd: line.end });
 
         if (forward) {
             for (let i = pos + 1; i <= line.end; i++) {
                 if (text[i] === char) {
-                    return till ? i - 1 : i;
+                    const result = till ? i - 1 : i;
+                    debug('findCharInLine result', { found: true, result });
+                    return result;
                 }
             }
         } else {
             for (let i = pos - 1; i >= line.start; i--) {
                 if (text[i] === char) {
-                    return till ? i + 1 : i;
+                    const result = till ? i + 1 : i;
+                    debug('findCharInLine result', { found: true, result });
+                    return result;
                 }
             }
         }
+        debug('findCharInLine result', { found: false, result: pos });
         return pos;
     }
 
@@ -274,6 +295,7 @@
     function findTextObject(type, inner) {
         const pos = getCursorPos();
         const text = currentInput.value;
+        debug('findTextObject', { type, inner, pos });
 
         const pairs = {
             '(': { open: '(', close: ')' },
@@ -287,7 +309,10 @@
             '`': { open: '`', close: '`' }
         };
 
-        if (!pairs[type]) return { start: pos, end: pos };
+        if (!pairs[type]) {
+            debug('findTextObject: invalid type', { type });
+            return { start: pos, end: pos };
+        }
 
         const { open, close } = pairs[type];
         let start = -1;
@@ -348,19 +373,21 @@
 
         // If we didn't find a pair, return empty range
         if (start === -1 || end === -1) {
+            debug('findTextObject: no pair found');
             return { start: pos, end: pos };
         }
 
-        if (inner) {
-            return { start: start + 1, end: end };
-        } else {
-            return { start, end: end + 1 };
-        }
+        const result = inner
+            ? { start: start + 1, end: end }
+            : { start, end: end + 1 };
+        debug('findTextObject result', result);
+        return result;
     }
 
     // Motion functions
     function executeMotion(motion, count = 1) {
         let pos = getCursorPos();
+        debug('executeMotion', { motion, count, startPos: pos });
 
         for (let i = 0; i < count; i++) {
             switch (motion) {
@@ -426,24 +453,29 @@
             }
         }
 
+        debug('executeMotion result', { motion, count, endPos: pos });
         setCursorPos(pos);
         return pos;
     }
 
     function getMotionRange(motion, count = 1) {
         const startPos = getCursorPos();
+        debug('getMotionRange', { motion, count, startPos });
         executeMotion(motion, count);
         const endPos = getCursorPos();
         setCursorPos(startPos);
 
-        return {
+        const range = {
             start: Math.min(startPos, endPos),
             end: Math.max(startPos, endPos)
         };
+        debug('getMotionRange result', range);
+        return range;
     }
 
     // Operator functions
     function deleteRange(start, end) {
+        debug('deleteRange', { start, end, deleted: currentInput.value.substring(start, end) });
         saveState();
         const text = currentInput.value;
         currentInput.value = text.substring(0, start) + text.substring(end);
@@ -451,16 +483,20 @@
     }
 
     function yankRange(start, end) {
-        clipboard = currentInput.value.substring(start, end);
+        const yanked = currentInput.value.substring(start, end);
+        debug('yankRange', { start, end, yanked });
+        clipboard = yanked;
     }
 
     function changeRange(start, end) {
+        debug('changeRange', { start, end });
         deleteRange(start, end);
         switchMode('insert');
     }
 
     // Mode switching
     function switchMode(newMode) {
+        debug('switchMode', { from: mode, to: newMode });
         mode = newMode;
         updateIndicator();
 
@@ -477,11 +513,20 @@
     // Command processing
     function processCommand(key) {
         const count = parseInt(countBuffer) || 1;
+        debug('processCommand', {
+            key,
+            count,
+            countBuffer,
+            commandBuffer,
+            operatorPending,
+            mode
+        });
 
         // Handle operators
         if (operatorPending) {
             if (key === operatorPending) {
                 // Double operator (e.g., dd, yy, cc)
+                debug('processCommand: double operator', { operator: operatorPending, count });
                 const line = getLine(getCursorPos());
                 const start = line.start;
                 const end = line.end < currentInput.value.length ? line.end + 1 : line.end;
@@ -513,6 +558,7 @@
             // Text objects
             if (commandBuffer === 'i' || commandBuffer === 'a') {
                 const inner = commandBuffer === 'i';
+                debug('processCommand: text object', { operator: operatorPending, textObject: commandBuffer + key, inner });
                 const range = findTextObject(key, inner);
 
                 if (operatorPending === 'd') {
@@ -535,6 +581,7 @@
             }
 
             // Motion-based operations
+            debug('processCommand: motion-based operation', { operator: operatorPending, motion: key, count });
             const range = getMotionRange(key, count);
 
             if (operatorPending === 'd') {
@@ -792,6 +839,7 @@
 
     function repeatLastChange() {
         if (!lastChange) return;
+        debug('repeatLastChange', lastChange);
 
         const count = lastChange.count || 1;
         countBuffer = String(count);
@@ -827,6 +875,7 @@
     // Event handlers
     function handleFocus(e) {
         const el = e.target;
+        debug('handleFocus', { tag: el.tagName, isNewInput: currentInput !== el });
         if (el.tagName === 'INPUT' || el.tagName === 'TEXTAREA') {
             // Only initialize mode if this is a new input
             if (currentInput !== el) {
@@ -841,8 +890,10 @@
 
     function handleBlur(e) {
         if (e.target === currentInput) {
+            debug('handleBlur', { mode, allowBlur });
             // Only prevent blur in insert mode or when not explicitly allowed
             if (mode === 'insert' && !allowBlur) {
+                debug('handleBlur: preventing blur in insert mode');
                 e.preventDefault();
                 e.stopPropagation();
                 // Refocus immediately
@@ -859,8 +910,11 @@
     function handleKeyDown(e) {
         if (!currentInput) return;
 
+        debug('handleKeyDown', { key: e.key, ctrl: e.ctrlKey, mode });
+
         // Handle ESC/Ctrl-] early to prevent default blur behavior
         if (e.key === 'Escape' || (e.ctrlKey && e.key === ']')) {
+            debug('handleKeyDown: ESC/Ctrl-] pressed');
             e.preventDefault();
             e.stopPropagation();
 
@@ -869,6 +923,7 @@
                 switchMode('normal');
             } else {
                 // Normal mode -> unfocus
+                debug('handleKeyDown: unfocusing from normal mode');
                 commandBuffer = '';
                 countBuffer = '';
                 operatorPending = null;
@@ -880,13 +935,16 @@
 
         // Insert mode - allow normal typing
         if (mode === 'insert') {
+            debug('handleKeyDown: insert mode, passing through');
             return;
         }
 
         // Normal mode
+        debug('handleKeyDown: normal mode, processing command');
         e.preventDefault();
 
         if (e.ctrlKey && e.key === 'r') {
+            debug('handleKeyDown: Ctrl-r redo');
             redo();
             return;
         }
@@ -895,6 +953,7 @@
     }
 
     // Initialize
+    debug('Vim Mode initialized', { version, DEBUG });
     document.addEventListener('focusin', handleFocus, true);
     document.addEventListener('focusout', handleBlur, true);
     document.addEventListener('keydown', handleKeyDown, true);
