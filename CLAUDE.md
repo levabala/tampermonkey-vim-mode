@@ -8,43 +8,41 @@ This is a Tampermonkey userscript that adds Vim-like modal editing to all text i
 
 ## Architecture
 
-**Single-file design**: The entire userscript lives in `tampermonkey_vim_mode.js`. There is no build process, no dependencies, and no module system - it's pure vanilla JavaScript wrapped in an IIFE.
+**TypeScript modular design**: The project is now written in TypeScript with a modular architecture. Source files are in `src/` and bundled using Bun into a single userscript at `dist/tampermonkey_vim_mode.js`.
 
-**State management**: Global state is maintained through closure variables at the top level:
+**Source structure**:
 
-- `mode`: Current editing mode ('normal' or 'insert')
-- `currentInput`: The currently focused input/textarea element
-- `commandBuffer`, `countBuffer`, `operatorPending`: Used to parse multi-character Vim commands
-- `clipboard`: Internal clipboard for yank/paste operations
-- `undoStack`, `redoStack`: Undo/redo history per input
-- `lastChange`: Tracks the last change for dot-repeat (`.` command)
+- `src/main.ts`: Entry point that orchestrates the userscript
+- `src/setup.ts`: Contains userscript metadata header
+- `src/types.ts`: TypeScript type definitions
+- `src/common.ts`: Shared utilities and state management
+- `src/normal.ts`: Normal mode command handling
+- `src/insert.ts`: Insert mode handling
+- `src/visual.ts`: Visual mode handling
 
-**Command processing flow**:
+**Build process**: Run `bun run build` to bundle TypeScript sources into the final userscript. The build script (`build.ts`) uses Bun to compile and bundle everything into an IIFE with the userscript header.
 
-1. `handleKeyDown()` intercepts all keyboard events
-2. In insert mode, keys are passed through normally
-3. In normal mode, keys are fed to `processCommand()`
-4. `processCommand()` handles the stateful parsing of Vim commands (operators, counts, motions, text objects)
-5. Motion functions (`executeMotion()`, `getMotionRange()`) calculate cursor positions
-6. Operator functions (`deleteRange()`, `yankRange()`, `changeRange()`) modify text
+**Build system**: The project uses Bun as the build tool and runtime. Key commands:
 
-**Text object parsing**: The script implements `i` (inner) and `a` (around) text objects for pairs like `()`, `[]`, `{}`, `""`, `''`. The `findTextObject()` function searches bidirectionally from the cursor to find matching delimiters.
+- `bun run build`: Build the userscript from TypeScript sources
+- `bun run test`: Run test suite with Vitest
+- `bun run test:watch`: Run tests in watch mode
+- `bun run test:ui`: Run tests with UI
+- `bun run test:coverage`: Run tests with coverage report
+- `bun run typecheck`: Type-check TypeScript without emitting files
+- `bun run lint`: Lint code with ESLint
+- `bun run lint:fix`: Auto-fix linting issues
+- `bun run format`: Format code with Prettier
 
-## Key Implementation Details
+**Development workflow**:
 
-- **Mode indicator**: A fixed-position DOM element shows current mode (bottom-left corner)
-- **Focus management**: The script prevents blur in insert mode to maintain Vim-like behavior, using the `allowBlur` flag
-- **Line-based operations**: Helper functions (`getLine()`, `getLineStart()`, `getLineEnd()`) handle multi-line text manipulation
-- **Character finding**: `f`, `t`, `F`, `T` commands are tracked with `lastFindChar`, `lastFindDirection`, and `lastFindType` for `;` and `,` repeat
-- **Dot-repeat**: The `lastChange` object stores enough information to replay commands via `.`
+1. Edit TypeScript files in `src/`
+2. Run `bun run build` to generate `dist/tampermonkey_vim_mode.js`
+3. Reload the script in Tampermonkey to test changes
 
-## Development
+**Testing**: Automated tests using Vitest with jsdom for DOM manipulation. Tests are in the `test/` directory.
 
-**No build system**: Edit `tampermonkey_vim_mode.js` directly. Changes take effect by reloading the script in Tampermonkey.
-
-**Testing**: Manual testing in a browser with Tampermonkey installed. Focus any input/textarea and press `Escape` to enter normal mode.
-
-**Deployment**: The script is distributed via GitHub Gist (see `@updateURL` and `@downloadURL` in the userscript header).
+**Deployment**: The built script (`dist/tampermonkey_vim_mode.js`) is distributed via GitHub Gist (see `@updateURL` and `@downloadURL` in the userscript header).
 
 ## Vim Feature Coverage
 
@@ -58,7 +56,7 @@ Refer to `SPEC.md` for the complete list of supported Vim commands. The implemen
 - Undo/redo: `u`, `Ctrl-r`
 - Repeat: `.`
 - Counts: Numeric prefixes work with most commands
-- use bun run test to run test
+- Visual mode: `v` for character-wise selection
 
 ## Testing Workflow
 
