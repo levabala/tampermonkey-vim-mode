@@ -1,0 +1,105 @@
+<!doctype html>
+<html>
+    <head>
+        <title>Debug Scroll Commands</title>
+        <style>
+            body {
+                font-family: monospace;
+                padding: 20px;
+            }
+            textarea {
+                width: 600px;
+                height: 300px;
+                font-size: 16px;
+                font-family: monospace;
+                padding: 10px;
+                border: 2px solid red;
+            }
+            .instructions {
+                background: #f0f0f0;
+                padding: 15px;
+                margin-bottom: 20px;
+                border-radius: 4px;
+            }
+            #console {
+                background: black;
+                color: lime;
+                padding: 10px;
+                height: 200px;
+                overflow-y: auto;
+                font-size: 12px;
+                margin-top: 20px;
+            }
+        </style>
+    </head>
+    <body>
+        <div class="instructions">
+            <h2>Debug Scroll Commands</h2>
+            <p><strong>OPEN BROWSER CONSOLE (F12)</strong> to see debug logs</p>
+            <ol>
+                <li>Click in the textarea below</li>
+                <li>
+                    Try pressing <kbd>Ctrl+e</kbd>, <kbd>Ctrl+y</kbd>,
+                    <kbd>Ctrl+d</kbd>, <kbd>Ctrl+u</kbd>
+                </li>
+                <li>Watch console for debug output</li>
+            </ol>
+        </div>
+
+        <textarea id="test">
+Line 1: The quick brown fox
+Line 2: jumps over the lazy dog
+Line 3: Lorem ipsum dolor sit amet
+Line 4: consectetur adipiscing elit
+Line 5: sed do eiusmod tempor
+Line 6: incididunt ut labore et dolore
+Line 7: magna aliqua. Ut enim ad minim
+Line 8: veniam, quis nostrud exercitation
+Line 9: ullamco laboris nisi ut aliquip
+Line 10: ex ea commodo consequat
+Line 11: Duis aute irure dolor in reprehenderit
+Line 12: in voluptate velit esse cillum
+Line 13: dolore eu fugiat nulla pariatur
+Line 14: Excepteur sint occaecat cupidatat
+Line 15: non proident, sunt in culpa qui
+Line 16: officia deserunt mollit anim id
+Line 17: est laborum. Sed ut perspiciatis
+Line 18: unde omnis iste natus error sit
+Line 19: voluptatem accusantium doloremque
+Line 20: laudantium, totam rem aperiam</textarea
+        >
+
+        <div id="console"></div>
+
+        <script src="dist/tampermonkey_vim_mode.js"></script>
+        <script>
+            // Monitor keyboard events
+            const consoleDiv = document.getElementById("console");
+            const textarea = document.getElementById("test");
+
+            function log(msg) {
+                const line = document.createElement("div");
+                line.textContent = new Date().toLocaleTimeString() + ": " + msg;
+                consoleDiv.appendChild(line);
+                consoleDiv.scrollTop = consoleDiv.scrollHeight;
+                console.log(msg);
+            }
+
+            textarea.addEventListener(
+                "keydown",
+                (e) => {
+                    log(
+                        `KEYDOWN: key="${e.key}" ctrl=${e.ctrlKey} alt=${e.altKey} prevented=${e.defaultPrevented}`,
+                    );
+                },
+                true,
+            );
+
+            textarea.addEventListener("scroll", (e) => {
+                log(`SCROLL: scrollTop=${textarea.scrollTop}`);
+            });
+
+            log("Monitoring started. Try Ctrl+e, Ctrl+y, Ctrl+d, Ctrl+u");
+        </script>
+    </body>
+</html>

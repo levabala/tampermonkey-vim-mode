@@ -6,13 +6,21 @@
             body {
                 font-family: monospace;
                 padding: 20px;
+                height: 3000px; /* Force window scroll */
+            }
+            .container {
+                height: 2000px; /* Large container to enable window scrolling */
+                border: 2px solid blue;
+                padding: 10px;
+                margin-bottom: 50px;
             }
             textarea {
-                width: 3000px;
-                height: 1500px;
+                width: 800px;
+                height: 1000px; /* Force internal textarea scroll */
                 font-size: 16px;
                 font-family: monospace;
                 padding: 10px;
+                overflow: auto;
             }
             .instructions {
                 background: #f0f0f0;
@@ -52,7 +60,8 @@
             </p>
         </div>
 
-        <textarea>
+        <div class="container">
+            <textarea>
 Line 1: The quick brown fox
 Line 2: jumps over the lazy dog
 Line 3: Lorem ipsum dolor sit amet
@@ -81,7 +90,8 @@ Test visual mode and scrolling:
 - Test scrolling with Ctrl-e (down), Ctrl-y (up)
 - Test scrolling with Ctrl-d (half page down), Ctrl-u (half page up)
 - Scrolling should work in INSERT and NORMAL modes!</textarea
-        >
+            >
+        </div>
 
         <script src="dist/tampermonkey_vim_mode.js"></script>
     </body>
