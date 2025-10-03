@@ -1,115 +1,153 @@
 import { debug, TAMPER_VIM_MODE } from "./setup.js";
-import type { EditableElement, LineInfo, UndoState } from "./types.js";
+import type {
+    CaretPosition,
+    CaretRenderer,
+    EditableElement,
+    LineInfo,
+    TextMetrics,
+    UndoState,
+} from "./types.js";
 
 // Custom caret management
 let customCaret: HTMLDivElement | null = null;
+let currentRenderer: CaretRenderer | null = null;
 
-export function createCustomCaret(input: EditableElement): void {
-    if (customCaret) {
-        customCaret.remove();
+// DOM-based text metrics implementation
+export class DOMTextMetrics implements TextMetrics {
+    private canvas: HTMLCanvasElement;
+    private ctx: CanvasRenderingContext2D | null;
+    private input: EditableElement;
+    private computedStyle: CSSStyleDeclaration;
+
+    constructor(input: EditableElement) {
+        this.input = input;
+        this.computedStyle = window.getComputedStyle(input);
+        this.canvas = document.createElement("canvas");
+        this.ctx = this.canvas.getContext("2d");
+
+        if (this.ctx) {
+            const fontSize = this.getFontSize();
+            const fontFamily = this.computedStyle.fontFamily;
+            this.ctx.font = `${fontSize}px ${fontFamily}`;
+        }
     }
 
-    // Check if custom caret is disabled via config
-    if (TAMPER_VIM_MODE.disableCustomCaret) {
-        debug("createCustomCaret: disabled via config, keeping native caret");
-        return;
+    measureText(text: string): number {
+        if (!this.ctx) return 0;
+        return this.ctx.measureText(text).width;
     }
 
-    // Test if canvas is available before hiding native caret
-    const testCanvas = document.createElement("canvas");
-    const testCtx = testCanvas.getContext("2d");
-    if (!testCtx) {
-        debug("createCustomCaret: canvas not available, keeping native caret");
-        return;
+    getCharWidth(char: string): number {
+        if (!this.ctx) return 0;
+        return this.ctx.measureText(char).width;
     }
 
-    // Hide native caret
-    input.style.caretColor = "transparent";
+    getFontSize(): number {
+        return parseFloat(this.computedStyle.fontSize);
+    }
 
-    // Create custom caret element
-    customCaret = document.createElement("div");
-    customCaret.style.position = "absolute";
-    customCaret.style.pointerEvents = "none";
-    customCaret.style.zIndex = "9999";
-    customCaret.style.backgroundColor = "white";
-    customCaret.style.mixBlendMode = "difference";
-    document.body.appendChild(customCaret);
-
-    updateCustomCaret(input);
+    getLineHeight(): number {
+        const lineHeight = this.computedStyle.lineHeight;
+        return lineHeight === "normal"
+            ? this.getFontSize() * 1.2
+            : parseFloat(lineHeight);
+    }
 }
 
-export function updateCustomCaret(input: EditableElement): void {
-    if (!customCaret) return;
+// DOM-based caret renderer
+export class DOMCaretRenderer implements CaretRenderer {
+    private element: HTMLDivElement;
 
-    const pos = getCursorPos(input);
-    const text = input.value;
-
-    // Measure character dimensions
-    const computedStyle = window.getComputedStyle(input);
-    const fontSize = parseFloat(computedStyle.fontSize);
-    const fontFamily = computedStyle.fontFamily;
-    const lineHeight =
-        computedStyle.lineHeight === "normal"
-            ? fontSize * 1.2
-            : parseFloat(computedStyle.lineHeight);
-
-    // Create a temporary canvas to measure character width
-    const canvas = document.createElement("canvas");
-    const ctx = canvas.getContext("2d");
-
-    // Guard against environments without canvas support (e.g., test environments)
-    if (!ctx) {
-        debug("updateCustomCaret: canvas context not available");
-        return;
+    constructor() {
+        this.element = document.createElement("div");
+        this.element.style.position = "absolute";
+        this.element.style.pointerEvents = "none";
+        this.element.style.zIndex = "9999";
+        this.element.style.backgroundColor = "white";
+        this.element.style.mixBlendMode = "difference";
+        document.body.appendChild(this.element);
     }
 
-    ctx.font = `${fontSize}px ${fontFamily}`;
+    show(position: CaretPosition): void {
+        this.element.style.left = `${position.x}px`;
+        this.element.style.top = `${position.y}px`;
+        this.element.style.width = `${position.width}px`;
+        this.element.style.height = `${position.height}px`;
+        this.element.style.display = "block";
+    }
 
+    hide(): void {
+        this.element.style.display = "none";
+    }
+
+    isActive(): boolean {
+        return this.element.parentElement !== null;
+    }
+
+    destroy(): void {
+        this.element.remove();
+    }
+}
+
+// Calculate caret position (pure function, no side effects)
+export function calculateCaretPosition(
+    input: EditableElement,
+    metrics: TextMetrics,
+): CaretPosition {
+    const pos = getCursorPos(input);
+    const text = input.value;
     const char = text[pos] || " ";
-    const charWidth = ctx.measureText(char).width;
 
-    // Get input element position (viewport-relative coordinates)
+    const computedStyle = window.getComputedStyle(input);
     const rect = input.getBoundingClientRect();
 
-    // Calculate cursor position within the input using a mirror element
-    const mirror = document.createElement("div");
-    mirror.style.position = "absolute";
-    mirror.style.visibility = "hidden";
-    mirror.style.whiteSpace = input.tagName === "TEXTAREA" ? "pre-wrap" : "pre";
-    mirror.style.wordWrap = "break-word";
-    mirror.style.width = `${rect.width}px`;
+    const charWidth = metrics.getCharWidth(char);
+    const lineHeight = metrics.getLineHeight();
 
-    // Copy all relevant styles from input to mirror
-    const stylesToCopy = [
-        "font-family",
-        "font-size",
-        "font-weight",
-        "font-style",
-        "letter-spacing",
-        "text-transform",
-        "word-spacing",
-        "text-indent",
-        "padding-left",
-        "padding-top",
-        "padding-right",
-        "padding-bottom",
-        "border-left-width",
-        "border-top-width",
-        "box-sizing",
-    ];
+    // Get padding values
+    const paddingLeft = parseFloat(computedStyle.paddingLeft);
+    const paddingTop = parseFloat(computedStyle.paddingTop);
 
-    stylesToCopy.forEach((prop) => {
-        mirror.style.setProperty(prop, computedStyle.getPropertyValue(prop));
-    });
-
-    document.body.appendChild(mirror);
-
-    // Calculate position
     let x = rect.left + window.scrollX;
     let y = rect.top + window.scrollY;
 
     if (input.tagName === "TEXTAREA") {
         // Multi-line: use mirror to measure actual text position
+        const mirror = document.createElement("div");
+        mirror.style.position = "absolute";
+        mirror.style.visibility = "hidden";
+        mirror.style.whiteSpace = "pre-wrap";
+        mirror.style.wordWrap = "break-word";
+        mirror.style.width = `${rect.width}px`;
+
+        // Copy all relevant styles from input to mirror
+        const stylesToCopy = [
+            "font-family",
+            "font-size",
+            "font-weight",
+            "font-style",
+            "letter-spacing",
+            "text-transform",
+            "word-spacing",
+            "text-indent",
+            "padding-left",
+            "padding-top",
+            "padding-right",
+            "padding-bottom",
+            "border-left-width",
+            "border-top-width",
+            "box-sizing",
+        ];
+
+        stylesToCopy.forEach((prop) => {
+            mirror.style.setProperty(
+                prop,
+                computedStyle.getPropertyValue(prop),
+            );
+        });
+
+        document.body.appendChild(mirror);
+
         const textBeforeCursor = text.substring(0, pos);
         mirror.textContent = textBeforeCursor;
 
@@ -120,10 +158,6 @@ export function updateCustomCaret(input: EditableElement): void {
 
         const spanRect = cursorSpan.getBoundingClientRect();
         const mirrorRect = mirror.getBoundingClientRect();
-
-        // Get padding values
-        const paddingLeft = parseFloat(computedStyle.paddingLeft);
-        const paddingTop = parseFloat(computedStyle.paddingTop);
 
         // Calculate position relative to input, accounting for scroll
         x =
@@ -136,29 +170,90 @@ export function updateCustomCaret(input: EditableElement): void {
             (spanRect.top - mirrorRect.top) +
             paddingTop -
             input.scrollTop;
+
+        // Clean up mirror element
+        mirror.remove();
     } else {
         // Single-line: use canvas measurement for accuracy
         const textBeforeCursor = text.substring(0, pos);
-        const textWidth = ctx.measureText(textBeforeCursor).width;
-
-        const paddingLeft = parseFloat(computedStyle.paddingLeft);
-        const paddingTop = parseFloat(computedStyle.paddingTop);
+        const textWidth = metrics.measureText(textBeforeCursor);
 
         x = rect.left + paddingLeft + textWidth - input.scrollLeft;
         y = rect.top + paddingTop;
     }
 
-    // Clean up mirror element
-    mirror.remove();
+    return { x, y, width: charWidth, height: lineHeight };
+}
 
-    // Position and size the caret (using viewport coordinates)
-    customCaret.style.left = `${x}px`;
-    customCaret.style.top = `${y}px`;
-    customCaret.style.width = `${charWidth}px`;
-    customCaret.style.height = `${lineHeight}px`;
+export function createCustomCaret(
+    input: EditableElement,
+    renderer?: CaretRenderer,
+): void {
+    // Clean up existing renderer
+    if (currentRenderer && currentRenderer instanceof DOMCaretRenderer) {
+        (currentRenderer as DOMCaretRenderer).destroy();
+    }
+    if (customCaret) {
+        customCaret.remove();
+        customCaret = null;
+    }
+
+    // Check if custom caret is disabled via config
+    if (TAMPER_VIM_MODE.disableCustomCaret) {
+        debug("createCustomCaret: disabled via config, keeping native caret");
+        return;
+    }
+
+    // Test if canvas is available before hiding native caret (unless custom renderer provided)
+    if (!renderer) {
+        const testCanvas = document.createElement("canvas");
+        const testCtx = testCanvas.getContext("2d");
+        if (!testCtx) {
+            debug(
+                "createCustomCaret: canvas not available, keeping native caret",
+            );
+            return;
+        }
+    }
+
+    // Hide native caret
+    input.style.caretColor = "transparent";
+
+    // Use provided renderer or create default DOM renderer
+    if (renderer) {
+        currentRenderer = renderer;
+    } else {
+        const domRenderer = new DOMCaretRenderer();
+        currentRenderer = domRenderer;
+        customCaret = domRenderer["element"]; // For backward compatibility
+    }
+
+    updateCustomCaret(input);
+}
+
+export function updateCustomCaret(
+    input: EditableElement,
+    metrics?: TextMetrics,
+): void {
+    if (!currentRenderer) return;
+
+    // Create metrics if not provided
+    const textMetrics = metrics || new DOMTextMetrics(input);
+
+    // Calculate position using the abstracted function
+    const position = calculateCaretPosition(input, textMetrics);
+
+    // Render using the current renderer
+    currentRenderer.show(position);
 }
 
 export function removeCustomCaret(input: EditableElement | null): void {
+    if (currentRenderer) {
+        if (currentRenderer instanceof DOMCaretRenderer) {
+            (currentRenderer as DOMCaretRenderer).destroy();
+        }
+        currentRenderer = null;
+    }
     if (customCaret) {
         customCaret.remove();
         customCaret = null;

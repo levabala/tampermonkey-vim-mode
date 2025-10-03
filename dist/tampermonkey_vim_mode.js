@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Vim Mode for Text Inputs
 // @namespace    http://tampermonkey.net/
-// @version      1.0.42
+// @version      1.0.43
 // @description  Vim-like editing for textareas and inputs
 // @match        *://*/*
 // @updateURL    https://raw.githubusercontent.com/levabala/tampermonkey-vim-mode/refs/heads/main/dist/tampermonkey_vim_mode.js
@@ -153,89 +153,114 @@
 
         // src/common.ts
         var customCaret = null;
-        function createCustomCaret(input) {
-            if (customCaret) {
-                customCaret.remove();
+        var currentRenderer = null;
+
+        class DOMTextMetrics {
+            canvas;
+            ctx;
+            input;
+            computedStyle;
+            constructor(input) {
+                this.input = input;
+                this.computedStyle = window.getComputedStyle(input);
+                this.canvas = document.createElement("canvas");
+                this.ctx = this.canvas.getContext("2d");
+                if (this.ctx) {
+                    const fontSize = this.getFontSize();
+                    const fontFamily = this.computedStyle.fontFamily;
+                    this.ctx.font = `${fontSize}px ${fontFamily}`;
+                }
             }
-            if (TAMPER_VIM_MODE.disableCustomCaret) {
-                debug(
-                    "createCustomCaret: disabled via config, keeping native caret",
-                );
-                return;
+            measureText(text) {
+                if (!this.ctx) return 0;
+                return this.ctx.measureText(text).width;
             }
-            const testCanvas = document.createElement("canvas");
-            const testCtx = testCanvas.getContext("2d");
-            if (!testCtx) {
-                debug(
-                    "createCustomCaret: canvas not available, keeping native caret",
-                );
-                return;
+            getCharWidth(char) {
+                if (!this.ctx) return 0;
+                return this.ctx.measureText(char).width;
             }
-            input.style.caretColor = "transparent";
-            customCaret = document.createElement("div");
-            customCaret.style.position = "absolute";
-            customCaret.style.pointerEvents = "none";
-            customCaret.style.zIndex = "9999";
-            customCaret.style.backgroundColor = "white";
-            customCaret.style.mixBlendMode = "difference";
-            document.body.appendChild(customCaret);
-            updateCustomCaret(input);
+            getFontSize() {
+                return parseFloat(this.computedStyle.fontSize);
+            }
+            getLineHeight() {
+                const lineHeight = this.computedStyle.lineHeight;
+                return lineHeight === "normal"
+                    ? this.getFontSize() * 1.2
+                    : parseFloat(lineHeight);
+            }
         }
-        function updateCustomCaret(input) {
-            if (!customCaret) return;
+
+        class DOMCaretRenderer {
+            element;
+            constructor() {
+                this.element = document.createElement("div");
+                this.element.style.position = "absolute";
+                this.element.style.pointerEvents = "none";
+                this.element.style.zIndex = "9999";
+                this.element.style.backgroundColor = "white";
+                this.element.style.mixBlendMode = "difference";
+                document.body.appendChild(this.element);
+            }
+            show(position) {
+                this.element.style.left = `${position.x}px`;
+                this.element.style.top = `${position.y}px`;
+                this.element.style.width = `${position.width}px`;
+                this.element.style.height = `${position.height}px`;
+                this.element.style.display = "block";
+            }
+            hide() {
+                this.element.style.display = "none";
+            }
+            isActive() {
+                return this.element.parentElement !== null;
+            }
+            destroy() {
+                this.element.remove();
+            }
+        }
+        function calculateCaretPosition(input, metrics) {
             const pos = getCursorPos(input);
             const text = input.value;
-            const computedStyle = window.getComputedStyle(input);
-            const fontSize = parseFloat(computedStyle.fontSize);
-            const fontFamily = computedStyle.fontFamily;
-            const lineHeight =
-                computedStyle.lineHeight === "normal"
-                    ? fontSize * 1.2
-                    : parseFloat(computedStyle.lineHeight);
-            const canvas = document.createElement("canvas");
-            const ctx = canvas.getContext("2d");
-            if (!ctx) {
-                debug("updateCustomCaret: canvas context not available");
-                return;
-            }
-            ctx.font = `${fontSize}px ${fontFamily}`;
             const char = text[pos] || " ";
-            const charWidth = ctx.measureText(char).width;
+            const computedStyle = window.getComputedStyle(input);
             const rect = input.getBoundingClientRect();
-            const mirror = document.createElement("div");
-            mirror.style.position = "absolute";
-            mirror.style.visibility = "hidden";
-            mirror.style.whiteSpace =
-                input.tagName === "TEXTAREA" ? "pre-wrap" : "pre";
-            mirror.style.wordWrap = "break-word";
-            mirror.style.width = `${rect.width}px`;
-            const stylesToCopy = [
-                "font-family",
-                "font-size",
-                "font-weight",
-                "font-style",
-                "letter-spacing",
-                "text-transform",
-                "word-spacing",
-                "text-indent",
-                "padding-left",
-                "padding-top",
-                "padding-right",
-                "padding-bottom",
-                "border-left-width",
-                "border-top-width",
-                "box-sizing",
-            ];
-            stylesToCopy.forEach((prop) => {
-                mirror.style.setProperty(
-                    prop,
-                    computedStyle.getPropertyValue(prop),
-                );
-            });
-            document.body.appendChild(mirror);
+            const charWidth = metrics.getCharWidth(char);
+            const lineHeight = metrics.getLineHeight();
+            const paddingLeft = parseFloat(computedStyle.paddingLeft);
+            const paddingTop = parseFloat(computedStyle.paddingTop);
             let x = rect.left + window.scrollX;
             let y = rect.top + window.scrollY;
             if (input.tagName === "TEXTAREA") {
+                const mirror = document.createElement("div");
+                mirror.style.position = "absolute";
+                mirror.style.visibility = "hidden";
+                mirror.style.whiteSpace = "pre-wrap";
+                mirror.style.wordWrap = "break-word";
+                mirror.style.width = `${rect.width}px`;
+                const stylesToCopy = [
+                    "font-family",
+                    "font-size",
+                    "font-weight",
+                    "font-style",
+                    "letter-spacing",
+                    "text-transform",
+                    "word-spacing",
+                    "text-indent",
+                    "padding-left",
+                    "padding-top",
+                    "padding-right",
+                    "padding-bottom",
+                    "border-left-width",
+                    "border-top-width",
+                    "box-sizing",
+                ];
+                stylesToCopy.forEach((prop) => {
+                    mirror.style.setProperty(
+                        prop,
+                        computedStyle.getPropertyValue(prop),
+                    );
+                });
+                document.body.appendChild(mirror);
                 const textBeforeCursor = text.substring(0, pos);
                 mirror.textContent = textBeforeCursor;
                 const cursorSpan = document.createElement("span");
@@ -243,8 +268,6 @@
                 mirror.appendChild(cursorSpan);
                 const spanRect = cursorSpan.getBoundingClientRect();
                 const mirrorRect = mirror.getBoundingClientRect();
-                const paddingLeft = parseFloat(computedStyle.paddingLeft);
-                const paddingTop = parseFloat(computedStyle.paddingTop);
                 x =
                     rect.left +
                     (spanRect.left - mirrorRect.left) +
@@ -255,21 +278,65 @@
                     (spanRect.top - mirrorRect.top) +
                     paddingTop -
                     input.scrollTop;
+                mirror.remove();
             } else {
                 const textBeforeCursor = text.substring(0, pos);
-                const textWidth = ctx.measureText(textBeforeCursor).width;
-                const paddingLeft = parseFloat(computedStyle.paddingLeft);
-                const paddingTop = parseFloat(computedStyle.paddingTop);
+                const textWidth = metrics.measureText(textBeforeCursor);
                 x = rect.left + paddingLeft + textWidth - input.scrollLeft;
                 y = rect.top + paddingTop;
             }
-            mirror.remove();
-            customCaret.style.left = `${x}px`;
-            customCaret.style.top = `${y}px`;
-            customCaret.style.width = `${charWidth}px`;
-            customCaret.style.height = `${lineHeight}px`;
+            return { x, y, width: charWidth, height: lineHeight };
+        }
+        function createCustomCaret(input, renderer) {
+            if (
+                currentRenderer &&
+                currentRenderer instanceof DOMCaretRenderer
+            ) {
+                currentRenderer.destroy();
+            }
+            if (customCaret) {
+                customCaret.remove();
+                customCaret = null;
+            }
+            if (TAMPER_VIM_MODE.disableCustomCaret) {
+                debug(
+                    "createCustomCaret: disabled via config, keeping native caret",
+                );
+                return;
+            }
+            if (!renderer) {
+                const testCanvas = document.createElement("canvas");
+                const testCtx = testCanvas.getContext("2d");
+                if (!testCtx) {
+                    debug(
+                        "createCustomCaret: canvas not available, keeping native caret",
+                    );
+                    return;
+                }
+            }
+            input.style.caretColor = "transparent";
+            if (renderer) {
+                currentRenderer = renderer;
+            } else {
+                const domRenderer = new DOMCaretRenderer();
+                currentRenderer = domRenderer;
+                customCaret = domRenderer["element"];
+            }
+            updateCustomCaret(input);
+        }
+        function updateCustomCaret(input, metrics) {
+            if (!currentRenderer) return;
+            const textMetrics = metrics || new DOMTextMetrics(input);
+            const position = calculateCaretPosition(input, textMetrics);
+            currentRenderer.show(position);
         }
         function removeCustomCaret(input) {
+            if (currentRenderer) {
+                if (currentRenderer instanceof DOMCaretRenderer) {
+                    currentRenderer.destroy();
+                }
+                currentRenderer = null;
+            }
             if (customCaret) {
                 customCaret.remove();
                 customCaret = null;

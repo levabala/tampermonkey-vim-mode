@@ -33,6 +33,26 @@ export interface LineInfo extends TextRange {
     text: string;
 }
 
+export interface CaretPosition {
+    x: number;
+    y: number;
+    width: number;
+    height: number;
+}
+
+export interface CaretRenderer {
+    show(position: CaretPosition): void;
+    hide(): void;
+    isActive(): boolean;
+}
+
+export interface TextMetrics {
+    measureText(text: string): number;
+    getCharWidth(char: string): number;
+    getFontSize(): number;
+    getLineHeight(): number;
+}
+
 export interface State {
     mode: Mode;
     currentInput: EditableElement | null;
