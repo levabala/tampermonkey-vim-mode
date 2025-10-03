@@ -592,6 +592,142 @@ describe("Character Finding", () => {
         );
         expect(input.selectionStart).toBe(2);
     });
+
+    it("should find closing bracket with f when using Shift modifier", () => {
+        input.value = "function(arg)";
+        input.focus();
+        input.selectionStart = 0;
+        input.dispatchEvent(
+            new KeyboardEvent("keydown", { key: "Escape", bubbles: true }),
+        );
+        input.dispatchEvent(
+            new KeyboardEvent("keydown", { key: "f", bubbles: true }),
+        );
+        // Simulate typing ) which is Shift+0 on most keyboards
+        input.dispatchEvent(
+            new KeyboardEvent("keydown", {
+                key: ")",
+                shiftKey: true,
+                bubbles: true,
+            }),
+        );
+        expect(input.selectionStart).toBe(12);
+    });
+
+    it("should find opening bracket with f when using Shift modifier", () => {
+        input.value = "text(arg)more";
+        input.focus();
+        input.selectionStart = 0;
+        input.dispatchEvent(
+            new KeyboardEvent("keydown", { key: "Escape", bubbles: true }),
+        );
+        input.dispatchEvent(
+            new KeyboardEvent("keydown", { key: "f", bubbles: true }),
+        );
+        // Simulate typing ( which is Shift+9 on most keyboards
+        input.dispatchEvent(
+            new KeyboardEvent("keydown", {
+                key: "(",
+                shiftKey: true,
+                bubbles: true,
+            }),
+        );
+        expect(input.selectionStart).toBe(4);
+    });
+
+    it("should find greater than with f when using Shift modifier", () => {
+        input.value = "x > y";
+        input.focus();
+        input.selectionStart = 0;
+        input.dispatchEvent(
+            new KeyboardEvent("keydown", { key: "Escape", bubbles: true }),
+        );
+        input.dispatchEvent(
+            new KeyboardEvent("keydown", { key: "f", bubbles: true }),
+        );
+        // Simulate typing > which is Shift+. on most keyboards
+        input.dispatchEvent(
+            new KeyboardEvent("keydown", {
+                key: ">",
+                shiftKey: true,
+                bubbles: true,
+            }),
+        );
+        expect(input.selectionStart).toBe(2);
+    });
+
+    it("should delete to closing bracket with df)", () => {
+        input.value = "function(arg)more";
+        input.focus();
+        input.selectionStart = 0;
+        input.dispatchEvent(
+            new KeyboardEvent("keydown", { key: "Escape", bubbles: true }),
+        );
+        input.dispatchEvent(
+            new KeyboardEvent("keydown", { key: "d", bubbles: true }),
+        );
+        input.dispatchEvent(
+            new KeyboardEvent("keydown", { key: "f", bubbles: true }),
+        );
+        input.dispatchEvent(
+            new KeyboardEvent("keydown", {
+                key: ")",
+                shiftKey: true,
+                bubbles: true,
+            }),
+        );
+        expect(input.value).toBe("more");
+        expect(input.selectionStart).toBe(0);
+    });
+
+    it("should delete to greater than with df>", () => {
+        input.value = "x > y end";
+        input.focus();
+        input.selectionStart = 0;
+        input.dispatchEvent(
+            new KeyboardEvent("keydown", { key: "Escape", bubbles: true }),
+        );
+        input.dispatchEvent(
+            new KeyboardEvent("keydown", { key: "d", bubbles: true }),
+        );
+        input.dispatchEvent(
+            new KeyboardEvent("keydown", { key: "f", bubbles: true }),
+        );
+        input.dispatchEvent(
+            new KeyboardEvent("keydown", {
+                key: ">",
+                shiftKey: true,
+                bubbles: true,
+            }),
+        );
+        expect(input.value).toBe(" y end");
+        expect(input.selectionStart).toBe(0);
+    });
+
+    it("should yank to closing brace with yf}", () => {
+        input.value = "if { code } more";
+        input.focus();
+        input.selectionStart = 0;
+        input.dispatchEvent(
+            new KeyboardEvent("keydown", { key: "Escape", bubbles: true }),
+        );
+        input.dispatchEvent(
+            new KeyboardEvent("keydown", { key: "y", bubbles: true }),
+        );
+        input.dispatchEvent(
+            new KeyboardEvent("keydown", { key: "f", bubbles: true }),
+        );
+        input.dispatchEvent(
+            new KeyboardEvent("keydown", {
+                key: "}",
+                shiftKey: true,
+                bubbles: true,
+            }),
+        );
+        // Should yank "if { code }" (10 chars)
+        expect(input.value).toBe("if { code } more");
+        expect(input.selectionStart).toBe(0);
+    });
 });
 
 describe("w motion on empty lines", () => {
