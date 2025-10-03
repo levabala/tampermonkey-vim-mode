@@ -74,3 +74,4 @@ This ensures the test actually catches the bug and isn't a false positive.
 - use bun!
 - run lint:fix and format via bun run before committing changes
 - when bumping version you must do it in src/, not in dist/
+- TAMPER_VIM_MODE holds the config. changes to it must be backwards compatible
