@@ -55,3 +55,4 @@ Refer to `SPEC.md` for the complete list of supported Vim commands. The implemen
 - Undo/redo: `u`, `Ctrl-r`
 - Repeat: `.`
 - Counts: Numeric prefixes work with most commands
+- use bun run test to run test
