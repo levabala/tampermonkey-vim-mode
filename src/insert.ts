@@ -2,7 +2,7 @@
 // This file exists for organizational completeness
 
 export function handleInsertMode(): void {
-	// In insert mode, we allow normal typing
-	// No special handling needed
-	return;
+    // In insert mode, we allow normal typing
+    // No special handling needed
+    return;
 }
