@@ -796,6 +796,17 @@
                 countBuffer = '';
                 break;
 
+            case 'D':
+                // D is equivalent to d$
+                saveState();
+                const posD = getCursorPos();
+                const lineEndD = getLineEnd(posD);
+                clipboard = currentInput.value.substring(posD, lineEndD);
+                currentInput.value = currentInput.value.substring(0, posD) + currentInput.value.substring(lineEndD);
+                lastChange = { command: 'D', count };
+                countBuffer = '';
+                break;
+
             case 'd':
             case 'c':
             case 'y':
