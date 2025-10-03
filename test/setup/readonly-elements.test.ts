@@ -94,4 +94,30 @@ describe("Readonly Elements", () => {
         );
         expect(window.getModeText()).toBe("");
     });
+
+    it("should not enter vim mode for aria-readonly input", () => {
+        const ariaReadonlyInput = document.createElement("input");
+        ariaReadonlyInput.id = "aria-readonly-input";
+        ariaReadonlyInput.setAttribute("aria-readonly", "true");
+        ariaReadonlyInput.value = "aria-readonly input";
+        document.body.appendChild(ariaReadonlyInput);
+
+        ariaReadonlyInput.focus();
+        expect(window.getModeText()).toBe("");
+
+        ariaReadonlyInput.remove();
+    });
+
+    it("should not enter vim mode for aria-readonly textarea", () => {
+        const ariaReadonlyTextarea = document.createElement("textarea");
+        ariaReadonlyTextarea.id = "aria-readonly-textarea";
+        ariaReadonlyTextarea.setAttribute("aria-readonly", "true");
+        ariaReadonlyTextarea.value = "aria-readonly textarea";
+        document.body.appendChild(ariaReadonlyTextarea);
+
+        ariaReadonlyTextarea.focus();
+        expect(window.getModeText()).toBe("");
+
+        ariaReadonlyTextarea.remove();
+    });
 });

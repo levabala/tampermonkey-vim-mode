@@ -144,7 +144,8 @@ function handleFocus(e: FocusEvent): void {
 
     if (el.tagName === "INPUT" || el.tagName === "TEXTAREA") {
         // Skip readonly elements - treat as if leaving vim mode
-        if (el.readOnly) {
+        // Check both readOnly property and aria-readonly attribute
+        if (el.readOnly || el.getAttribute("aria-readonly") === "true") {
             debug("handleFocus: skipping readonly element");
             currentInput = null;
             updateIndicator(mode, currentInput);
