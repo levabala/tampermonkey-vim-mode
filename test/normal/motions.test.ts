@@ -171,6 +171,120 @@ describe("Multiline Operations", () => {
     });
 });
 
+describe("WORD Motions", () => {
+    let input: HTMLInputElement;
+    let textarea: HTMLTextAreaElement;
+
+    beforeEach(() => {
+        setupVimMode();
+        ({ input, textarea } = createTestElements());
+    });
+
+    afterEach(() => {
+        cleanupTestElements(input, textarea);
+    });
+
+    it("should move forward by WORD with W (treating punctuation as part of WORD)", () => {
+        input.value = "hello world.test foo";
+        input.focus();
+        input.selectionStart = 0;
+        input.dispatchEvent(
+            new KeyboardEvent("keydown", { key: "Escape", bubbles: true }),
+        );
+        input.dispatchEvent(
+            new KeyboardEvent("keydown", { key: "W", bubbles: true }),
+        );
+        // W should skip "hello" and move to "world.test" (WORD includes punctuation)
+        expect(input.selectionStart).toBe(6);
+    });
+
+    it("should differentiate W from w with punctuation", () => {
+        input.value = "foo bar.baz";
+        input.focus();
+        input.selectionStart = 4; // at 'b' in bar
+        input.dispatchEvent(
+            new KeyboardEvent("keydown", { key: "Escape", bubbles: true }),
+        );
+        // w should stop at the dot
+        input.dispatchEvent(
+            new KeyboardEvent("keydown", { key: "w", bubbles: true }),
+        );
+        expect(input.selectionStart).toBe(7); // at '.'
+
+        // Reset and test W
+        input.selectionStart = 4;
+        input.dispatchEvent(
+            new KeyboardEvent("keydown", { key: "W", bubbles: true }),
+        );
+        expect(input.selectionStart).toBe(11); // at end, since "bar.baz" is one WORD
+    });
+
+    it("should work with count 3W", () => {
+        input.value = "one two three four five";
+        input.focus();
+        input.selectionStart = 0;
+        input.dispatchEvent(
+            new KeyboardEvent("keydown", { key: "Escape", bubbles: true }),
+        );
+        input.dispatchEvent(
+            new KeyboardEvent("keydown", { key: "3", bubbles: true }),
+        );
+        input.dispatchEvent(
+            new KeyboardEvent("keydown", { key: "W", bubbles: true }),
+        );
+        expect(input.selectionStart).toBe(14); // at 'four'
+    });
+
+    it("should move backward by WORD with B", () => {
+        input.value = "hello world.test foo";
+        input.focus();
+        input.selectionStart = 17; // at 'f' in foo
+        input.dispatchEvent(
+            new KeyboardEvent("keydown", { key: "Escape", bubbles: true }),
+        );
+        input.dispatchEvent(
+            new KeyboardEvent("keydown", { key: "B", bubbles: true }),
+        );
+        // B should move to start of "world.test"
+        expect(input.selectionStart).toBe(6);
+    });
+
+    it("should move to end of WORD with E", () => {
+        input.value = "hello world.test foo";
+        input.focus();
+        input.selectionStart = 0;
+        input.dispatchEvent(
+            new KeyboardEvent("keydown", { key: "Escape", bubbles: true }),
+        );
+        input.dispatchEvent(
+            new KeyboardEvent("keydown", { key: "E", bubbles: true }),
+        );
+        // E should move to end of "hello"
+        expect(input.selectionStart).toBe(4);
+    });
+
+    it("should differentiate E from e with punctuation", () => {
+        input.value = "foo bar.baz test";
+        input.focus();
+        input.selectionStart = 4; // at 'b' in bar
+        input.dispatchEvent(
+            new KeyboardEvent("keydown", { key: "Escape", bubbles: true }),
+        );
+        // e should stop at end of "bar"
+        input.dispatchEvent(
+            new KeyboardEvent("keydown", { key: "e", bubbles: true }),
+        );
+        expect(input.selectionStart).toBe(6); // at 'r' in bar
+
+        // Reset and test E
+        input.selectionStart = 4;
+        input.dispatchEvent(
+            new KeyboardEvent("keydown", { key: "E", bubbles: true }),
+        );
+        expect(input.selectionStart).toBe(10); // at 'z' in baz, since "bar.baz" is one WORD
+    });
+});
+
 describe("Character Finding", () => {
     let input: HTMLInputElement, textarea: HTMLTextAreaElement;
 
