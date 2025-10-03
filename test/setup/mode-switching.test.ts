@@ -94,4 +94,82 @@ describe("Mode Switching", () => {
         );
         expect(window.getModeText()).toBe("-- INSERT --");
     });
+
+    it("should exit visual mode on Escape", () => {
+        input.value = "hello world";
+        input.focus();
+        // Switch to normal mode first
+        input.dispatchEvent(
+            new KeyboardEvent("keydown", { key: "Escape", bubbles: true }),
+        );
+        expect(window.getModeText()).toBe("-- NORMAL --");
+
+        // Enter visual mode with v
+        input.dispatchEvent(
+            new KeyboardEvent("keydown", { key: "v", bubbles: true }),
+        );
+        expect(window.getModeText()).toBe("-- VISUAL --");
+
+        // Exit visual mode with Escape
+        input.dispatchEvent(
+            new KeyboardEvent("keydown", { key: "Escape", bubbles: true }),
+        );
+        expect(window.getModeText()).toBe("-- NORMAL --");
+    });
+
+    it("should exit visual mode on Ctrl-]", () => {
+        input.value = "hello world";
+        input.focus();
+        // Switch to normal mode first
+        input.dispatchEvent(
+            new KeyboardEvent("keydown", { key: "Escape", bubbles: true }),
+        );
+        expect(window.getModeText()).toBe("-- NORMAL --");
+
+        // Enter visual mode with v
+        input.dispatchEvent(
+            new KeyboardEvent("keydown", { key: "v", bubbles: true }),
+        );
+        expect(window.getModeText()).toBe("-- VISUAL --");
+
+        // Exit visual mode with Ctrl-]
+        input.dispatchEvent(
+            new KeyboardEvent("keydown", {
+                key: "]",
+                ctrlKey: true,
+                bubbles: true,
+            }),
+        );
+        expect(window.getModeText()).toBe("-- NORMAL --");
+    });
+
+    it("should exit visual-line mode on Ctrl-]", () => {
+        input.value = "hello world";
+        input.focus();
+        // Switch to normal mode first
+        input.dispatchEvent(
+            new KeyboardEvent("keydown", { key: "Escape", bubbles: true }),
+        );
+        expect(window.getModeText()).toBe("-- NORMAL --");
+
+        // Enter visual-line mode with V
+        input.dispatchEvent(
+            new KeyboardEvent("keydown", {
+                key: "V",
+                shiftKey: true,
+                bubbles: true,
+            }),
+        );
+        expect(window.getModeText()).toBe("-- VISUAL LINE --");
+
+        // Exit visual-line mode with Ctrl-]
+        input.dispatchEvent(
+            new KeyboardEvent("keydown", {
+                key: "]",
+                ctrlKey: true,
+                bubbles: true,
+            }),
+        );
+        expect(window.getModeText()).toBe("-- NORMAL --");
+    });
 });
