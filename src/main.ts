@@ -288,10 +288,15 @@ function handleBlur(e: FocusEvent): void {
 
         // Check if ESC caused the blur:
         // 1. Via our global listener detecting ESC keydown
-        // 2. Via blur pattern: insert mode + no relatedTarget + trusted event + not explicitly allowed
+        // 2. Via blur pattern: insert/visual mode + no relatedTarget + trusted event + not explicitly allowed
         const isEscapeBlur =
-            (escapePressed && mode === "insert") ||
-            (mode === "insert" &&
+            (escapePressed &&
+                (mode === "insert" ||
+                    mode === "visual" ||
+                    mode === "visual-line")) ||
+            ((mode === "insert" ||
+                mode === "visual" ||
+                mode === "visual-line") &&
                 !allowBlur &&
                 !e.relatedTarget &&
                 e.isTrusted);
@@ -299,7 +304,14 @@ function handleBlur(e: FocusEvent): void {
         if (isEscapeBlur) {
             debug("handleBlur: ESC caused blur, switching to normal mode");
             escapePressed = false; // Clear the flag
-            enterNormalMode();
+
+            // Handle visual mode differently - use exitVisualMode which does the proper cleanup
+            if (mode === "visual" || mode === "visual-line") {
+                exitVisualMode();
+            } else {
+                enterNormalMode();
+            }
+
             // Prevent blur - stay focused in normal mode
             e.preventDefault();
             e.stopPropagation();
@@ -312,8 +324,15 @@ function handleBlur(e: FocusEvent): void {
         }
 
         // This shouldn't happen now, but keep for safety
-        if (mode === "insert" && !allowBlur) {
-            debug("handleBlur: unexpected blur in insert mode, preventing");
+        if (
+            (mode === "insert" ||
+                mode === "visual" ||
+                mode === "visual-line") &&
+            !allowBlur
+        ) {
+            debug(
+                "handleBlur: unexpected blur in insert/visual mode, preventing",
+            );
             e.preventDefault();
             e.stopPropagation();
             const input = currentInput!;
