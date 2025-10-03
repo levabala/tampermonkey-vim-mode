@@ -1,7 +1,7 @@
 #!/usr/bin/env bun
 
 // Build script for bundling the userscript with bun
-import { readFileSync } from 'fs';
+import { readFileSync, unlinkSync } from 'fs';
 import { resolve } from 'path';
 
 const result = await Bun.build({
@@ -45,5 +45,9 @@ await Bun.write('./dist/tampermonkey_vim_mode.js', finalContent);
 // Also copy to root for backwards compatibility and tests
 await Bun.write('./tampermonkey_vim_mode.js', finalContent);
 
+// Clean up intermediate main.js file
+unlinkSync('./dist/main.js');
+
 console.log('Created dist/tampermonkey_vim_mode.js');
 console.log('Copied to tampermonkey_vim_mode.js (for tests)');
+console.log('Cleaned up intermediate build artifacts');
