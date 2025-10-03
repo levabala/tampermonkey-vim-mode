@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Vim Mode for Text Inputs
 // @namespace    http://tampermonkey.net/
-// @version      1.0.44
+// @version      1.0.45
 // @description  Vim-like editing for textareas and inputs
 // @match        *://*/*
 // @updateURL    https://raw.githubusercontent.com/levabala/tampermonkey-vim-mode/refs/heads/main/dist/tampermonkey_vim_mode.js
@@ -270,13 +270,11 @@
                 const mirrorRect = mirror.getBoundingClientRect();
                 x =
                     rect.left +
-                    (spanRect.left - mirrorRect.left) +
-                    paddingLeft -
+                    (spanRect.left - mirrorRect.left) -
                     input.scrollLeft;
                 y =
                     rect.top +
-                    (spanRect.top - mirrorRect.top) +
-                    paddingTop -
+                    (spanRect.top - mirrorRect.top) -
                     input.scrollTop;
                 mirror.remove();
             } else {

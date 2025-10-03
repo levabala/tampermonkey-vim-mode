@@ -160,16 +160,10 @@ export function calculateCaretPosition(
         const mirrorRect = mirror.getBoundingClientRect();
 
         // Calculate position relative to input, accounting for scroll
-        x =
-            rect.left +
-            (spanRect.left - mirrorRect.left) +
-            paddingLeft -
-            input.scrollLeft;
-        y =
-            rect.top +
-            (spanRect.top - mirrorRect.top) +
-            paddingTop -
-            input.scrollTop;
+        // Note: spanRect and mirrorRect already account for padding since we copied
+        // padding styles to the mirror, so we don't add paddingLeft/paddingTop here
+        x = rect.left + (spanRect.left - mirrorRect.left) - input.scrollLeft;
+        y = rect.top + (spanRect.top - mirrorRect.top) - input.scrollTop;
 
         // Clean up mirror element
         mirror.remove();

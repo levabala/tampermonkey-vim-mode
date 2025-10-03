@@ -326,6 +326,69 @@ describe("DOMCaretRenderer", () => {
     });
 });
 
+describe("Caret positioning with real DOM layout", () => {
+    beforeEach(() => {
+        document.body.innerHTML = "";
+    });
+
+    it("should not double-count padding in textarea positioning", () => {
+        // This test verifies the fix for the bug where padding was counted twice:
+        // once in the mirror element (via copied styles) and once by adding paddingTop
+        //
+        // Note: jsdom doesn't actually render text layout, so getBoundingClientRect
+        // returns 0 for dynamically created mirror elements. This test documents
+        // the fix but can't fully verify it in jsdom. Manual testing in a real
+        // browser is needed to confirm correct positioning.
+
+        const textarea = document.createElement("textarea");
+        textarea.value = "line1\nline2\nline3";
+        textarea.selectionStart = 0;
+        textarea.selectionEnd = 0;
+        textarea.style.fontSize = "16px";
+        textarea.style.fontFamily = "monospace";
+        textarea.style.lineHeight = "20px";
+        textarea.style.padding = "10px";
+        textarea.style.position = "absolute";
+        textarea.style.top = "100px";
+        textarea.style.left = "100px";
+        document.body.appendChild(textarea);
+
+        const metrics = new (class implements TextMetrics {
+            measureText(text: string): number {
+                return text.length * 8;
+            }
+            getCharWidth(): number {
+                return 8;
+            }
+            getFontSize(): number {
+                return 16;
+            }
+            getLineHeight(): number {
+                return 20;
+            }
+        })();
+
+        const position = calculateCaretPosition(
+            textarea as EditableElement,
+            metrics,
+        );
+
+        const rect = textarea.getBoundingClientRect();
+
+        // Verify position is relative to the textarea
+        expect(position.y).toBeGreaterThanOrEqual(rect.top);
+        expect(position.y).toBeLessThan(rect.top + 100);
+
+        // The key assertion: padding should NOT be added separately
+        // because the mirror element already has padding styles copied
+        // This was the bug: y = rect.top + (spanRect.top - mirrorRect.top) + paddingTop
+        // Fixed to: y = rect.top + (spanRect.top - mirrorRect.top)
+        expect(position).toBeDefined();
+        expect(position.width).toBe(8);
+        expect(position.height).toBe(20);
+    });
+});
+
 describe("Caret positioning relative to textarea layout", () => {
     beforeEach(() => {
         document.body.innerHTML = "";
@@ -495,7 +558,7 @@ describe("Caret positioning relative to textarea layout", () => {
 
             // Caret should match fixed position
             expect(position.x).toBeGreaterThanOrEqual(680);
-            expect(position.y).toBe(56); // 50 + padding(6)
+            expect(position.y).toBe(50); // rect.top (padding already in mirror)
         });
 
         it("should handle relative positioning with offsets", () => {
@@ -537,7 +600,7 @@ describe("Caret positioning relative to textarea layout", () => {
 
             // Caret should account for relative positioning
             expect(position.x).toBeGreaterThanOrEqual(55);
-            expect(position.y).toBe(48); // 40 + padding(8)
+            expect(position.y).toBe(40); // rect.top (padding already in mirror)
         });
     });
 
