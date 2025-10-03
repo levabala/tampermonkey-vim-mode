@@ -7,6 +7,7 @@ import {
     saveState,
     updateVisualSelection as updateVisualSelectionRender,
     updateCustomCaret,
+    updateLineNumbers,
 } from "./common.js";
 import { executeMotion } from "./normal.js";
 import { yankRange, deleteRange } from "./normal.js";
@@ -41,6 +42,7 @@ export function updateVisualSelection(
     currentInput.selectionStart = visualEnd;
     currentInput.selectionEnd = visualEnd;
     updateCustomCaret(currentInput);
+    updateLineNumbers(currentInput);
 }
 
 export function extendVisualSelection(

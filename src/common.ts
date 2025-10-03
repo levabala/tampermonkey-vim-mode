@@ -8,6 +8,7 @@ import type {
     UndoState,
     SelectionRect,
     VisualSelectionRenderer,
+    LineNumbersRenderer,
 } from "./types.js";
 
 // Custom caret management
@@ -16,6 +17,9 @@ let currentRenderer: CaretRenderer | null = null;
 
 // Visual selection management
 let visualSelectionRenderer: VisualSelectionRenderer | null = null;
+
+// Line numbers management
+let lineNumbersRenderer: LineNumbersRenderer | null = null;
 
 // DOM-based text metrics implementation
 export class DOMTextMetrics implements TextMetrics {
@@ -141,6 +145,128 @@ export class DOMVisualSelectionRenderer implements VisualSelectionRenderer {
     destroy(): void {
         this.clear();
         this.container.remove();
+    }
+}
+
+// DOM-based line numbers renderer
+export class DOMLineNumbersRenderer implements LineNumbersRenderer {
+    private container: HTMLDivElement;
+    private currentInput: EditableElement | null = null;
+
+    constructor() {
+        this.container = document.createElement("div");
+        this.container.style.position = "absolute";
+        this.container.style.pointerEvents = "none";
+        this.container.style.zIndex = "9997"; // Below visual selection
+        this.container.style.backgroundColor = "rgba(0, 0, 0, 0.7)";
+        this.container.style.color = "rgba(255, 255, 255, 0.6)";
+        this.container.style.fontFamily = "monospace";
+        this.container.style.textAlign = "right";
+        this.container.style.whiteSpace = "pre";
+        this.container.style.padding = "2px 8px 2px 4px";
+        this.container.style.borderRadius = "2px";
+        this.container.style.boxSizing = "border-box";
+        document.body.appendChild(this.container);
+    }
+
+    render(
+        input: EditableElement,
+        currentLine: number,
+        totalLines: number,
+    ): void {
+        if (!TAMPER_VIM_MODE.showLineNumbers) {
+            this.hide();
+            return;
+        }
+
+        this.currentInput = input;
+        const rect = input.getBoundingClientRect();
+        const computedStyle = window.getComputedStyle(input);
+        const paddingTop = parseFloat(computedStyle.paddingTop);
+
+        // Match the input's font properties for accurate line height
+        const fontSize = computedStyle.fontSize;
+        const fontFamily = computedStyle.fontFamily;
+        const lineHeightStr = computedStyle.lineHeight;
+        const lineHeight =
+            lineHeightStr === "normal"
+                ? `${parseFloat(fontSize) * 1.2}px`
+                : lineHeightStr;
+
+        this.container.style.fontSize = fontSize;
+        this.container.style.fontFamily = fontFamily;
+        this.container.style.lineHeight = lineHeight;
+
+        // Position the container to the left of the input
+        this.container.style.display = "block";
+        this.container.style.top = `${rect.top + window.scrollY}px`;
+        this.container.style.right = `${window.innerWidth - (rect.left + window.scrollX) + 2}px`; // 2px gap from textarea
+        this.container.style.left = "auto";
+        this.container.style.height = `${rect.height}px`;
+        this.container.style.width = "auto";
+        this.container.style.minWidth = "40px";
+
+        // Generate line numbers
+        const lines: string[] = [];
+        const useRelative = TAMPER_VIM_MODE.relativeLineNumbers;
+
+        for (let i = 1; i <= totalLines; i++) {
+            let lineNum: string;
+            if (useRelative) {
+                if (i === currentLine) {
+                    lineNum = String(i);
+                } else {
+                    lineNum = String(Math.abs(i - currentLine));
+                }
+            } else {
+                lineNum = String(i);
+            }
+
+            // Highlight current line
+            if (i === currentLine) {
+                lines.push(
+                    `<span style="color: rgba(255, 255, 255, 1); font-weight: bold; background-color: rgba(255, 255, 255, 0.2); display: inline-block; width: 100%; padding: 0 2px;">${lineNum.padStart(3, " ")}</span>`,
+                );
+            } else {
+                lines.push(lineNum.padStart(3, " "));
+            }
+        }
+
+        this.container.innerHTML = lines.join("\n");
+
+        // Sync scroll position
+        if (input.tagName === "TEXTAREA") {
+            this.container.style.overflow = "hidden";
+            // Use a wrapper div to handle scrolling
+            const firstChild = this.container.firstChild;
+            if (firstChild && firstChild.nodeType === Node.TEXT_NODE) {
+                // Wrap text in a div to enable translation
+                const wrapper = document.createElement("div");
+                wrapper.innerHTML = this.container.innerHTML;
+                wrapper.style.transform = `translateY(-${input.scrollTop}px)`;
+                wrapper.style.paddingTop = `${paddingTop}px`;
+                this.container.innerHTML = "";
+                this.container.appendChild(wrapper);
+            } else if (
+                firstChild &&
+                firstChild.nodeType === Node.ELEMENT_NODE
+            ) {
+                (firstChild as HTMLElement).style.transform =
+                    `translateY(-${input.scrollTop}px)`;
+                (firstChild as HTMLElement).style.paddingTop =
+                    `${paddingTop}px`;
+            }
+        }
+    }
+
+    hide(): void {
+        this.container.style.display = "none";
+        this.currentInput = null;
+    }
+
+    destroy(): void {
+        this.container.remove();
+        this.currentInput = null;
     }
 }
 
@@ -492,6 +618,44 @@ export function removeVisualSelection(): void {
     }
 }
 
+// Create and manage line numbers renderer
+export function createLineNumbers(): void {
+    if (lineNumbersRenderer) {
+        lineNumbersRenderer.destroy();
+    }
+    lineNumbersRenderer = new DOMLineNumbersRenderer();
+}
+
+export function updateLineNumbers(input: EditableElement): void {
+    if (!TAMPER_VIM_MODE.showLineNumbers) {
+        lineNumbersRenderer?.hide();
+        return;
+    }
+
+    if (!lineNumbersRenderer) {
+        createLineNumbers();
+    }
+
+    const text = input.value;
+    const pos = getCursorPos(input);
+    const textBeforeCursor = text.substring(0, pos);
+    const currentLine = (textBeforeCursor.match(/\n/g) || []).length + 1;
+    const totalLines = (text.match(/\n/g) || []).length + 1;
+
+    lineNumbersRenderer?.render(input, currentLine, totalLines);
+}
+
+export function hideLineNumbers(): void {
+    lineNumbersRenderer?.hide();
+}
+
+export function removeLineNumbers(): void {
+    if (lineNumbersRenderer) {
+        lineNumbersRenderer.destroy();
+        lineNumbersRenderer = null;
+    }
+}
+
 // Utility functions
 export function getCursorPos(currentInput: EditableElement): number {
     return currentInput.selectionStart ?? 0;
@@ -503,6 +667,7 @@ export function setCursorPos(currentInput: EditableElement, pos: number): void {
     currentInput.selectionStart = pos;
     currentInput.selectionEnd = pos;
     updateCustomCaret(currentInput);
+    updateLineNumbers(currentInput);
 }
 
 export function getLine(currentInput: EditableElement, pos: number): LineInfo {

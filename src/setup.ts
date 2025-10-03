@@ -58,6 +58,8 @@ export const debug = (...args: unknown[]): void => {
 // Global configuration object
 interface TamperVimModeConfig {
     disableCustomCaret: boolean;
+    showLineNumbers: boolean;
+    relativeLineNumbers: boolean;
 }
 
 // Extend Window interface to include TAMPER_VIM_MODE
@@ -83,7 +85,11 @@ export const TAMPER_VIM_MODE: TamperVimModeConfig =
                   } catch (e) {
                       debug("Failed to load config from localStorage", e);
                   }
-                  return { disableCustomCaret: false };
+                  return {
+                      disableCustomCaret: false,
+                      showLineNumbers: true,
+                      relativeLineNumbers: false,
+                  };
               };
 
               // Create config with getter/setter for persistence
@@ -110,7 +116,11 @@ export const TAMPER_VIM_MODE: TamperVimModeConfig =
 
               return proxiedConfig;
           })()
-        : { disableCustomCaret: false };
+        : {
+              disableCustomCaret: false,
+              showLineNumbers: true,
+              relativeLineNumbers: false,
+          };
 
 // Mode indicator - only create if document exists
 let indicator: HTMLDivElement | undefined;

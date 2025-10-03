@@ -9,6 +9,8 @@ import {
     removeCustomCaret,
     updateCustomCaret,
     clearVisualSelection,
+    updateLineNumbers,
+    removeLineNumbers,
 } from "./common.js";
 import { processNormalCommand } from "./normal.js";
 import { processVisualCommand, updateVisualSelection } from "./visual.js";
@@ -42,6 +44,9 @@ function enterInsertMode(): void {
     visualEnd = null;
     clearVisualSelection();
     removeCustomCaret(currentInput);
+    if (currentInput) {
+        updateLineNumbers(currentInput);
+    }
     updateIndicator(mode, currentInput);
 }
 
@@ -65,6 +70,7 @@ function enterNormalMode(): void {
             setCursorPos(currentInput, pos - 1);
         }
         createCustomCaret(currentInput);
+        updateLineNumbers(currentInput);
     }
 }
 
@@ -88,6 +94,7 @@ function enterVisualMode(lineMode = false): void {
         // Ensure custom caret is active for visual mode
         createCustomCaret(currentInput);
         updateVisualSelection(currentInput, mode, visualStart, visualEnd);
+        updateLineNumbers(currentInput);
     }
     updateIndicator(mode, currentInput);
 }
@@ -233,6 +240,7 @@ function handleBlur(e: FocusEvent): void {
             debug("handleBlur: focus moving to another element, allowing blur");
             allowBlur = false;
             removeCustomCaret(currentInput);
+            removeLineNumbers();
             currentInput = null;
             updateIndicator(mode, currentInput);
             return;
@@ -278,6 +286,7 @@ function handleBlur(e: FocusEvent): void {
         debug("handleBlur: allowing blur", { mode, allowBlur });
         allowBlur = false;
         removeCustomCaret(currentInput);
+        removeLineNumbers();
         currentInput = null;
         updateIndicator(mode, currentInput);
     }
@@ -433,6 +442,22 @@ if (typeof window === "undefined" || typeof document === "undefined") {
     document.addEventListener("keydown", testListener, true);
     document.addEventListener("keydown", handleKeyDown, true);
 
+    // Update line numbers on input in insert mode
+    document.addEventListener(
+        "input",
+        (e: Event) => {
+            if (
+                currentInput &&
+                e.target === currentInput &&
+                mode === "insert"
+            ) {
+                debug("input event: updating line numbers");
+                updateLineNumbers(currentInput);
+            }
+        },
+        true,
+    );
+
     // Add a second keydown listener to verify our handler runs first
     document.addEventListener(
         "keydown",
@@ -457,6 +482,7 @@ if (typeof window === "undefined" || typeof document === "undefined") {
                 if (mode === "normal") {
                     debug("scroll event: updating custom caret");
                     updateCustomCaret(currentInput);
+                    updateLineNumbers(currentInput);
                 } else if (
                     (mode === "visual" || mode === "visual-line") &&
                     visualStart !== null &&
@@ -469,6 +495,7 @@ if (typeof window === "undefined" || typeof document === "undefined") {
                         visualStart,
                         visualEnd,
                     );
+                    updateLineNumbers(currentInput);
                 }
             }
         },
@@ -480,6 +507,7 @@ if (typeof window === "undefined" || typeof document === "undefined") {
             if (mode === "normal") {
                 debug("resize event: updating custom caret");
                 updateCustomCaret(currentInput);
+                updateLineNumbers(currentInput);
             } else if (
                 (mode === "visual" || mode === "visual-line") &&
                 visualStart !== null &&
@@ -492,6 +520,7 @@ if (typeof window === "undefined" || typeof document === "undefined") {
                     visualStart,
                     visualEnd,
                 );
+                updateLineNumbers(currentInput);
             }
         }
     });

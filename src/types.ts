@@ -64,6 +64,16 @@ export interface VisualSelectionRenderer {
     destroy(): void;
 }
 
+export interface LineNumbersRenderer {
+    render(
+        input: EditableElement,
+        currentLine: number,
+        totalLines: number,
+    ): void;
+    hide(): void;
+    destroy(): void;
+}
+
 export interface TextMetrics {
     measureText(text: string): number;
     getCharWidth(char: string): number;
