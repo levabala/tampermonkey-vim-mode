@@ -66,6 +66,13 @@ describe('Vim Mode Integration Tests', () => {
       expect(indicator.textContent).toBe('-- NORMAL --');
     });
 
+    it('should switch to normal mode on Ctrl-]', () => {
+      input.focus();
+      input.dispatchEvent(new KeyboardEvent('keydown', { key: ']', ctrlKey: true, bubbles: true }));
+      const indicator = getIndicator();
+      expect(indicator.textContent).toBe('-- NORMAL --');
+    });
+
     it('should switch back to insert mode with i', () => {
       input.focus();
       input.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
