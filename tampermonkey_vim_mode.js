@@ -4,8 +4,8 @@
 // @version      1.0.9
 // @description  Vim-like editing for textareas and inputs
 // @match        *://*/*
-// @updateURL    https://raw.githubusercontent.com/levabala/tampermonkey-vim-mode/main/tampermonkey_vim_mode.js
-// @downloadURL  https://raw.githubusercontent.com/levabala/tampermonkey-vim-mode/main/tampermonkey_vim_mode.js
+// @updateURL    https://raw.githubusercontent.com/levabala/tampermonkey-vim-mode/refs/heads/main/tampermonkey_vim_mode.js
+// @downloadURL  https://raw.githubusercontent.com/levabala/tampermonkey-vim-mode/refs/heads/main/tampermonkey_vim_mode.js
 // @grant        none
 // ==/UserScript==
 
