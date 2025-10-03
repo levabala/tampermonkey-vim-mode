@@ -128,7 +128,7 @@ export class DOMVisualSelectionRenderer implements VisualSelectionRenderer {
             div.style.width = `${rect.width}px`;
             div.style.height = `${rect.height}px`;
             div.style.backgroundColor = "rgba(80, 120, 255, 0.3)";
-            div.style.border = "1px solid rgba(80, 120, 255, 0.5)";
+            div.style.border = "none";
             div.style.pointerEvents = "none";
             this.container.appendChild(div);
             this.rects.push(div);
@@ -711,6 +711,57 @@ export function isWordChar(char: string): boolean {
     return /\w/.test(char);
 }
 
+export function isWhitespace(char: string): boolean {
+    return /\s/.test(char);
+}
+
+// WORD motion functions (whitespace-separated)
+export function findWORDStart(
+    currentInput: EditableElement,
+    pos: number,
+    forward = true,
+): number {
+    const text = currentInput.value;
+    if (forward) {
+        // Skip current WORD (non-whitespace)
+        while (pos < text.length && !isWhitespace(text[pos])) pos++;
+        // Skip whitespace
+        while (pos < text.length && isWhitespace(text[pos])) pos++;
+        return pos;
+    } else {
+        // Move back one if we're at WORD start
+        if (pos > 0) pos--;
+        // Skip whitespace
+        while (pos > 0 && isWhitespace(text[pos])) pos--;
+        // Go to WORD start
+        while (pos > 0 && !isWhitespace(text[pos - 1])) pos--;
+        return pos;
+    }
+}
+
+export function findWORDEnd(
+    currentInput: EditableElement,
+    pos: number,
+    forward = true,
+): number {
+    const text = currentInput.value;
+    if (forward) {
+        // Move to next char if at WORD boundary
+        if (pos < text.length) pos++;
+        // Skip whitespace
+        while (pos < text.length && isWhitespace(text[pos])) pos++;
+        // Go to WORD end
+        while (pos < text.length && !isWhitespace(text[pos])) pos++;
+        return Math.max(0, pos - 1);
+    } else {
+        // Skip current WORD end
+        while (pos > 0 && !isWhitespace(text[pos])) pos--;
+        // Skip whitespace
+        while (pos > 0 && isWhitespace(text[pos])) pos--;
+        return pos;
+    }
+}
+
 export function findWordStart(
     currentInput: EditableElement,
     pos: number,
@@ -720,13 +771,8 @@ export function findWordStart(
     if (forward) {
         // Skip current word
         while (pos < text.length && isWordChar(text[pos])) pos++;
-        // Skip whitespace
-        while (
-            pos < text.length &&
-            !isWordChar(text[pos]) &&
-            text[pos] !== "\n"
-        )
-            pos++;
+        // Skip whitespace and newlines until we find a word character
+        while (pos < text.length && !isWordChar(text[pos])) pos++;
         return pos;
     } else {
         // Move back one if we're at word start

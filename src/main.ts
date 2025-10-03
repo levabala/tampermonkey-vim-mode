@@ -200,6 +200,7 @@ function handleFocus(e: FocusEvent): void {
             undoStack = [];
             redoStack = [];
             updateIndicator(mode, currentInput);
+            updateLineNumbers(currentInput);
 
             // Attach keydown directly to the element to intercept before any page handlers
             debug("Attaching direct keydown listener to element");
@@ -207,9 +208,15 @@ function handleFocus(e: FocusEvent): void {
             // Try to intercept via onkeydown property (runs before addEventListener)
             const originalOnKeyDown = el.onkeydown;
             el.onkeydown = (event: KeyboardEvent) => {
-                debug("onkeydown property handler", { key: event.key });
-                if (event.key === "Escape") {
-                    debug("ESC in onkeydown - calling handleKeyDown");
+                debug("onkeydown property handler", {
+                    key: event.key,
+                    ctrl: event.ctrlKey,
+                });
+                if (
+                    event.key === "Escape" ||
+                    (event.ctrlKey && event.key === "]")
+                ) {
+                    debug("ESC/Ctrl-] in onkeydown - calling handleKeyDown");
                     handleKeyDown(event);
                     return false; // Prevent default
                 }
@@ -225,12 +232,18 @@ function handleFocus(e: FocusEvent): void {
                     const kbEvent = event as KeyboardEvent;
                     debug("DIRECT element keydown", {
                         key: kbEvent.key,
+                        ctrl: kbEvent.ctrlKey,
                         target: (kbEvent.target as HTMLElement).tagName,
                         defaultPrevented: kbEvent.defaultPrevented,
                         propagationStopped: kbEvent.cancelBubble,
                     });
-                    if (kbEvent.key === "Escape") {
-                        debug("DIRECT ESC on element - calling handleKeyDown");
+                    if (
+                        kbEvent.key === "Escape" ||
+                        (kbEvent.ctrlKey && kbEvent.key === "]")
+                    ) {
+                        debug(
+                            "DIRECT ESC/Ctrl-] on element - calling handleKeyDown",
+                        );
                         handleKeyDown(kbEvent);
                     }
                 },
@@ -359,8 +372,8 @@ function handleKeyDown(e: KeyboardEvent): void {
             enterNormalMode();
             debug("handleKeyDown: mode switch complete", { newMode: mode });
         } else if (mode === "visual" || mode === "visual-line") {
-            // Visual/Visual-line -> Normal mode (stay focused)
-            debug("handleKeyDown: switching from visual to normal");
+            // Visual mode -> Normal mode
+            debug("handleKeyDown: exiting visual mode to normal");
             exitVisualMode();
             debug("handleKeyDown: mode switch complete", { newMode: mode });
         } else {
@@ -402,13 +415,15 @@ debug("Vim Mode initialized");
 if (typeof window === "undefined" || typeof document === "undefined") {
     debug("Skipping event listener setup - no window/document");
 } else {
-    // Track ESC key state at the earliest possible point
+    // Track ESC/Ctrl-] key state at the earliest possible point
     // Use keydown on window to catch before page handlers
     window.addEventListener(
         "keydown",
         (e: KeyboardEvent) => {
-            if (e.key === "Escape") {
-                debug("GLOBAL ESC keydown detected", {
+            if (e.key === "Escape" || (e.ctrlKey && e.key === "]")) {
+                debug("GLOBAL ESC/Ctrl-] keydown detected", {
+                    key: e.key,
+                    ctrl: e.ctrlKey,
                     target: (e.target as HTMLElement).tagName,
                     eventPhase: e.eventPhase,
                     defaultPrevented: e.defaultPrevented,
@@ -425,12 +440,14 @@ if (typeof window === "undefined" || typeof document === "undefined") {
         true,
     );
 
-    // Track keyup as well to detect if ESC was released
+    // Track keyup as well to detect if ESC/Ctrl-] was released
     window.addEventListener(
         "keyup",
         (e: KeyboardEvent) => {
-            if (e.key === "Escape") {
-                debug("GLOBAL ESC keyup detected", {
+            if (e.key === "Escape" || (e.ctrlKey && e.key === "]")) {
+                debug("GLOBAL ESC/Ctrl-] keyup detected", {
+                    key: e.key,
+                    ctrl: e.ctrlKey,
                     target: (e.target as HTMLElement).tagName,
                     timestamp: e.timeStamp,
                 });
@@ -441,8 +458,10 @@ if (typeof window === "undefined" || typeof document === "undefined") {
 
     // Test if event listeners work at all
     const testListener = (e: KeyboardEvent) => {
-        if (e.key === "Escape") {
-            debug("RAW ESC DETECTED on document", {
+        if (e.key === "Escape" || (e.ctrlKey && e.key === "]")) {
+            debug("RAW ESC/Ctrl-] DETECTED on document", {
+                key: e.key,
+                ctrl: e.ctrlKey,
                 target: (e.target as HTMLElement).tagName,
                 currentTarget: e.currentTarget,
                 eventPhase: e.eventPhase,
@@ -457,8 +476,10 @@ if (typeof window === "undefined" || typeof document === "undefined") {
     window.addEventListener(
         "keydown",
         (e: KeyboardEvent) => {
-            if (e.key === "Escape") {
-                debug("WINDOW ESC listener", {
+            if (e.key === "Escape" || (e.ctrlKey && e.key === "]")) {
+                debug("WINDOW ESC/Ctrl-] listener", {
+                    key: e.key,
+                    ctrl: e.ctrlKey,
                     target: (e.target as HTMLElement).tagName,
                     eventPhase: e.eventPhase,
                     defaultPrevented: e.defaultPrevented,
@@ -493,8 +514,10 @@ if (typeof window === "undefined" || typeof document === "undefined") {
     document.addEventListener(
         "keydown",
         (e: KeyboardEvent) => {
-            if (e.key === "Escape") {
-                debug("Secondary ESC listener (bubbling phase)", {
+            if (e.key === "Escape" || (e.ctrlKey && e.key === "]")) {
+                debug("Secondary ESC/Ctrl-] listener (bubbling phase)", {
+                    key: e.key,
+                    ctrl: e.ctrlKey,
                     defaultPrevented: e.defaultPrevented,
                     propagationStopped: e.cancelBubble,
                     currentInput: !!currentInput,
