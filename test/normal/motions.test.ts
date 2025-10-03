@@ -239,3 +239,72 @@ describe("Character Finding", () => {
         expect(input.selectionStart).toBe(13);
     });
 });
+
+describe("w motion on empty lines", () => {
+    let textarea: HTMLTextAreaElement;
+    let input: HTMLInputElement;
+
+    beforeEach(() => {
+        setupVimMode();
+        ({ input, textarea } = createTestElements());
+    });
+
+    afterEach(() => {
+        cleanupTestElements(input, textarea);
+    });
+
+    it("should jump to next non-empty line with w from empty line", () => {
+        textarea.value = "first\n\nsecond";
+        textarea.focus();
+        textarea.selectionStart = 6; // On the empty line (right after first\n)
+        textarea.dispatchEvent(
+            new KeyboardEvent("keydown", { key: "Escape", bubbles: true }),
+        );
+        textarea.dispatchEvent(
+            new KeyboardEvent("keydown", { key: "w", bubbles: true }),
+        );
+        expect(textarea.selectionStart).toBe(7); // Should be at 's' in 'second'
+    });
+
+    it("should skip multiple consecutive empty lines with w", () => {
+        textarea.value = "first\n\n\n\nsecond";
+        textarea.focus();
+        textarea.selectionStart = 6; // On first empty line
+        textarea.dispatchEvent(
+            new KeyboardEvent("keydown", { key: "Escape", bubbles: true }),
+        );
+        textarea.dispatchEvent(
+            new KeyboardEvent("keydown", { key: "w", bubbles: true }),
+        );
+        expect(textarea.selectionStart).toBe(10); // Should be at 's' in 'second'
+    });
+
+    it("should handle w from whitespace-only line", () => {
+        textarea.value = "first\n   \nsecond";
+        textarea.focus();
+        textarea.selectionStart = 6; // On the whitespace-only line
+        textarea.dispatchEvent(
+            new KeyboardEvent("keydown", { key: "Escape", bubbles: true }),
+        );
+        textarea.dispatchEvent(
+            new KeyboardEvent("keydown", { key: "w", bubbles: true }),
+        );
+        expect(textarea.selectionStart).toBe(10); // Should be at 's' in 'second'
+    });
+
+    it("should handle count with w across empty lines", () => {
+        textarea.value = "first\n\nsecond\n\nthird";
+        textarea.focus();
+        textarea.selectionStart = 6; // On first empty line
+        textarea.dispatchEvent(
+            new KeyboardEvent("keydown", { key: "Escape", bubbles: true }),
+        );
+        textarea.dispatchEvent(
+            new KeyboardEvent("keydown", { key: "2", bubbles: true }),
+        );
+        textarea.dispatchEvent(
+            new KeyboardEvent("keydown", { key: "w", bubbles: true }),
+        );
+        expect(textarea.selectionStart).toBe(14); // Should be at 't' in 'third'
+    });
+});
