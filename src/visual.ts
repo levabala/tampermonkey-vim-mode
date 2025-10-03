@@ -6,6 +6,7 @@ import {
     getLineEnd,
     saveState,
     updateVisualSelection as updateVisualSelectionRender,
+    updateCustomCaret,
 } from "./common.js";
 import { executeMotion } from "./normal.js";
 import { yankRange, deleteRange } from "./normal.js";
@@ -35,8 +36,11 @@ export function updateVisualSelection(
     // Use virtual selection rendering instead of native selection
     updateVisualSelectionRender(currentInput, start, selectionEnd);
 
-    // Keep cursor at the end position for navigation
-    setCursorPos(currentInput, visualEnd);
+    // Update the custom caret to show at visualEnd (current cursor position)
+    // Keep native selection collapsed at visualEnd to track position without showing
+    currentInput.selectionStart = visualEnd;
+    currentInput.selectionEnd = visualEnd;
+    updateCustomCaret(currentInput);
 }
 
 export function extendVisualSelection(

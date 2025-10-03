@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Vim Mode for Text Inputs
 // @namespace    http://tampermonkey.net/
-// @version      1.0.49
+// @version      1.0.50
 // @description  Vim-like editing for textareas and inputs
 // @match        *://*/*
 // @updateURL    https://raw.githubusercontent.com/levabala/tampermonkey-vim-mode/refs/heads/main/dist/tampermonkey_vim_mode.js
@@ -1530,7 +1530,9 @@
                     ? end
                     : Math.min(end + 1, currentInput.value.length);
             updateVisualSelection(currentInput, start, selectionEnd);
-            setCursorPos(currentInput, visualEnd);
+            currentInput.selectionStart = visualEnd;
+            currentInput.selectionEnd = visualEnd;
+            updateCustomCaret(currentInput);
         }
         function extendVisualSelection(
             currentInput,
@@ -1834,6 +1836,7 @@
                     visualStart = pos;
                     visualEnd = pos;
                 }
+                createCustomCaret(currentInput);
                 updateVisualSelection2(
                     currentInput,
                     mode,
@@ -2156,17 +2159,45 @@
             window.addEventListener(
                 "scroll",
                 () => {
-                    if (currentInput && mode === "normal") {
-                        debug("scroll event: updating custom caret");
-                        updateCustomCaret(currentInput);
+                    if (currentInput) {
+                        if (mode === "normal") {
+                            debug("scroll event: updating custom caret");
+                            updateCustomCaret(currentInput);
+                        } else if (
+                            (mode === "visual" || mode === "visual-line") &&
+                            visualStart !== null &&
+                            visualEnd !== null
+                        ) {
+                            debug("scroll event: updating visual selection");
+                            updateVisualSelection2(
+                                currentInput,
+                                mode,
+                                visualStart,
+                                visualEnd,
+                            );
+                        }
                     }
                 },
                 true,
             );
             window.addEventListener("resize", () => {
-                if (currentInput && mode === "normal") {
-                    debug("resize event: updating custom caret");
-                    updateCustomCaret(currentInput);
+                if (currentInput) {
+                    if (mode === "normal") {
+                        debug("resize event: updating custom caret");
+                        updateCustomCaret(currentInput);
+                    } else if (
+                        (mode === "visual" || mode === "visual-line") &&
+                        visualStart !== null &&
+                        visualEnd !== null
+                    ) {
+                        debug("resize event: updating visual selection");
+                        updateVisualSelection2(
+                            currentInput,
+                            mode,
+                            visualStart,
+                            visualEnd,
+                        );
+                    }
                 }
             });
             debug("Event listeners attached", {

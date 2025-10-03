@@ -85,6 +85,8 @@ function enterVisualMode(lineMode = false): void {
             visualEnd = pos;
         }
 
+        // Ensure custom caret is active for visual mode
+        createCustomCaret(currentInput);
         updateVisualSelection(currentInput, mode, visualStart, visualEnd);
     }
     updateIndicator(mode, currentInput);
@@ -447,22 +449,50 @@ if (typeof window === "undefined" || typeof document === "undefined") {
         false,
     );
 
-    // Update custom caret position on scroll and resize
+    // Update custom caret and visual selection on scroll and resize
     window.addEventListener(
         "scroll",
         () => {
-            if (currentInput && mode === "normal") {
-                debug("scroll event: updating custom caret");
-                updateCustomCaret(currentInput);
+            if (currentInput) {
+                if (mode === "normal") {
+                    debug("scroll event: updating custom caret");
+                    updateCustomCaret(currentInput);
+                } else if (
+                    (mode === "visual" || mode === "visual-line") &&
+                    visualStart !== null &&
+                    visualEnd !== null
+                ) {
+                    debug("scroll event: updating visual selection");
+                    updateVisualSelection(
+                        currentInput,
+                        mode,
+                        visualStart,
+                        visualEnd,
+                    );
+                }
             }
         },
         true,
     );
 
     window.addEventListener("resize", () => {
-        if (currentInput && mode === "normal") {
-            debug("resize event: updating custom caret");
-            updateCustomCaret(currentInput);
+        if (currentInput) {
+            if (mode === "normal") {
+                debug("resize event: updating custom caret");
+                updateCustomCaret(currentInput);
+            } else if (
+                (mode === "visual" || mode === "visual-line") &&
+                visualStart !== null &&
+                visualEnd !== null
+            ) {
+                debug("resize event: updating visual selection");
+                updateVisualSelection(
+                    currentInput,
+                    mode,
+                    visualStart,
+                    visualEnd,
+                );
+            }
         }
     });
 
