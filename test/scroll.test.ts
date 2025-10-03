@@ -1,0 +1,119 @@
+import { beforeEach, describe, expect, it, vi } from "vitest";
+// @ts-expect-error - jsdom types not installed
+import { JSDOM } from "jsdom";
+
+describe("Scrolling commands", () => {
+    let dom: JSDOM;
+    let textarea: HTMLTextAreaElement;
+
+    beforeEach(async () => {
+        // Create a fresh DOM for each test
+        dom = new JSDOM(
+            `<!DOCTYPE html><html><body><textarea id="test"></textarea></body></html>`,
+            { url: "https://example.com" },
+        );
+
+        global.window = dom.window as unknown as Window & typeof globalThis;
+        global.document = dom.window.document;
+        global.KeyboardEvent = dom.window.KeyboardEvent;
+
+        // Clear module cache and reimport
+        vi.resetModules();
+        await import("../src/main.js");
+
+        textarea = document.getElementById("test") as HTMLTextAreaElement;
+        textarea.value = Array(100).fill("line of text").join("\n");
+
+        // Set up styles for scrolling calculations
+        Object.defineProperty(textarea, "clientHeight", {
+            value: 200,
+            writable: true,
+        });
+        Object.defineProperty(textarea, "scrollTop", {
+            value: 0,
+            writable: true,
+        });
+
+        // Mock getComputedStyle
+        const originalGetComputedStyle = window.getComputedStyle;
+        vi.spyOn(window, "getComputedStyle").mockImplementation((element) => {
+            const style = originalGetComputedStyle(element);
+            return {
+                ...style,
+                lineHeight: "20px",
+                fontSize: "16px",
+            };
+        });
+
+        // Focus the textarea to activate vim mode
+        textarea.focus();
+    });
+
+    it("should scroll down one line with Ctrl-e", () => {
+        const initialScrollTop = textarea.scrollTop;
+
+        const event = new KeyboardEvent("keydown", {
+            key: "e",
+            ctrlKey: true,
+            bubbles: true,
+            cancelable: true,
+        });
+
+        textarea.dispatchEvent(event);
+
+        expect(textarea.scrollTop).toBeGreaterThan(initialScrollTop);
+        expect(textarea.scrollTop).toBe(initialScrollTop + 20); // one line height
+    });
+
+    it("should scroll up one line with Ctrl-y", () => {
+        // First scroll down to have room to scroll up
+        textarea.scrollTop = 100;
+        const initialScrollTop = textarea.scrollTop;
+
+        const event = new KeyboardEvent("keydown", {
+            key: "y",
+            ctrlKey: true,
+            bubbles: true,
+            cancelable: true,
+        });
+
+        textarea.dispatchEvent(event);
+
+        expect(textarea.scrollTop).toBeLessThan(initialScrollTop);
+        expect(textarea.scrollTop).toBe(initialScrollTop - 20); // one line height
+    });
+
+    it("should scroll down half page with Ctrl-d", () => {
+        const initialScrollTop = textarea.scrollTop;
+
+        const event = new KeyboardEvent("keydown", {
+            key: "d",
+            ctrlKey: true,
+            bubbles: true,
+            cancelable: true,
+        });
+
+        textarea.dispatchEvent(event);
+
+        // clientHeight = 200, lineHeight = 20, so half page = 5 lines = 100px
+        expect(textarea.scrollTop).toBe(initialScrollTop + 100);
+    });
+
+    it("should scroll up half page with Ctrl-u", () => {
+        // First scroll down to have room to scroll up
+        textarea.scrollTop = 200;
+        const initialScrollTop = textarea.scrollTop;
+
+        const event = new KeyboardEvent("keydown", {
+            key: "u",
+            ctrlKey: true,
+            bubbles: true,
+            cancelable: true,
+        });
+
+        textarea.dispatchEvent(event);
+
+        // clientHeight = 200, lineHeight = 20, so half page = 5 lines = 100px
+        expect(textarea.scrollTop).toBe(initialScrollTop - 100);
+    });
+});
