@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Vim Mode for Text Inputs
 // @namespace    http://tampermonkey.net/
-// @version      1.0.28
+// @version      1.0.29
 // @description  Vim-like editing for textareas and inputs
 // @match        *://*/*
 // @updateURL    https://raw.githubusercontent.com/levabala/tampermonkey-vim-mode/refs/heads/main/tampermonkey_vim_mode.js
@@ -39,7 +39,7 @@
     };
 
     // State
-    let mode = 'normal';
+    let mode = 'normal'; // 'normal', 'insert', 'visual', 'visual-line'
     let currentInput = null;
     let commandBuffer = '';
     let countBuffer = '';
@@ -53,6 +53,10 @@
     let lastChange = null;
     let allowBlur = false; // Track whether blur is intentional
     let escapePressed = false; // Track if ESC was recently pressed
+
+    // Visual mode state
+    let visualStart = null; // Starting position of visual selection
+    let visualEnd = null; // Current end position of visual selection
 
     // Mode indicator
     const indicator = document.createElement('div');
@@ -89,9 +93,26 @@
     document.body.appendChild(indicator);
 
     function updateIndicator() {
-        const text = mode === 'insert' ? '-- INSERT --' : '-- NORMAL --';
+        let text, color;
+        switch (mode) {
+            case 'insert':
+                text = '-- INSERT --';
+                color = 'rgba(0, 100, 0, 0.85)';
+                break;
+            case 'visual':
+                text = '-- VISUAL --';
+                color = 'rgba(100, 100, 0, 0.85)';
+                break;
+            case 'visual-line':
+                text = '-- VISUAL LINE --';
+                color = 'rgba(100, 100, 0, 0.85)';
+                break;
+            default:
+                text = '-- NORMAL --';
+                color = 'rgba(0, 0, 0, 0.85)';
+        }
         modeText.textContent = text;
-        indicator.style.background = mode === 'insert' ? 'rgba(0, 100, 0, 0.85)' : 'rgba(0, 0, 0, 0.85)';
+        indicator.style.background = color;
         indicator.style.display = currentInput ? 'block' : 'none';
     }
 
@@ -500,26 +521,138 @@
         switchMode('insert');
     }
 
-    // Mode switching
-    function switchMode(newMode) {
-        debug('switchMode', { from: mode, to: newMode });
-        mode = newMode;
+    // Visual selection management
+    function updateVisualSelection() {
+        if (!currentInput || visualStart === null || visualEnd === null) return;
+
+        const start = Math.min(visualStart, visualEnd);
+        const end = Math.max(visualStart, visualEnd);
+
+        debug('updateVisualSelection', { visualStart, visualEnd, start, end });
+
+        // For visual mode, we want to include the character under the cursor
+        // so we add 1 to the end position (unless we're at the end of the text)
+        const selectionEnd = mode === 'visual-line' ? end : Math.min(end + 1, currentInput.value.length);
+
+        currentInput.selectionStart = start;
+        currentInput.selectionEnd = selectionEnd;
+    }
+
+    function extendVisualSelection(newPos) {
+        if (mode !== 'visual' && mode !== 'visual-line') return;
+
+        debug('extendVisualSelection', { from: visualEnd, to: newPos });
+
+        if (mode === 'visual-line') {
+            // In visual line mode, extend to whole lines
+            visualEnd = getLineEnd(newPos);
+            // Adjust start if moving backwards
+            if (newPos < visualStart) {
+                visualStart = getLineStart(newPos);
+            } else {
+                visualStart = getLineStart(visualStart);
+            }
+        } else {
+            // In visual character mode, just update the end
+            visualEnd = newPos;
+        }
+
+        updateVisualSelection();
+    }
+
+    function getCurrentRange() {
+        // Returns { start, end } for the current operation range
+        // Works for both visual selections and operator+motion combinations
+        if (mode === 'visual' || mode === 'visual-line') {
+            return {
+                start: Math.min(visualStart, visualEnd),
+                end: Math.max(visualStart, visualEnd)
+            };
+        }
+
+        // For non-visual modes, return cursor position
+        const pos = getCursorPos();
+        return { start: pos, end: pos };
+    }
+
+    // Mode transition functions
+    function enterInsertMode() {
+        debug('enterInsertMode', { from: mode });
+        mode = 'insert';
+        visualStart = null;
+        visualEnd = null;
+        updateIndicator();
+    }
+
+    function enterNormalMode() {
+        debug('enterNormalMode', { from: mode });
+        mode = 'normal';
+        visualStart = null;
+        visualEnd = null;
         updateIndicator();
 
-        if (mode === 'normal') {
-            // Move cursor back one if at end of line (vim behavior)
-            const pos = getCursorPos();
-            const lineEnd = getLineEnd(pos);
-            if (pos === lineEnd && pos > 0 && currentInput.value[pos - 1] !== '\n') {
-                setCursorPos(pos - 1);
-            }
+        // Move cursor back one if at end of line (vim behavior)
+        const pos = getCursorPos();
+        const lineEnd = getLineEnd(pos);
+        if (pos === lineEnd && pos > 0 && currentInput.value[pos - 1] !== '\n') {
+            setCursorPos(pos - 1);
         }
     }
 
-    // Command processing
+    function enterVisualMode(lineMode = false) {
+        debug('enterVisualMode', { lineMode, from: mode });
+        mode = lineMode ? 'visual-line' : 'visual';
+        const pos = getCursorPos();
+
+        if (lineMode) {
+            // Visual line mode: select whole line
+            visualStart = getLineStart(pos);
+            visualEnd = getLineEnd(pos);
+        } else {
+            // Visual character mode: start at cursor
+            visualStart = pos;
+            visualEnd = pos;
+        }
+
+        updateVisualSelection();
+        updateIndicator();
+    }
+
+    function exitVisualMode() {
+        debug('exitVisualMode');
+        visualStart = null;
+        visualEnd = null;
+        enterNormalMode();
+    }
+
+    // Legacy function for compatibility
+    function switchMode(newMode) {
+        debug('switchMode (legacy)', { from: mode, to: newMode });
+        if (newMode === 'insert') {
+            enterInsertMode();
+        } else if (newMode === 'normal') {
+            enterNormalMode();
+        } else if (newMode === 'visual') {
+            enterVisualMode(false);
+        } else if (newMode === 'visual-line') {
+            enterVisualMode(true);
+        }
+    }
+
+    // Command processing - dispatch to mode-specific handlers
     function processCommand(key) {
+        debug('processCommand', { key, mode });
+
+        if (mode === 'visual' || mode === 'visual-line') {
+            processVisualCommand(key);
+        } else {
+            processNormalCommand(key);
+        }
+    }
+
+    function processNormalCommand(key) {
         const count = parseInt(countBuffer) || 1;
-        debug('processCommand', {
+        debug('processNormalCommand', {
             key,
             count,
             countBuffer,
@@ -843,6 +976,16 @@
                 countBuffer = '';
                 break;
 
+            case 'v':
+                enterVisualMode(false);
+                countBuffer = '';
+                break;
+
+            case 'V':
+                enterVisualMode(true);
+                countBuffer = '';
+                break;
+
             default:
                 if (/\d/.test(key)) {
                     countBuffer += key;
@@ -886,6 +1029,135 @@
                     processCommand(lastChange.char);
                     break;
             }
+        }
+    }
+
+    function processVisualCommand(key) {
+        const count = parseInt(countBuffer) || 1;
+        debug('processVisualCommand', { key, count, mode });
+
+        // Handle motions - extend selection
+        const motionKeys = ['h', 'j', 'k', 'l', 'w', 'b', 'e', '0', '^', '$', 'G', '{', '}', '%'];
+        if (motionKeys.includes(key)) {
+            const startPos = getCursorPos();
+            executeMotion(key, count);
+            const newPos = getCursorPos();
+            extendVisualSelection(newPos);
+            countBuffer = '';
+            return;
+        }
+
+        // Handle command sequences (gg, ge, etc.)
+        if (commandBuffer) {
+            const fullCommand = commandBuffer + key;
+
+            if (fullCommand === 'gg') {
+                const startPos = getCursorPos();
+                executeMotion('gg', count);
+                const newPos = getCursorPos();
+                extendVisualSelection(newPos);
+                commandBuffer = '';
+                countBuffer = '';
+                return;
+            }
+
+            if (commandBuffer === 'g' && key === 'e') {
+                const startPos = getCursorPos();
+                executeMotion('ge', count);
+                const newPos = getCursorPos();
+                extendVisualSelection(newPos);
+                commandBuffer = '';
+                countBuffer = '';
+                return;
+            }
+
+            commandBuffer = '';
+        }
+
+        // Handle operators - operate on visual selection then exit
+        if (key === 'd') {
+            const range = getCurrentRange();
+            yankRange(range.start, range.end);
+            deleteRange(range.start, range.end);
+            exitVisualMode();
+            countBuffer = '';
+            return;
+        }
+
+        if (key === 'y') {
+            const range = getCurrentRange();
+            yankRange(range.start, range.end);
+            exitVisualMode();
+            countBuffer = '';
+            return;
+        }
+
+        if (key === 'c') {
+            const range = getCurrentRange();
+            yankRange(range.start, range.end);
+            deleteRange(range.start, range.end);
+            enterInsertMode();
+            countBuffer = '';
+            return;
+        }
+
+        // Handle visual mode toggles
+        if (key === 'v') {
+            if (mode === 'visual') {
+                exitVisualMode();
+            } else {
+                // Switch from visual-line to visual
+                enterVisualMode(false);
+            }
+            countBuffer = '';
+            return;
+        }
+
+        if (key === 'V') {
+            if (mode === 'visual-line') {
+                exitVisualMode();
+            } else {
+                // Switch from visual to visual-line
+                enterVisualMode(true);
+            }
+            countBuffer = '';
+            return;
+        }
+
+        // Handle other keys
+        switch (key) {
+            case 'g':
+                commandBuffer = 'g';
+                break;
+
+            case 'x':
+                // In visual mode, x deletes selection (same as d)
+                const range = getCurrentRange();
+                yankRange(range.start, range.end);
+                deleteRange(range.start, range.end);
+                exitVisualMode();
+                countBuffer = '';
+                break;
+
+            case 'p':
+            case 'P':
+                // Paste over selection
+                saveState();
+                const range2 = getCurrentRange();
+                deleteRange(range2.start, range2.end);
+                currentInput.value = currentInput.value.substring(0, range2.start) + clipboard + currentInput.value.substring(range2.start);
+                setCursorPos(range2.start);
+                exitVisualMode();
+                countBuffer = '';
+                break;
+
+            default:
+                if (/\d/.test(key)) {
+                    countBuffer += key;
+                } else {
+                    commandBuffer = '';
+                    countBuffer = '';
+                }
         }
     }
 
