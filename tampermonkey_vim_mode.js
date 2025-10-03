@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Vim Mode for Text Inputs
 // @namespace    http://tampermonkey.net/
-// @version      1.0.18
+// @version      1.0.19
 // @description  Vim-like editing for textareas and inputs
 // @match        *://*/*
 // @updateURL    https://raw.githubusercontent.com/levabala/tampermonkey-vim-mode/refs/heads/main/tampermonkey_vim_mode.js
@@ -71,16 +71,6 @@
     `;
     indicator.appendChild(versionLabel);
     document.body.appendChild(indicator);
-
-    // Override textContent getter for backward compatibility with tests
-    Object.defineProperty(indicator, 'textContent', {
-        get: function() {
-            return modeText.textContent;
-        },
-        set: function(value) {
-            modeText.textContent = value;
-        }
-    });
 
     function updateIndicator() {
         const text = mode === 'insert' ? '-- INSERT --' : '-- NORMAL --';

@@ -38,6 +38,16 @@ describe('Vim Mode Integration Tests', () => {
 
     // Helper to get mode indicator
     getIndicator = () => document.querySelector('div[style*="position: fixed"]');
+
+    // Helper to get mode text from indicator
+    const getModeText = () => {
+      const indicator = getIndicator();
+      // The mode text is in the first child div
+      return indicator?.children[0]?.textContent || '';
+    };
+
+    // Attach getModeText to window for tests to use
+    window.getModeText = getModeText;
   });
 
   afterEach(() => {
@@ -55,55 +65,52 @@ describe('Vim Mode Integration Tests', () => {
   describe('Mode Switching', () => {
     it('should start in insert mode when input is focused', () => {
       input.focus();
-      const indicator = getIndicator();
-      expect(indicator.textContent).toBe('-- INSERT --');
+      expect(window.getModeText()).toBe('-- INSERT --');
     });
 
     it('should switch to normal mode on Escape', () => {
       input.focus();
       input.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
-      const indicator = getIndicator();
-      expect(indicator.textContent).toBe('-- NORMAL --');
+      expect(window.getModeText()).toBe('-- NORMAL --');
     });
 
     it('should switch to normal mode on Ctrl-]', () => {
       input.focus();
       input.dispatchEvent(new KeyboardEvent('keydown', { key: ']', ctrlKey: true, bubbles: true }));
-      const indicator = getIndicator();
-      expect(indicator.textContent).toBe('-- NORMAL --');
+      expect(window.getModeText()).toBe('-- NORMAL --');
     });
 
     it('should remain in normal mode after Escape even if focusin fires', () => {
       input.focus();
       input.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
-      expect(getIndicator().textContent).toBe('-- NORMAL --');
+      expect(window.getModeText()).toBe('-- NORMAL --');
 
       // Simulate a focusin event (which might happen due to blur prevention logic)
       input.dispatchEvent(new FocusEvent('focusin', { bubbles: true }));
 
       // Should still be in normal mode
-      expect(getIndicator().textContent).toBe('-- NORMAL --');
+      expect(window.getModeText()).toBe('-- NORMAL --');
     });
 
     it('should switch to normal mode when pressing Escape twice', () => {
       input.focus();
-      expect(getIndicator().textContent).toBe('-- INSERT --');
+      expect(window.getModeText()).toBe('-- INSERT --');
 
       // First Escape - should switch to normal mode
       input.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
-      expect(getIndicator().textContent).toBe('-- NORMAL --');
+      expect(window.getModeText()).toBe('-- NORMAL --');
 
       // Simulate the focusin event that happens due to blur prevention
       input.dispatchEvent(new FocusEvent('focusin', { bubbles: true }));
 
       // Second Escape - should stay in normal mode (not switch back to insert)
       input.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
-      expect(getIndicator().textContent).toBe('-- NORMAL --');
+      expect(window.getModeText()).toBe('-- NORMAL --');
     });
 
     it('should switch to normal mode even with blur/focus cycles', () => {
       input.focus();
-      expect(getIndicator().textContent).toBe('-- INSERT --');
+      expect(window.getModeText()).toBe('-- INSERT --');
 
       // Simulate blur then immediate refocus (what happens with blur prevention)
       input.dispatchEvent(new FocusEvent('focusout', { bubbles: true }));
@@ -111,15 +118,14 @@ describe('Vim Mode Integration Tests', () => {
 
       // Now press Escape - should still switch to normal mode
       input.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
-      expect(getIndicator().textContent).toBe('-- NORMAL --');
+      expect(window.getModeText()).toBe('-- NORMAL --');
     });
 
     it('should switch back to insert mode with i', () => {
       input.focus();
       input.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
       input.dispatchEvent(new KeyboardEvent('keydown', { key: 'i', bubbles: true }));
-      const indicator = getIndicator();
-      expect(indicator.textContent).toBe('-- INSERT --');
+      expect(window.getModeText()).toBe('-- INSERT --');
     });
   });
 
@@ -251,8 +257,7 @@ describe('Vim Mode Integration Tests', () => {
       input.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
       input.dispatchEvent(new KeyboardEvent('keydown', { key: 'A', bubbles: true }));
       expect(input.selectionStart).toBe(5);
-      const indicator = getIndicator();
-      expect(indicator.textContent).toBe('-- INSERT --');
+      expect(window.getModeText()).toBe('-- INSERT --');
     });
 
     it('should insert at start of line with I', () => {
@@ -262,8 +267,7 @@ describe('Vim Mode Integration Tests', () => {
       input.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
       input.dispatchEvent(new KeyboardEvent('keydown', { key: 'I', bubbles: true }));
       expect(input.selectionStart).toBe(2); // first non-blank
-      const indicator = getIndicator();
-      expect(indicator.textContent).toBe('-- INSERT --');
+      expect(window.getModeText()).toBe('-- INSERT --');
     });
 
     it('should open line below with o', () => {
@@ -454,8 +458,7 @@ describe('Vim Mode Integration Tests', () => {
       input.dispatchEvent(new KeyboardEvent('keydown', { key: 'c', bubbles: true }));
       input.dispatchEvent(new KeyboardEvent('keydown', { key: 'w', bubbles: true }));
       expect(input.value).toBe('world');
-      const indicator = getIndicator();
-      expect(indicator.textContent).toBe('-- INSERT --');
+      expect(window.getModeText()).toBe('-- INSERT --');
     });
 
     it('should change inside parentheses with ci(', () => {
@@ -467,8 +470,7 @@ describe('Vim Mode Integration Tests', () => {
       input.dispatchEvent(new KeyboardEvent('keydown', { key: 'i', bubbles: true }));
       input.dispatchEvent(new KeyboardEvent('keydown', { key: '(', bubbles: true }));
       expect(input.value).toBe('foo()baz');
-      const indicator = getIndicator();
-      expect(indicator.textContent).toBe('-- INSERT --');
+      expect(window.getModeText()).toBe('-- INSERT --');
     });
   });
 
@@ -494,6 +496,23 @@ describe('Vim Mode Integration Tests', () => {
       expect(input.value).toBe('two three four');
       input.dispatchEvent(new KeyboardEvent('keydown', { key: '.', bubbles: true }));
       expect(input.value).toBe('three four');
+    });
+  });
+
+  describe('Version Display', () => {
+    it('should display version in the indicator', () => {
+      input.focus();
+      const indicator = getIndicator();
+
+      // Find the version label child element
+      const versionLabel = Array.from(indicator.children).find(
+        child => child.textContent.startsWith('v')
+      );
+
+      expect(versionLabel).toBeDefined();
+      // In test environment, version will be 'unknown' due to document.currentScript not being available
+      // In production, it will be extracted from the userscript header
+      expect(versionLabel.textContent).toMatch(/^v(\d+\.\d+\.\d+|unknown)$/);
     });
   });
 });
