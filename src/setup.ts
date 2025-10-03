@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Vim Mode for Text Inputs
 // @namespace    http://tampermonkey.net/
-// @version      1.0.39
+// @version      1.0.40
 // @description  Vim-like editing for textareas and inputs
 // @match        *://*/*
 // @updateURL    https://raw.githubusercontent.com/levabala/tampermonkey-vim-mode/refs/heads/main/dist/tampermonkey_vim_mode.js
@@ -11,23 +11,30 @@
 
 import type { Mode, EditableElement } from "./types.js";
 
+// Tampermonkey global types
+interface GMInfo {
+    script?: {
+        version?: string;
+    };
+}
+
+declare const GM_info: GMInfo | undefined;
+
 // Extract version from userscript header
 // In Tampermonkey, we can use GM_info if available, otherwise fallback to parsing the script source
 export const version: string = (() => {
     // Try GM_info first (Tampermonkey API)
-    // @ts-expect-error - GM_info is a Tampermonkey global
     if (
         typeof GM_info !== "undefined" &&
         GM_info.script &&
         GM_info.script.version
     ) {
-        // @ts-expect-error - GM_info is a Tampermonkey global
         return GM_info.script.version;
     }
 
     // Fallback: try to find our script in document.scripts (only if document exists)
     if (typeof document !== "undefined" && document.scripts) {
-        for (const script of document.scripts) {
+        for (const script of Array.from(document.scripts)) {
             const content = script.textContent;
             if (content && content.includes("Vim Mode for Text Inputs")) {
                 const match = content.match(/@version\s+([\d.]+)/);

@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Vim Mode for Text Inputs
 // @namespace    http://tampermonkey.net/
-// @version      1.0.39
+// @version      1.0.40
 // @description  Vim-like editing for textareas and inputs
 // @match        *://*/*
 // @updateURL    https://raw.githubusercontent.com/levabala/tampermonkey-vim-mode/refs/heads/main/dist/tampermonkey_vim_mode.js
@@ -23,7 +23,7 @@
                 return GM_info.script.version;
             }
             if (typeof document !== "undefined" && document.scripts) {
-                for (const script of document.scripts) {
+                for (const script of Array.from(document.scripts)) {
                     const content = script.textContent;
                     if (
                         content &&

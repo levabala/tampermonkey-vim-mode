@@ -15,7 +15,7 @@ import {
     saveState,
     undo,
 } from "./common.js";
-import type { EditableElement, TextRange, State } from "./types.js";
+import type { EditableElement, TextRange, State, UndoState } from "./types.js";
 
 // Motion functions
 export function executeMotion(

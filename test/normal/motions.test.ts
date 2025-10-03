@@ -172,7 +172,7 @@ describe("Multiline Operations", () => {
 });
 
 describe("Character Finding", () => {
-    let input, textarea;
+    let input: HTMLInputElement, textarea: HTMLTextAreaElement;
 
     beforeEach(() => {
         setupVimMode();

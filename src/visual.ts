@@ -8,7 +8,7 @@ import {
 } from "./common.js";
 import { executeMotion } from "./normal.js";
 import { yankRange, deleteRange } from "./normal.js";
-import type { EditableElement, Mode, State } from "./types.js";
+import type { EditableElement, Mode, State, TextRange } from "./types.js";
 
 // Visual selection management
 export function updateVisualSelection(

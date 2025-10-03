@@ -72,6 +72,7 @@ When asked to write a test and fix a bug, follow this workflow to verify the tes
 This ensures the test actually catches the bug and isn't a false positive.
 
 - use bun!
-- run lint:fix and format via bun run before committing changes
+- run typecheck, lint:fix and format via bun run before committing changes (in parallel)
 - when bumping version you must do it in src/, not in dist/
 - TAMPER_VIM_MODE holds the config. changes to it must be backwards compatible
+- run but run typecheck before committing
