@@ -1724,9 +1724,12 @@
         debug("Attaching direct keydown listener to element");
         const originalOnKeyDown = el.onkeydown;
         el.onkeydown = (event) => {
-          debug("onkeydown property handler", { key: event.key });
-          if (event.key === "Escape") {
-            debug("ESC in onkeydown - calling handleKeyDown");
+          debug("onkeydown property handler", {
+            key: event.key,
+            ctrl: event.ctrlKey
+          });
+          if (event.key === "Escape" || event.ctrlKey && event.key === "]") {
+            debug("ESC/Ctrl-] in onkeydown - calling handleKeyDown");
             handleKeyDown(event);
             return false;
           }
@@ -1739,12 +1742,13 @@
           const kbEvent = event;
           debug("DIRECT element keydown", {
             key: kbEvent.key,
+            ctrl: kbEvent.ctrlKey,
             target: kbEvent.target.tagName,
             defaultPrevented: kbEvent.defaultPrevented,
             propagationStopped: kbEvent.cancelBubble
           });
-          if (kbEvent.key === "Escape") {
-            debug("DIRECT ESC on element - calling handleKeyDown");
+          if (kbEvent.key === "Escape" || kbEvent.ctrlKey && kbEvent.key === "]") {
+            debug("DIRECT ESC/Ctrl-] on element - calling handleKeyDown");
             handleKeyDown(kbEvent);
           }
         }, true);
@@ -1844,6 +1848,10 @@
         debug("handleKeyDown: switching from insert to normal");
         enterNormalMode();
         debug("handleKeyDown: mode switch complete", { newMode: mode });
+      } else if (mode === "visual" || mode === "visual-line") {
+        debug("handleKeyDown: exiting visual mode to normal");
+        exitVisualMode();
+        debug("handleKeyDown: mode switch complete", { newMode: mode });
       } else {
         debug("handleKeyDown: unfocusing from normal mode");
         commandBuffer = "";
@@ -1873,8 +1881,10 @@
     debug("Skipping event listener setup - no window/document");
   } else {
     window.addEventListener("keydown", (e) => {
-      if (e.key === "Escape") {
-        debug("GLOBAL ESC keydown detected", {
+      if (e.key === "Escape" || e.ctrlKey && e.key === "]") {
+        debug("GLOBAL ESC/Ctrl-] keydown detected", {
+          key: e.key,
+          ctrl: e.ctrlKey,
           target: e.target.tagName,
           eventPhase: e.eventPhase,
           defaultPrevented: e.defaultPrevented,
@@ -1888,16 +1898,20 @@
       }
     }, true);
     window.addEventListener("keyup", (e) => {
-      if (e.key === "Escape") {
-        debug("GLOBAL ESC keyup detected", {
+      if (e.key === "Escape" || e.ctrlKey && e.key === "]") {
+        debug("GLOBAL ESC/Ctrl-] keyup detected", {
+          key: e.key,
+          ctrl: e.ctrlKey,
           target: e.target.tagName,
           timestamp: e.timeStamp
         });
       }
     }, true);
     const testListener = (e) => {
-      if (e.key === "Escape") {
-        debug("RAW ESC DETECTED on document", {
+      if (e.key === "Escape" || e.ctrlKey && e.key === "]") {
+        debug("RAW ESC/Ctrl-] DETECTED on document", {
+          key: e.key,
+          ctrl: e.ctrlKey,
           target: e.target.tagName,
           currentTarget: e.currentTarget,
           eventPhase: e.eventPhase,
@@ -1908,8 +1922,10 @@
       }
     };
     window.addEventListener("keydown", (e) => {
-      if (e.key === "Escape") {
-        debug("WINDOW ESC listener", {
+      if (e.key === "Escape" || e.ctrlKey && e.key === "]") {
+        debug("WINDOW ESC/Ctrl-] listener", {
+          key: e.key,
+          ctrl: e.ctrlKey,
           target: e.target.tagName,
           eventPhase: e.eventPhase,
           defaultPrevented: e.defaultPrevented
@@ -1927,8 +1943,10 @@
       }
     }, true);
     document.addEventListener("keydown", (e) => {
-      if (e.key === "Escape") {
-        debug("Secondary ESC listener (bubbling phase)", {
+      if (e.key === "Escape" || e.ctrlKey && e.key === "]") {
+        debug("Secondary ESC/Ctrl-] listener (bubbling phase)", {
+          key: e.key,
+          ctrl: e.ctrlKey,
           defaultPrevented: e.defaultPrevented,
           propagationStopped: e.cancelBubble,
           currentInput: !!currentInput,
