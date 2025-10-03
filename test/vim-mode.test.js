@@ -80,19 +80,7 @@ describe('Vim Mode Integration Tests', () => {
       expect(window.getModeText()).toBe('-- NORMAL --');
     });
 
-    it('should remain in normal mode after Escape even if focusin fires', () => {
-      input.focus();
-      input.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
-      expect(window.getModeText()).toBe('-- NORMAL --');
-
-      // Simulate a focusin event (which might happen due to blur prevention logic)
-      input.dispatchEvent(new FocusEvent('focusin', { bubbles: true }));
-
-      // Should still be in normal mode
-      expect(window.getModeText()).toBe('-- NORMAL --');
-    });
-
-    it('should switch to normal mode when pressing Escape twice', () => {
+    it('should remain in normal mode after Escape despite focus events', () => {
       input.focus();
       expect(window.getModeText()).toBe('-- INSERT --');
 
@@ -100,23 +88,19 @@ describe('Vim Mode Integration Tests', () => {
       input.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
       expect(window.getModeText()).toBe('-- NORMAL --');
 
-      // Simulate the focusin event that happens due to blur prevention
+      // Simulate focusin event (which might happen due to blur prevention logic)
       input.dispatchEvent(new FocusEvent('focusin', { bubbles: true }));
+      expect(window.getModeText()).toBe('-- NORMAL --');
 
       // Second Escape - should stay in normal mode (not switch back to insert)
       input.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
       expect(window.getModeText()).toBe('-- NORMAL --');
-    });
 
-    it('should switch to normal mode even with blur/focus cycles', () => {
-      input.focus();
-      expect(window.getModeText()).toBe('-- INSERT --');
-
-      // Simulate blur then immediate refocus (what happens with blur prevention)
+      // Simulate blur/focus cycle and verify Escape still works
       input.dispatchEvent(new FocusEvent('focusout', { bubbles: true }));
       input.dispatchEvent(new FocusEvent('focusin', { bubbles: true }));
-
-      // Now press Escape - should still switch to normal mode
+      input.dispatchEvent(new KeyboardEvent('keydown', { key: 'i', bubbles: true }));
+      expect(window.getModeText()).toBe('-- INSERT --');
       input.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
       expect(window.getModeText()).toBe('-- NORMAL --');
     });
@@ -270,23 +254,20 @@ describe('Vim Mode Integration Tests', () => {
       expect(window.getModeText()).toBe('-- INSERT --');
     });
 
-    it('should open line below with o', () => {
+    it('should open line below with o and above with O', () => {
+      // Test o - open line below
       textarea.value = 'line1\nline2';
       textarea.focus();
       textarea.selectionStart = 1;
       textarea.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
-      // Press o once
       textarea.dispatchEvent(new KeyboardEvent('keydown', { key: 'o', bubbles: true }));
       expect(textarea.value).toBe('line1\n\nline2');
       expect(textarea.selectionStart).toBe(6);
-    });
 
-    it('should open line above with O', () => {
+      // Test O - open line above
       textarea.value = 'line1\nline2';
-      textarea.focus();
       textarea.selectionStart = 7; // on line2
       textarea.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
-      // Press O once
       textarea.dispatchEvent(new KeyboardEvent('keydown', { key: 'O', bubbles: true }));
       expect(textarea.value).toBe('line1\n\nline2');
       expect(textarea.selectionStart).toBe(6);
@@ -475,7 +456,8 @@ describe('Vim Mode Integration Tests', () => {
   });
 
   describe('Dot Repeat', () => {
-    it('should repeat last change with .', () => {
+    it('should repeat last change with . for simple and complex commands', () => {
+      // Test simple command (x)
       input.value = 'hello world';
       input.focus();
       input.selectionStart = 0;
@@ -484,13 +466,10 @@ describe('Vim Mode Integration Tests', () => {
       expect(input.value).toBe('ello world');
       input.dispatchEvent(new KeyboardEvent('keydown', { key: '.', bubbles: true }));
       expect(input.value).toBe('llo world');
-    });
 
-    it('should repeat delete word with .', () => {
+      // Test complex command (dw)
       input.value = 'one two three four';
-      input.focus();
       input.selectionStart = 0;
-      input.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
       input.dispatchEvent(new KeyboardEvent('keydown', { key: 'd', bubbles: true }));
       input.dispatchEvent(new KeyboardEvent('keydown', { key: 'w', bubbles: true }));
       expect(input.value).toBe('two three four');
