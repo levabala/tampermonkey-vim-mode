@@ -2158,6 +2158,7 @@
                     undoStack = [];
                     redoStack = [];
                     updateIndicator(mode, currentInput);
+                    updateLineNumbers(currentInput);
                     debug("Attaching direct keydown listener to element");
                     const originalOnKeyDown = el.onkeydown;
                     el.onkeydown = (event) => {

@@ -200,6 +200,7 @@ function handleFocus(e: FocusEvent): void {
             undoStack = [];
             redoStack = [];
             updateIndicator(mode, currentInput);
+            updateLineNumbers(currentInput);
 
             // Attach keydown directly to the element to intercept before any page handlers
             debug("Attaching direct keydown listener to element");
