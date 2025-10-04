@@ -130,6 +130,11 @@ export function processVisualCommand(
 
     if (!currentInput) return;
 
+    // Ignore modifier keys
+    if (["Shift", "Control", "Alt", "Meta"].includes(key)) {
+        return;
+    }
+
     const count = parseInt(countBuffer) || 1;
     debug("processVisualCommand", { key, count, mode });
 

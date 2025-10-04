@@ -228,6 +228,11 @@ export function processNormalCommand(key: string, state: State): void {
 
     if (!currentInput) return;
 
+    // Ignore modifier keys
+    if (["Shift", "Control", "Alt", "Meta"].includes(key)) {
+        return;
+    }
+
     const count = parseInt(countBuffer) || 1;
     debug("processNormalCommand", {
         key,

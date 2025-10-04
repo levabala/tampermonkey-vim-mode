@@ -1237,6 +1237,9 @@
     } = state;
     if (!currentInput)
       return;
+    if (["Shift", "Control", "Alt", "Meta"].includes(key)) {
+      return;
+    }
     const count = parseInt(countBuffer) || 1;
     debug("processNormalCommand", {
       key,
@@ -1706,6 +1709,9 @@
     } = state;
     if (!currentInput)
       return;
+    if (["Shift", "Control", "Alt", "Meta"].includes(key)) {
+      return;
+    }
     const count = parseInt(countBuffer) || 1;
     debug("processVisualCommand", { key, count, mode });
     if (commandBuffer) {

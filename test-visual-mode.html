@@ -54,6 +54,15 @@
                     or <kbd>c</kbd> to change
                 </li>
             </ol>
+            <h3>Test Text Objects</h3>
+            <ul>
+                <li><kbd>di(</kbd> - delete inside parentheses</li>
+                <li><kbd>da(</kbd> - delete around parentheses (including parens)</li>
+                <li><kbd>ci{</kbd> - change inside braces</li>
+                <li><kbd>yi"</kbd> - yank inside quotes</li>
+                <li><kbd>vi)</kbd> - visual select inside parentheses</li>
+                <li>Works with: (), [], {}, &lt;&gt;, "", '', ``</li>
+            </ul>
             <p>
                 <strong>Debug:</strong> Open DevTools Console and add
                 <code>?VIM_DEBUG=1</code> to URL to see debug logs
@@ -62,6 +71,26 @@
 
         <div class="container">
             <textarea>
+TEXT OBJECTS TEST EXAMPLES:
+Simple: foo(bar)baz and [hello] and {world} and <test> and "quotes" and 'single' and `backticks`
+Multiword: test(hello world there)end and [multiple words here] and {many words inside}after
+Nested: outer(inner(deep content))end
+Mixed: "text with (parens inside)" and {array[1, 2, 3]} test
+
+Multiline example (put cursor inside and try di( or da():
+function example(param one, param two,
+  param three, param four) {
+  return result;
+}
+
+Try these commands (put cursor INSIDE the pair first):
+- di( or di) - delete inside parentheses
+- da( or da) - delete around parentheses (including the parens)
+- ci{ or ci} - change inside braces (deletes and enters insert mode)
+- yi" - yank inside quotes (then press p to paste)
+- vi[ - visual select inside brackets (then d to delete)
+Works with: (), [], {}, <>, "", '', ``
+
 Line 1: The quick brown fox jumps over the lazy dog and continues running across the meadow with tremendous speed and agility while being chased by the farmer
 Line 2: jumps over the lazy dog
 Line 3: Lorem ipsum dolor sit amet consectetur adipiscing elit sed do eiusmod tempor incididunt ut labore et dolore magna aliqua ut enim ad minim veniam quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat duis aute irure dolor in reprehenderit
