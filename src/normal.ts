@@ -44,10 +44,13 @@ export function executeMotion(
                 pos = Math.max(0, pos - 1);
                 wantedColumn = null; // Reset on horizontal movement
                 break;
-            case "l":
-                pos = Math.min(currentInput.value.length, pos + 1);
+            case "l": {
+                // In normal mode, cursor can't go past the last character
+                const maxPos = Math.max(0, currentInput.value.length - 1);
+                pos = Math.min(maxPos, pos + 1);
                 wantedColumn = null; // Reset on horizontal movement
                 break;
+            }
             case "j": {
                 const currentLineJ = getLine(currentInput, pos);
                 const offsetJ = pos - currentLineJ.start;
