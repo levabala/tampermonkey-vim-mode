@@ -19,6 +19,16 @@ import {
 } from "./common.js";
 import type { EditableElement, TextRange, State, UndoState } from "./types.js";
 
+// Column memory for vertical motions (j/k)
+// Vim remembers the column you want to be in when moving vertically through
+// lines shorter than that column
+let wantedColumn: number | null = null;
+
+// Reset column memory (useful for testing)
+export function resetColumnMemory(): void {
+    wantedColumn = null;
+}
+
 // Motion functions
 export function executeMotion(
     currentInput: EditableElement,
@@ -32,77 +42,116 @@ export function executeMotion(
         switch (motion) {
             case "h":
                 pos = Math.max(0, pos - 1);
+                wantedColumn = null; // Reset on horizontal movement
                 break;
             case "l":
                 pos = Math.min(currentInput.value.length, pos + 1);
+                wantedColumn = null; // Reset on horizontal movement
                 break;
-            case "j":
+            case "j": {
                 const currentLineJ = getLine(currentInput, pos);
                 const offsetJ = pos - currentLineJ.start;
+
+                // Initialize or maintain wanted column
+                if (wantedColumn === null) {
+                    wantedColumn = offsetJ;
+                }
+
                 const nextLineStartJ = currentLineJ.end + 1;
                 if (nextLineStartJ < currentInput.value.length) {
                     const nextLineJ = getLine(currentInput, nextLineStartJ);
-                    pos = Math.min(nextLineJ.start + offsetJ, nextLineJ.end);
+                    // Use wanted column, clamped to line length
+                    pos = Math.min(
+                        nextLineJ.start + wantedColumn,
+                        nextLineJ.end,
+                    );
                 }
                 break;
-            case "k":
+            }
+            case "k": {
                 const currentLineK = getLine(currentInput, pos);
                 const offsetK = pos - currentLineK.start;
+
+                // Initialize or maintain wanted column
+                if (wantedColumn === null) {
+                    wantedColumn = offsetK;
+                }
+
                 if (currentLineK.start > 0) {
                     const prevLineK = getLine(
                         currentInput,
                         currentLineK.start - 1,
                     );
-                    pos = Math.min(prevLineK.start + offsetK, prevLineK.end);
+                    // Use wanted column, clamped to line length
+                    pos = Math.min(
+                        prevLineK.start + wantedColumn,
+                        prevLineK.end,
+                    );
                 }
                 break;
+            }
             case "w":
                 pos = findWordStart(currentInput, pos, true);
+                wantedColumn = null;
                 break;
             case "W":
                 pos = findWORDStart(currentInput, pos, true);
+                wantedColumn = null;
                 break;
             case "b":
                 pos = findWordStart(currentInput, pos, false);
+                wantedColumn = null;
                 break;
             case "B":
                 pos = findWORDStart(currentInput, pos, false);
+                wantedColumn = null;
                 break;
             case "e":
                 pos = findWordEnd(currentInput, pos, true);
+                wantedColumn = null;
                 break;
             case "E":
                 pos = findWORDEnd(currentInput, pos, true);
+                wantedColumn = null;
                 break;
             case "ge":
                 pos = findWordEnd(currentInput, pos, false);
+                wantedColumn = null;
                 break;
             case "0":
                 pos = getLineStart(currentInput, pos);
+                wantedColumn = null;
                 break;
             case "^":
                 pos = getFirstNonBlank(
                     currentInput,
                     getLineStart(currentInput, pos),
                 );
+                wantedColumn = null;
                 break;
             case "$":
                 pos = getLineEnd(currentInput, pos);
+                wantedColumn = null;
                 break;
             case "gg":
                 pos = 0;
+                wantedColumn = null;
                 break;
             case "G":
                 pos = currentInput.value.length;
+                wantedColumn = null;
                 break;
             case "{":
                 pos = findParagraphBoundary(currentInput, pos, false);
+                wantedColumn = null;
                 break;
             case "}":
                 pos = findParagraphBoundary(currentInput, pos, true);
+                wantedColumn = null;
                 break;
             case "%":
                 pos = findMatchingPair(currentInput, pos);
+                wantedColumn = null;
                 break;
         }
     }

@@ -119,7 +119,7 @@ test.describe("Text Objects with Pairs", () => {
         expect(value).toBe("foo[]baz");
     });
 
-    test("should yank inside quotes with yi\" and paste", async ({ page }) => {
+    test('should yank inside quotes with yi" and paste', async ({ page }) => {
         const textarea = page.locator("textarea");
         await textarea.click();
 
@@ -212,9 +212,7 @@ test.describe("Text Objects with Pairs", () => {
         expect(value).toBe("outer(inner())end");
     });
 
-    test("should handle multiline content in parentheses", async ({
-        page,
-    }) => {
+    test("should handle multiline content in parentheses", async ({ page }) => {
         const textarea = page.locator("textarea");
         await textarea.click();
 

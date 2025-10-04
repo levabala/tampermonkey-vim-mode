@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it } from "vitest";
-import { executeMotion } from "../src/normal.js";
+import { executeMotion, resetColumnMemory } from "../src/normal.js";
 import type { EditableElement } from "../src/types.js";
 
 function createMockTextarea(value: string, pos: number): EditableElement {
@@ -14,6 +14,7 @@ function createMockTextarea(value: string, pos: number): EditableElement {
 describe("Column memory through empty lines", () => {
     beforeEach(() => {
         document.body.innerHTML = "";
+        resetColumnMemory();
     });
 
     it("should remember column position when moving through empty line with k", () => {
@@ -72,32 +73,45 @@ describe("Column memory through empty lines", () => {
 
     it("should remember highest column when moving through lines of varying length", () => {
         // Text with varying line lengths
+        // line 0: "hello world" (pos 0-11)
+        // line 1: "short"       (pos 12-17)
+        // line 2: "hello again" (pos 18-29)
         const text = "hello world\nshort\nhello again";
         const textarea = createMockTextarea(text, 10); // Column 10
 
         // Move down to shorter line
         executeMotion(textarea, "j", 1);
-        expect(textarea.selectionStart).toBe(17); // End of "short" (line too short)
+        expect(textarea.selectionStart).toBe(17); // End of "short" (line too short, clamped to end)
 
         // Move down again - should try to return to column 10
         executeMotion(textarea, "j", 1);
-        expect(textarea.selectionStart).toBe(33); // Should be at column 10 of "hello again" (23 + 10 = 33)
+        expect(textarea.selectionStart).toBe(28); // Should be at column 10 of "hello again" (18 + 10 = 28)
     });
 
     it("should reset column memory when horizontal movement occurs", () => {
-        const text = "hello world\n\nfoo bar baz";
+        // line 0: "hello world" (pos 0-11)
+        // line 1: ""            (pos 12)
+        // line 2: ""            (pos 13)
+        // line 3: "foo bar baz" (pos 14-25)
+        const text = "hello world\n\n\nfoo bar baz";
         const textarea = createMockTextarea(text, 10); // Column 10
 
         // Move down to empty line
         executeMotion(textarea, "j", 1);
-        expect(textarea.selectionStart).toBe(12);
+        expect(textarea.selectionStart).toBe(12); // At empty line 1
 
         // Move horizontally (this should reset column memory)
-        executeMotion(textarea, "l", 1);
-        expect(textarea.selectionStart).toBe(12); // Can't move right on empty line
+        executeMotion(textarea, "h", 1);
+        expect(textarea.selectionStart).toBe(11); // Moved left to 'd' of "world"
 
-        // Move down - should use current column (0), not remembered column (10)
+        // Now move down twice - should use current column (11), not original column (10)
         executeMotion(textarea, "j", 1);
-        expect(textarea.selectionStart).toBe(13); // Should be at column 0 of line 3
+        expect(textarea.selectionStart).toBe(12); // Back to empty line (column 11 clamped to 0)
+
+        executeMotion(textarea, "j", 1);
+        expect(textarea.selectionStart).toBe(13); // Next empty line
+
+        executeMotion(textarea, "j", 1);
+        expect(textarea.selectionStart).toBe(25); // Column 11 of "foo bar baz" (14 + 11 = 25)
     });
 });
