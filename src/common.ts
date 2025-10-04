@@ -1219,6 +1219,8 @@ export function findTextObject(
         "]": { open: "[", close: "]" },
         "{": { open: "{", close: "}" },
         "}": { open: "{", close: "}" },
+        "<": { open: "<", close: ">" },
+        ">": { open: "<", close: ">" },
         '"': { open: '"', close: '"' },
         "'": { open: "'", close: "'" },
         "`": { open: "`", close: "`" },

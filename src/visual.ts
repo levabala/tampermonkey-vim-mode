@@ -9,6 +9,7 @@ import {
     updateCustomCaret,
     updateLineNumbers,
     findCharInLine,
+    findTextObject,
 } from "./common.js";
 import { executeMotion } from "./normal.js";
 import { yankRange, deleteRange } from "./normal.js";
@@ -206,6 +207,29 @@ export function processVisualCommand(
             return;
         }
 
+        // Text objects (i or a followed by pair character)
+        if (commandBuffer === "i" || commandBuffer === "a") {
+            const inner = commandBuffer === "i";
+            debug("processVisualCommand: text object", {
+                textObject: commandBuffer + key,
+                inner,
+            });
+            const range = findTextObject(currentInput, key, inner);
+
+            // Select the text object range
+            state.visualStart = range.start;
+            state.visualEnd = range.end - 1; // -1 because visualEnd is inclusive
+            updateVisualSelection(
+                currentInput,
+                mode,
+                state.visualStart,
+                state.visualEnd,
+            );
+            state.commandBuffer = "";
+            state.countBuffer = "";
+            return;
+        }
+
         state.commandBuffer = "";
     }
 
@@ -374,6 +398,8 @@ export function processVisualCommand(
         case "F":
         case "t":
         case "T":
+        case "i":
+        case "a":
             state.commandBuffer = key;
             break;
 

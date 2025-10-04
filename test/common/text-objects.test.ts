@@ -99,7 +99,7 @@ describe("Text Objects", () => {
         it("should yank inside parentheses with yi(", () => {
             input.value = "foo(bar)baz";
             input.focus();
-            input.selectionStart = 5;
+            input.selectionStart = 5; // on 'a' in "bar"
             input.dispatchEvent(
                 new KeyboardEvent("keydown", { key: "Escape", bubbles: true }),
             );
@@ -113,11 +113,12 @@ describe("Text Objects", () => {
                 new KeyboardEvent("keydown", { key: "(", bubbles: true }),
             );
             expect(input.value).toBe("foo(bar)baz");
-            // Verify yank by pasting
+            // Verify yank by pasting - p pastes after cursor at position 5
+            // so text becomes "foo(ba[bar]r)baz" = "foo(babarr)baz"
             input.dispatchEvent(
                 new KeyboardEvent("keydown", { key: "p", bubbles: true }),
             );
-            expect(input.value).toBe("foo(bbar)baz");
+            expect(input.value).toBe("foo(babarr)baz");
         });
     });
 
@@ -480,7 +481,7 @@ describe("Text Objects", () => {
     });
 
     describe("Visual mode with text objects", () => {
-        it("should visual select inside parentheses with vi(", () => {
+        it("should visual select inside parentheses with vi( and delete", () => {
             input.value = "foo(bar)baz";
             input.focus();
             input.selectionStart = 5;
@@ -496,11 +497,14 @@ describe("Text Objects", () => {
             input.dispatchEvent(
                 new KeyboardEvent("keydown", { key: "(", bubbles: true }),
             );
-            expect(input.selectionStart).toBe(4);
-            expect(input.selectionEnd).toBe(7);
+            // Now delete the selection
+            input.dispatchEvent(
+                new KeyboardEvent("keydown", { key: "d", bubbles: true }),
+            );
+            expect(input.value).toBe("foo()baz");
         });
 
-        it("should visual select around parentheses with va(", () => {
+        it("should visual select around parentheses with va( and delete", () => {
             input.value = "foo(bar)baz";
             input.focus();
             input.selectionStart = 5;
@@ -516,8 +520,11 @@ describe("Text Objects", () => {
             input.dispatchEvent(
                 new KeyboardEvent("keydown", { key: "(", bubbles: true }),
             );
-            expect(input.selectionStart).toBe(3);
-            expect(input.selectionEnd).toBe(8);
+            // Now delete the selection
+            input.dispatchEvent(
+                new KeyboardEvent("keydown", { key: "d", bubbles: true }),
+            );
+            expect(input.value).toBe("foobaz");
         });
     });
 });

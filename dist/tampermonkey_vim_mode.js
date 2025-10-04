@@ -957,6 +957,8 @@
       "]": { open: "[", close: "]" },
       "{": { open: "{", close: "}" },
       "}": { open: "{", close: "}" },
+      "<": { open: "<", close: ">" },
+      ">": { open: "<", close: ">" },
       '"': { open: '"', close: '"' },
       "'": { open: "'", close: "'" },
       "`": { open: "`", close: "`" }
@@ -1746,6 +1748,20 @@
         state.countBuffer = "";
         return;
       }
+      if (commandBuffer === "i" || commandBuffer === "a") {
+        const inner = commandBuffer === "i";
+        debug("processVisualCommand: text object", {
+          textObject: commandBuffer + key,
+          inner
+        });
+        const range = findTextObject(currentInput, key, inner);
+        state.visualStart = range.start;
+        state.visualEnd = range.end - 1;
+        updateVisualSelection2(currentInput, mode, state.visualStart, state.visualEnd);
+        state.commandBuffer = "";
+        state.countBuffer = "";
+        return;
+      }
       state.commandBuffer = "";
     }
     const motionKeys = [
@@ -1853,6 +1869,8 @@
       case "F":
       case "t":
       case "T":
+      case "i":
+      case "a":
         state.commandBuffer = key;
         break;
       case "x":

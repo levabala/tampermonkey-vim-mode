@@ -72,6 +72,6 @@ When asked to write a test and fix a bug, follow this workflow to verify the tes
 This ensures the test actually catches the bug and isn't a false positive.
 
 - use bun!
-- run typecheck, lint:fix and format via bun run BEFORE committing changes (in parallel) (even if directly asked to just commit)
+- run typecheck, lint:fix, test, test:e2e and format via bun run BEFORE committing changes (in parallel) (even if directly asked to just commit)
 - when bumping version you must do it in src/, not in dist/
 - TAMPER_VIM_MODE holds the config. changes to it must be backwards compatible
