@@ -250,7 +250,8 @@ export function processVisualCommand(
             visualEnd,
             currentInput,
         );
-        yankRange(currentInput, clipboard, range.start, range.end);
+        const linewise = mode === "visual-line";
+        yankRange(currentInput, clipboard, range.start, range.end, linewise);
         deleteRange(currentInput, undoStack, redoStack, range.start, range.end);
         exitVisualMode();
         state.countBuffer = "";
@@ -264,7 +265,8 @@ export function processVisualCommand(
             visualEnd,
             currentInput,
         );
-        yankRange(currentInput, clipboard, range.start, range.end);
+        const linewise = mode === "visual-line";
+        yankRange(currentInput, clipboard, range.start, range.end, linewise);
         exitVisualMode();
         state.countBuffer = "";
         return;
@@ -277,7 +279,8 @@ export function processVisualCommand(
             visualEnd,
             currentInput,
         );
-        yankRange(currentInput, clipboard, range.start, range.end);
+        const linewise = mode === "visual-line";
+        yankRange(currentInput, clipboard, range.start, range.end, linewise);
         deleteRange(currentInput, undoStack, redoStack, range.start, range.end);
         enterInsertMode();
         state.countBuffer = "";
@@ -382,7 +385,14 @@ export function processVisualCommand(
                 visualEnd,
                 currentInput,
             );
-            yankRange(currentInput, clipboard, range.start, range.end);
+            const linewiseX = mode === "visual-line";
+            yankRange(
+                currentInput,
+                clipboard,
+                range.start,
+                range.end,
+                linewiseX,
+            );
             deleteRange(
                 currentInput,
                 undoStack,

@@ -87,7 +87,7 @@ export interface State {
     commandBuffer: string;
     countBuffer: string;
     operatorPending: string | null;
-    clipboard: { content: string };
+    clipboard: { content: string; linewise: boolean };
     undoStack: UndoState[];
     redoStack: UndoState[];
     lastChange: LastChange | null;

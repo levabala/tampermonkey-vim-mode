@@ -27,7 +27,10 @@ let operatorPending: string | null = null;
 let lastFindChar: string | null = null;
 let lastFindDirection: boolean | null = null;
 let lastFindType: string | null = null; // 'f', 't', 'F', or 'T'
-const clipboard: { content: string } = { content: "" };
+const clipboard: { content: string; linewise: boolean } = {
+    content: "",
+    linewise: false,
+};
 let undoStack: UndoState[] = [];
 let redoStack: UndoState[] = [];
 let lastChange: LastChange | null = null;

@@ -152,13 +152,15 @@ export function deleteRange(
 
 export function yankRange(
     currentInput: EditableElement,
-    clipboard: { content: string },
+    clipboard: { content: string; linewise: boolean },
     start: number,
     end: number,
+    linewise = false,
 ): void {
     const yanked = currentInput.value.substring(start, end);
-    debug("yankRange", { start, end, yanked });
+    debug("yankRange", { start, end, yanked, linewise });
     clipboard.content = yanked;
+    clipboard.linewise = linewise;
 }
 
 export function changeRange(
@@ -245,24 +247,34 @@ export function processNormalCommand(key: string, state: State): void {
             });
             const line = getLine(currentInput, getCursorPos(currentInput));
             const start = line.start;
-            const end =
+            // For line-wise operations, yank just the line content (without the newline)
+            // but remember it's linewise
+            const yankEnd = line.end;
+            // For deletion, include the newline
+            const deleteEnd =
                 line.end < currentInput.value.length ? line.end + 1 : line.end;
 
             if (operatorPending === "d") {
-                yankRange(currentInput, clipboard, start, end);
-                deleteRange(currentInput, undoStack, redoStack, start, end);
+                yankRange(currentInput, clipboard, start, yankEnd, true);
+                deleteRange(
+                    currentInput,
+                    undoStack,
+                    redoStack,
+                    start,
+                    deleteEnd,
+                );
                 state.lastChange = { operator: "d", motion: "d", count };
             } else if (operatorPending === "y") {
-                yankRange(currentInput, clipboard, start, end);
+                yankRange(currentInput, clipboard, start, yankEnd, true);
                 state.lastChange = { operator: "y", motion: "y", count };
             } else if (operatorPending === "c") {
-                yankRange(currentInput, clipboard, start, end);
+                yankRange(currentInput, clipboard, start, yankEnd, true);
                 changeRange(
                     currentInput,
                     undoStack,
                     redoStack,
                     start,
-                    end,
+                    deleteEnd,
                     enterInsertMode,
                 );
                 state.lastChange = { operator: "c", motion: "c", count };
@@ -673,6 +685,7 @@ export function processNormalCommand(key: string, state: State): void {
             const posX = getCursorPos(currentInput);
             const endX = Math.min(posX + count, currentInput.value.length);
             clipboard.content = currentInput.value.substring(posX, endX);
+            clipboard.linewise = false;
             currentInput.value =
                 currentInput.value.substring(0, posX) +
                 currentInput.value.substring(endX);
@@ -687,6 +700,7 @@ export function processNormalCommand(key: string, state: State): void {
                 const posXb = getCursorPos(currentInput);
                 if (posXb > 0) {
                     clipboard.content = currentInput.value[posXb - 1];
+                    clipboard.linewise = false;
                     currentInput.value =
                         currentInput.value.substring(0, posXb - 1) +
                         currentInput.value.substring(posXb);
@@ -703,6 +717,7 @@ export function processNormalCommand(key: string, state: State): void {
             const posD = getCursorPos(currentInput);
             const lineEndD = getLineEnd(currentInput, posD);
             clipboard.content = currentInput.value.substring(posD, lineEndD);
+            clipboard.linewise = false;
             currentInput.value =
                 currentInput.value.substring(0, posD) +
                 currentInput.value.substring(lineEndD);
@@ -718,24 +733,61 @@ export function processNormalCommand(key: string, state: State): void {
 
         case "p":
             saveState(currentInput, undoStack, redoStack);
-            const posP = getCursorPos(currentInput) + 1;
-            currentInput.value =
-                currentInput.value.substring(0, posP) +
-                clipboard.content +
-                currentInput.value.substring(posP);
-            setCursorPos(currentInput, posP + clipboard.content.length - 1);
+            if (clipboard.linewise) {
+                // Line-wise paste: insert below current line
+                const currentLine = getLine(
+                    currentInput,
+                    getCursorPos(currentInput),
+                );
+                const insertPos = currentLine.end;
+                currentInput.value =
+                    currentInput.value.substring(0, insertPos) +
+                    "\n" +
+                    clipboard.content +
+                    currentInput.value.substring(insertPos);
+                // Set cursor to first character of pasted content
+                setCursorPos(currentInput, insertPos + 1);
+            } else {
+                // Character-wise paste: insert after cursor
+                const posP = getCursorPos(currentInput) + 1;
+                currentInput.value =
+                    currentInput.value.substring(0, posP) +
+                    clipboard.content +
+                    currentInput.value.substring(posP);
+                setCursorPos(currentInput, posP + clipboard.content.length - 1);
+            }
             state.lastChange = { command: "p", count };
             state.countBuffer = "";
             break;
 
         case "P":
             saveState(currentInput, undoStack, redoStack);
-            const posPb = getCursorPos(currentInput);
-            currentInput.value =
-                currentInput.value.substring(0, posPb) +
-                clipboard.content +
-                currentInput.value.substring(posPb);
-            setCursorPos(currentInput, posPb + clipboard.content.length - 1);
+            if (clipboard.linewise) {
+                // Line-wise paste: insert above current line
+                const currentLine = getLine(
+                    currentInput,
+                    getCursorPos(currentInput),
+                );
+                const insertPos = currentLine.start;
+                currentInput.value =
+                    currentInput.value.substring(0, insertPos) +
+                    clipboard.content +
+                    "\n" +
+                    currentInput.value.substring(insertPos);
+                // Set cursor to first character of pasted content
+                setCursorPos(currentInput, insertPos);
+            } else {
+                // Character-wise paste: insert before cursor
+                const posPb = getCursorPos(currentInput);
+                currentInput.value =
+                    currentInput.value.substring(0, posPb) +
+                    clipboard.content +
+                    currentInput.value.substring(posPb);
+                setCursorPos(
+                    currentInput,
+                    posPb + clipboard.content.length - 1,
+                );
+            }
             state.lastChange = { command: "P", count };
             state.countBuffer = "";
             break;

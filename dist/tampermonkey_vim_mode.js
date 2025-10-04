@@ -1366,10 +1366,17 @@
             currentInput.value = text.substring(0, start) + text.substring(end);
             setCursorPos(currentInput, start);
         }
-        function yankRange(currentInput, clipboard, start, end) {
+        function yankRange(
+            currentInput,
+            clipboard,
+            start,
+            end,
+            linewise = false,
+        ) {
             const yanked = currentInput.value.substring(start, end);
-            debug("yankRange", { start, end, yanked });
+            debug("yankRange", { start, end, yanked, linewise });
             clipboard.content = yanked;
+            clipboard.linewise = linewise;
         }
         function changeRange(
             currentInput,
@@ -1448,18 +1455,25 @@
                         getCursorPos(currentInput),
                     );
                     const start = line.start;
-                    const end =
+                    const yankEnd = line.end;
+                    const deleteEnd =
                         line.end < currentInput.value.length
                             ? line.end + 1
                             : line.end;
                     if (operatorPending === "d") {
-                        yankRange(currentInput, clipboard, start, end);
+                        yankRange(
+                            currentInput,
+                            clipboard,
+                            start,
+                            yankEnd,
+                            true,
+                        );
                         deleteRange(
                             currentInput,
                             undoStack,
                             redoStack,
                             start,
-                            end,
+                            deleteEnd,
                         );
                         state.lastChange = {
                             operator: "d",
@@ -1467,20 +1481,32 @@
                             count,
                         };
                     } else if (operatorPending === "y") {
-                        yankRange(currentInput, clipboard, start, end);
+                        yankRange(
+                            currentInput,
+                            clipboard,
+                            start,
+                            yankEnd,
+                            true,
+                        );
                         state.lastChange = {
                             operator: "y",
                             motion: "y",
                             count,
                         };
                     } else if (operatorPending === "c") {
-                        yankRange(currentInput, clipboard, start, end);
+                        yankRange(
+                            currentInput,
+                            clipboard,
+                            start,
+                            yankEnd,
+                            true,
+                        );
                         changeRange(
                             currentInput,
                             undoStack,
                             redoStack,
                             start,
-                            end,
+                            deleteEnd,
                             enterInsertMode,
                         );
                         state.lastChange = {
@@ -1901,6 +1927,7 @@
                         posX,
                         endX,
                     );
+                    clipboard.linewise = false;
                     currentInput.value =
                         currentInput.value.substring(0, posX) +
                         currentInput.value.substring(endX);
@@ -1914,6 +1941,7 @@
                         const posXb = getCursorPos(currentInput);
                         if (posXb > 0) {
                             clipboard.content = currentInput.value[posXb - 1];
+                            clipboard.linewise = false;
                             currentInput.value =
                                 currentInput.value.substring(0, posXb - 1) +
                                 currentInput.value.substring(posXb);
@@ -1931,6 +1959,7 @@
                         posD,
                         lineEndD,
                     );
+                    clipboard.linewise = false;
                     currentInput.value =
                         currentInput.value.substring(0, posD) +
                         currentInput.value.substring(lineEndD);
@@ -1944,29 +1973,59 @@
                     break;
                 case "p":
                     saveState(currentInput, undoStack, redoStack);
-                    const posP = getCursorPos(currentInput) + 1;
-                    currentInput.value =
-                        currentInput.value.substring(0, posP) +
-                        clipboard.content +
-                        currentInput.value.substring(posP);
-                    setCursorPos(
-                        currentInput,
-                        posP + clipboard.content.length - 1,
-                    );
+                    if (clipboard.linewise) {
+                        const currentLine = getLine(
+                            currentInput,
+                            getCursorPos(currentInput),
+                        );
+                        const insertPos = currentLine.end;
+                        currentInput.value =
+                            currentInput.value.substring(0, insertPos) +
+                            `
+` +
+                            clipboard.content +
+                            currentInput.value.substring(insertPos);
+                        setCursorPos(currentInput, insertPos + 1);
+                    } else {
+                        const posP = getCursorPos(currentInput) + 1;
+                        currentInput.value =
+                            currentInput.value.substring(0, posP) +
+                            clipboard.content +
+                            currentInput.value.substring(posP);
+                        setCursorPos(
+                            currentInput,
+                            posP + clipboard.content.length - 1,
+                        );
+                    }
                     state.lastChange = { command: "p", count };
                     state.countBuffer = "";
                     break;
                 case "P":
                     saveState(currentInput, undoStack, redoStack);
-                    const posPb = getCursorPos(currentInput);
-                    currentInput.value =
-                        currentInput.value.substring(0, posPb) +
-                        clipboard.content +
-                        currentInput.value.substring(posPb);
-                    setCursorPos(
-                        currentInput,
-                        posPb + clipboard.content.length - 1,
-                    );
+                    if (clipboard.linewise) {
+                        const currentLine = getLine(
+                            currentInput,
+                            getCursorPos(currentInput),
+                        );
+                        const insertPos = currentLine.start;
+                        currentInput.value =
+                            currentInput.value.substring(0, insertPos) +
+                            clipboard.content +
+                            `
+` +
+                            currentInput.value.substring(insertPos);
+                        setCursorPos(currentInput, insertPos);
+                    } else {
+                        const posPb = getCursorPos(currentInput);
+                        currentInput.value =
+                            currentInput.value.substring(0, posPb) +
+                            clipboard.content +
+                            currentInput.value.substring(posPb);
+                        setCursorPos(
+                            currentInput,
+                            posPb + clipboard.content.length - 1,
+                        );
+                    }
                     state.lastChange = { command: "P", count };
                     state.countBuffer = "";
                     break;
@@ -2185,7 +2244,14 @@
                     visualEnd,
                     currentInput,
                 );
-                yankRange(currentInput, clipboard, range.start, range.end);
+                const linewise = mode === "visual-line";
+                yankRange(
+                    currentInput,
+                    clipboard,
+                    range.start,
+                    range.end,
+                    linewise,
+                );
                 deleteRange(
                     currentInput,
                     undoStack,
@@ -2204,7 +2270,14 @@
                     visualEnd,
                     currentInput,
                 );
-                yankRange(currentInput, clipboard, range.start, range.end);
+                const linewise = mode === "visual-line";
+                yankRange(
+                    currentInput,
+                    clipboard,
+                    range.start,
+                    range.end,
+                    linewise,
+                );
                 exitVisualMode();
                 state.countBuffer = "";
                 return;
@@ -2216,7 +2289,14 @@
                     visualEnd,
                     currentInput,
                 );
-                yankRange(currentInput, clipboard, range.start, range.end);
+                const linewise = mode === "visual-line";
+                yankRange(
+                    currentInput,
+                    clipboard,
+                    range.start,
+                    range.end,
+                    linewise,
+                );
                 deleteRange(
                     currentInput,
                     undoStack,
@@ -2315,7 +2395,14 @@
                         visualEnd,
                         currentInput,
                     );
-                    yankRange(currentInput, clipboard, range.start, range.end);
+                    const linewiseX = mode === "visual-line";
+                    yankRange(
+                        currentInput,
+                        clipboard,
+                        range.start,
+                        range.end,
+                        linewiseX,
+                    );
                     deleteRange(
                         currentInput,
                         undoStack,
@@ -2369,7 +2456,10 @@
         var lastFindChar = null;
         var lastFindDirection = null;
         var lastFindType = null;
-        var clipboard = { content: "" };
+        var clipboard = {
+            content: "",
+            linewise: false,
+        };
         var undoStack = [];
         var redoStack = [];
         var lastChange = null;

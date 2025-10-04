@@ -24,16 +24,25 @@ describe("Paste - Character-wise", () => {
         textarea.dispatchEvent(
             new KeyboardEvent("keydown", { key: "Escape", bubbles: true }),
         );
-        // Yank word "line1"
+        // Yank word "line1" using visual mode
+        textarea.dispatchEvent(
+            new KeyboardEvent("keydown", { key: "v", bubbles: true }),
+        );
+        // Select 4 more characters to get "line1"
+        for (let i = 0; i < 4; i++) {
+            textarea.dispatchEvent(
+                new KeyboardEvent("keydown", { key: "l", bubbles: true }),
+            );
+        }
         textarea.dispatchEvent(
             new KeyboardEvent("keydown", { key: "y", bubbles: true }),
         );
-        textarea.dispatchEvent(
-            new KeyboardEvent("keydown", { key: "w", bubbles: true }),
-        );
-        // Move to next line
+        // Move to next line, beginning
         textarea.dispatchEvent(
             new KeyboardEvent("keydown", { key: "j", bubbles: true }),
+        );
+        textarea.dispatchEvent(
+            new KeyboardEvent("keydown", { key: "0", bubbles: true }),
         );
         // Paste
         textarea.dispatchEvent(
@@ -51,16 +60,25 @@ describe("Paste - Character-wise", () => {
         textarea.dispatchEvent(
             new KeyboardEvent("keydown", { key: "Escape", bubbles: true }),
         );
-        // Yank word "line1"
+        // Yank word "line1" using visual mode
+        textarea.dispatchEvent(
+            new KeyboardEvent("keydown", { key: "v", bubbles: true }),
+        );
+        // Select 4 more characters to get "line1"
+        for (let i = 0; i < 4; i++) {
+            textarea.dispatchEvent(
+                new KeyboardEvent("keydown", { key: "l", bubbles: true }),
+            );
+        }
         textarea.dispatchEvent(
             new KeyboardEvent("keydown", { key: "y", bubbles: true }),
         );
-        textarea.dispatchEvent(
-            new KeyboardEvent("keydown", { key: "w", bubbles: true }),
-        );
-        // Move to next line
+        // Move to next line, beginning
         textarea.dispatchEvent(
             new KeyboardEvent("keydown", { key: "j", bubbles: true }),
+        );
+        textarea.dispatchEvent(
+            new KeyboardEvent("keydown", { key: "0", bubbles: true }),
         );
         // Paste before
         textarea.dispatchEvent(
