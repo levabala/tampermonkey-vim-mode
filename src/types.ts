@@ -22,6 +22,7 @@ export interface LastChange {
     operator?: string;
     textObject?: string;
     command?: string;
+    insertedText?: string;
 }
 
 export interface TextRange {
@@ -97,6 +98,6 @@ export interface State {
     allowBlur: boolean;
     visualStart: number;
     visualEnd: number;
-    enterInsertMode: () => void;
+    enterInsertMode: (command?: string) => void;
     enterVisualMode: (linewise: boolean) => void;
 }

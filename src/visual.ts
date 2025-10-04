@@ -95,13 +95,15 @@ export function getCurrentRange(
         const end = Math.max(visualStart, visualEnd);
         // In visual mode, selection is inclusive of the character at visualEnd
         // so we add 1 to include it in the range for operators
-        return {
-            start,
-            end:
-                mode === "visual-line"
-                    ? end
-                    : Math.min(end + 1, currentInput.value.length),
-        };
+        if (mode === "visual-line") {
+            // For visual-line mode, include the trailing newline if present
+            const lineEnd = end;
+            const deleteEnd =
+                lineEnd < currentInput.value.length ? lineEnd + 1 : lineEnd;
+            return { start, end: deleteEnd };
+        } else {
+            return { start, end: Math.min(end + 1, currentInput.value.length) };
+        }
     }
 
     // For non-visual modes, return cursor position
@@ -311,7 +313,7 @@ export function processVisualCommand(
         const linewise = mode === "visual-line";
         yankRange(currentInput, clipboard, range.start, range.end, linewise);
         deleteRange(currentInput, undoStack, redoStack, range.start, range.end);
-        enterInsertMode();
+        enterInsertMode("c");
         state.countBuffer = "";
         return;
     }

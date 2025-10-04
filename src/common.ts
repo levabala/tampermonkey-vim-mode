@@ -1057,18 +1057,65 @@ export function findWordStart(
 ): number {
     const text = currentInput.value;
     if (forward) {
-        // Skip current word
-        while (pos < text.length && isWordChar(text[pos])) pos++;
-        // Skip whitespace and newlines until we find a word character
-        while (pos < text.length && !isWordChar(text[pos])) pos++;
+        const startChar = text[pos];
+
+        // Determine what type of word we're in
+        if (isWordChar(startChar)) {
+            // Skip word characters
+            while (pos < text.length && isWordChar(text[pos])) pos++;
+        } else if (!isWhitespace(startChar) && startChar !== "\n") {
+            // Skip non-word, non-whitespace characters (punctuation)
+            while (
+                pos < text.length &&
+                !isWordChar(text[pos]) &&
+                !isWhitespace(text[pos]) &&
+                text[pos] !== "\n"
+            )
+                pos++;
+        }
+
+        // Skip whitespace (not including newlines)
+        while (
+            pos < text.length &&
+            isWhitespace(text[pos]) &&
+            text[pos] !== "\n"
+        )
+            pos++;
+
+        // If we hit a newline, move to the next line
+        if (pos < text.length && text[pos] === "\n") {
+            pos++;
+            // If next line is empty (another newline), stop here (on the empty line)
+            // Otherwise, skip leading whitespace
+            if (pos < text.length && text[pos] !== "\n") {
+                while (
+                    pos < text.length &&
+                    isWhitespace(text[pos]) &&
+                    text[pos] !== "\n"
+                )
+                    pos++;
+            }
+        }
         return pos;
     } else {
         // Move back one if we're at word start
         if (pos > 0) pos--;
         // Skip whitespace
-        while (pos > 0 && !isWordChar(text[pos]) && text[pos] !== "\n") pos--;
-        // Go to word start
-        while (pos > 0 && isWordChar(text[pos - 1])) pos--;
+        while (pos > 0 && isWhitespace(text[pos]) && text[pos] !== "\n") pos--;
+
+        // Determine what type of word we're in and go to its start
+        if (isWordChar(text[pos])) {
+            while (pos > 0 && isWordChar(text[pos - 1])) pos--;
+        } else if (!isWhitespace(text[pos]) && text[pos] !== "\n") {
+            // Non-word, non-whitespace characters (punctuation)
+            while (
+                pos > 0 &&
+                !isWordChar(text[pos - 1]) &&
+                !isWhitespace(text[pos - 1]) &&
+                text[pos - 1] !== "\n"
+            )
+                pos--;
+        }
         return pos;
     }
 }

@@ -977,20 +977,85 @@
         function findWordStart(currentInput, pos, forward = true) {
             const text = currentInput.value;
             if (forward) {
-                while (pos < text.length && isWordChar(text[pos])) pos++;
-                while (pos < text.length && !isWordChar(text[pos])) pos++;
+                const startChar = text[pos];
+                if (isWordChar(startChar)) {
+                    while (pos < text.length && isWordChar(text[pos])) pos++;
+                } else if (
+                    !isWhitespace(startChar) &&
+                    startChar !==
+                        `
+`
+                ) {
+                    while (
+                        pos < text.length &&
+                        !isWordChar(text[pos]) &&
+                        !isWhitespace(text[pos]) &&
+                        text[pos] !==
+                            `
+`
+                    )
+                        pos++;
+                }
+                while (
+                    pos < text.length &&
+                    isWhitespace(text[pos]) &&
+                    text[pos] !==
+                        `
+`
+                )
+                    pos++;
+                if (
+                    pos < text.length &&
+                    text[pos] ===
+                        `
+`
+                ) {
+                    pos++;
+                    if (
+                        pos < text.length &&
+                        text[pos] !==
+                            `
+`
+                    ) {
+                        while (
+                            pos < text.length &&
+                            isWhitespace(text[pos]) &&
+                            text[pos] !==
+                                `
+`
+                        )
+                            pos++;
+                    }
+                }
                 return pos;
             } else {
                 if (pos > 0) pos--;
                 while (
                     pos > 0 &&
-                    !isWordChar(text[pos]) &&
+                    isWhitespace(text[pos]) &&
                     text[pos] !==
                         `
 `
                 )
                     pos--;
-                while (pos > 0 && isWordChar(text[pos - 1])) pos--;
+                if (isWordChar(text[pos])) {
+                    while (pos > 0 && isWordChar(text[pos - 1])) pos--;
+                } else if (
+                    !isWhitespace(text[pos]) &&
+                    text[pos] !==
+                        `
+`
+                ) {
+                    while (
+                        pos > 0 &&
+                        !isWordChar(text[pos - 1]) &&
+                        !isWhitespace(text[pos - 1]) &&
+                        text[pos - 1] !==
+                            `
+`
+                    )
+                        pos--;
+                }
                 return pos;
             }
         }
@@ -1348,10 +1413,19 @@
                         pos = 0;
                         wantedColumn = null;
                         break;
-                    case "G":
-                        pos = currentInput.value.length;
+                    case "G": {
+                        const text = currentInput.value;
+                        pos = text.length;
+                        while (
+                            pos > 0 &&
+                            text[pos - 1] !==
+                                `
+`
+                        )
+                            pos--;
                         wantedColumn = null;
                         break;
+                    }
                     case "{":
                         pos = findParagraphBoundary(currentInput, pos, false);
                         wantedColumn = null;
@@ -1416,10 +1490,10 @@
         ) {
             debug("changeRange", { start, end });
             deleteRange(currentInput, undoStack, redoStack, start, end);
-            enterInsertMode();
+            enterInsertMode("c");
         }
         function repeatLastChange(state) {
-            const { lastChange, currentInput } = state;
+            const { lastChange, currentInput, undoStack, redoStack } = state;
             if (!lastChange || !currentInput) return;
             debug("repeatLastChange", lastChange);
             const count = lastChange.count || 1;
@@ -1435,6 +1509,23 @@
                 }
             } else if (lastChange.command) {
                 switch (lastChange.command) {
+                    case "i":
+                    case "a":
+                    case "I":
+                    case "A":
+                        if (lastChange.insertedText) {
+                            saveState(currentInput, undoStack, redoStack);
+                            const pos = getCursorPos(currentInput);
+                            currentInput.value =
+                                currentInput.value.substring(0, pos) +
+                                lastChange.insertedText +
+                                currentInput.value.substring(pos);
+                            setCursorPos(
+                                currentInput,
+                                pos + lastChange.insertedText.length - 1,
+                            );
+                        }
+                        break;
                     case "o":
                     case "O":
                     case "s":
@@ -1867,7 +1958,7 @@
                     if (operatorPending) {
                         state.commandBuffer = "i";
                     } else {
-                        enterInsertMode();
+                        enterInsertMode("i");
                         state.countBuffer = "";
                     }
                     break;
@@ -1879,7 +1970,7 @@
                             currentInput,
                             getCursorPos(currentInput) + 1,
                         );
-                        enterInsertMode();
+                        enterInsertMode("a");
                         state.countBuffer = "";
                     }
                     break;
@@ -1894,7 +1985,7 @@
                             ),
                         ),
                     );
-                    enterInsertMode();
+                    enterInsertMode("I");
                     state.countBuffer = "";
                     break;
                 case "A":
@@ -1902,7 +1993,7 @@
                         currentInput,
                         getLineEnd(currentInput, getCursorPos(currentInput)),
                     );
-                    enterInsertMode();
+                    enterInsertMode("A");
                     state.countBuffer = "";
                     break;
                 case "o":
@@ -1917,7 +2008,7 @@
 ` +
                         currentInput.value.substring(posO);
                     setCursorPos(currentInput, posO + 1);
-                    enterInsertMode();
+                    enterInsertMode("o");
                     state.lastChange = { command: "o", count };
                     state.countBuffer = "";
                     break;
@@ -1933,7 +2024,7 @@
 ` +
                         currentInput.value.substring(lineStartO);
                     setCursorPos(currentInput, lineStartO);
-                    enterInsertMode();
+                    enterInsertMode("O");
                     state.lastChange = { command: "O", count };
                     state.countBuffer = "";
                     break;
@@ -1943,7 +2034,8 @@
                     currentInput.value =
                         currentInput.value.substring(0, posS) +
                         currentInput.value.substring(posS + 1);
-                    enterInsertMode();
+                    setCursorPos(currentInput, posS);
+                    enterInsertMode("s");
                     state.lastChange = { command: "s", count };
                     state.countBuffer = "";
                     break;
@@ -1995,6 +2087,23 @@
                         currentInput.value.substring(0, posD) +
                         currentInput.value.substring(lineEndD);
                     state.lastChange = { command: "D", count };
+                    state.countBuffer = "";
+                    break;
+                case "C":
+                    saveState(currentInput, undoStack, redoStack);
+                    const posC = getCursorPos(currentInput);
+                    const lineEndC = getLineEnd(currentInput, posC);
+                    clipboard.content = currentInput.value.substring(
+                        posC,
+                        lineEndC,
+                    );
+                    clipboard.linewise = false;
+                    currentInput.value =
+                        currentInput.value.substring(0, posC) +
+                        currentInput.value.substring(lineEndC);
+                    setCursorPos(currentInput, posC);
+                    enterInsertMode("C");
+                    state.lastChange = { command: "C", count };
                     state.countBuffer = "";
                     break;
                 case "d":
@@ -2142,13 +2251,19 @@
             if (mode === "visual" || mode === "visual-line") {
                 const start = Math.min(visualStart, visualEnd);
                 const end = Math.max(visualStart, visualEnd);
-                return {
-                    start,
-                    end:
-                        mode === "visual-line"
-                            ? end
-                            : Math.min(end + 1, currentInput.value.length),
-                };
+                if (mode === "visual-line") {
+                    const lineEnd = end;
+                    const deleteEnd =
+                        lineEnd < currentInput.value.length
+                            ? lineEnd + 1
+                            : lineEnd;
+                    return { start, end: deleteEnd };
+                } else {
+                    return {
+                        start,
+                        end: Math.min(end + 1, currentInput.value.length),
+                    };
+                }
             }
             const pos = getCursorPos(currentInput);
             return { start: pos, end: pos };
@@ -2357,7 +2472,7 @@
                     range.start,
                     range.end,
                 );
-                enterInsertMode();
+                enterInsertMode("c");
                 state.countBuffer = "";
                 return;
             }
@@ -2520,6 +2635,10 @@
         var lastChange = null;
         var allowBlur = false;
         var escapePressed = false;
+        var savedCursorPos = null;
+        var insertStartPos = null;
+        var insertStartValue = null;
+        var insertCommand = null;
         var visualStart = null;
         var visualEnd = null;
         var ESCAPE_KEYS = [
@@ -2532,37 +2651,66 @@
                     e.key === escKey.key && e.ctrlKey === escKey.ctrlKey,
             );
         }
-        function enterInsertMode() {
-            debug("enterInsertMode", { from: mode });
+        function enterInsertMode(command = "i") {
+            debug("enterInsertMode", { from: mode, command });
             mode = "insert";
             visualStart = null;
             visualEnd = null;
             clearVisualSelection();
             removeCustomCaret(currentInput);
             if (currentInput) {
+                insertStartPos = getCursorPos(currentInput);
+                insertStartValue = currentInput.value;
+                insertCommand = command;
                 updateLineNumbers(currentInput);
             }
             updateIndicator(mode, currentInput);
         }
         function enterNormalMode() {
             debug("enterNormalMode", { from: mode });
+            const wasInsertMode = mode === "insert";
             mode = "normal";
             visualStart = null;
             visualEnd = null;
             clearVisualSelection();
             updateIndicator(mode, currentInput);
-            if (currentInput) {
+            if (
+                wasInsertMode &&
+                currentInput &&
+                insertStartPos !== null &&
+                insertStartValue !== null &&
+                insertCommand !== null
+            ) {
+                const currentPos = getCursorPos(currentInput);
+                const currentValue = currentInput.value;
+                const insertedText = currentValue.substring(
+                    insertStartPos,
+                    currentPos,
+                );
+                debug("enterNormalMode: recording insert", {
+                    insertCommand,
+                    insertStartPos,
+                    insertStartValue,
+                    currentValue,
+                    currentPos,
+                    insertedText,
+                });
+                lastChange = {
+                    command: insertCommand,
+                    insertedText,
+                    count: 1,
+                };
+                insertStartPos = null;
+                insertStartValue = null;
+                insertCommand = null;
+            }
+            if (currentInput && wasInsertMode) {
                 const pos = getCursorPos(currentInput);
-                const lineEnd = getLineEnd(currentInput, pos);
-                if (
-                    pos === lineEnd &&
-                    pos > 0 &&
-                    currentInput.value[pos - 1] !==
-                        `
-`
-                ) {
+                if (pos > 0) {
                     setCursorPos(currentInput, pos - 1);
                 }
+            }
+            if (currentInput) {
                 createCustomCaret(currentInput);
                 updateLineNumbers(currentInput);
             }
@@ -2591,7 +2739,11 @@
             updateIndicator(mode, currentInput);
         }
         function exitVisualMode() {
-            debug("exitVisualMode");
+            debug("exitVisualMode", { visualStart, visualEnd });
+            if (currentInput && visualStart !== null && visualEnd !== null) {
+                const anchorPos = Math.min(visualStart, visualEnd);
+                setCursorPos(currentInput, anchorPos);
+            }
             visualStart = null;
             visualEnd = null;
             clearVisualSelection();
@@ -2735,8 +2887,17 @@
                 } else {
                     debug("handleFocus: same input refocused, keeping mode", {
                         mode,
+                        savedCursorPos,
                     });
                     updateIndicator(mode, currentInput);
+                    if (savedCursorPos !== null) {
+                        debug(
+                            "Restoring saved cursor position",
+                            savedCursorPos,
+                        );
+                        setCursorPos(currentInput, savedCursorPos);
+                        savedCursorPos = null;
+                    }
                     if (mode === "normal") {
                         createCustomCaret(currentInput);
                     }
@@ -2744,13 +2905,15 @@
             }
         }
         function handleBlur(e) {
-            if (e.target === currentInput) {
+            if (e.target === currentInput && currentInput) {
+                savedCursorPos = getCursorPos(currentInput);
                 debug("handleBlur", {
                     mode,
                     allowBlur,
                     escapePressed,
                     relatedTarget: e.relatedTarget,
                     isTrusted: e.isTrusted,
+                    savedCursorPos,
                 });
                 if (e.relatedTarget) {
                     debug(
@@ -2760,7 +2923,6 @@
                     removeCustomCaret(currentInput);
                     removeLineNumbers();
                     clearVisualSelection();
-                    currentInput = null;
                     updateIndicator(mode, currentInput);
                     return;
                 }

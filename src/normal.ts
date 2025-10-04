@@ -137,10 +137,15 @@ export function executeMotion(
                 pos = 0;
                 wantedColumn = null;
                 break;
-            case "G":
-                pos = currentInput.value.length;
+            case "G": {
+                // Go to start of last line (not end of text)
+                const text = currentInput.value;
+                pos = text.length;
+                // Move back to start of last line
+                while (pos > 0 && text[pos - 1] !== "\n") pos--;
                 wantedColumn = null;
                 break;
+            }
             case "{":
                 pos = findParagraphBoundary(currentInput, pos, false);
                 wantedColumn = null;
@@ -218,15 +223,15 @@ export function changeRange(
     redoStack: UndoState[],
     start: number,
     end: number,
-    enterInsertMode: () => void,
+    enterInsertMode: (command?: string) => void,
 ): void {
     debug("changeRange", { start, end });
     deleteRange(currentInput, undoStack, redoStack, start, end);
-    enterInsertMode();
+    enterInsertMode("c");
 }
 
 export function repeatLastChange(state: State): void {
-    const { lastChange, currentInput } = state;
+    const { lastChange, currentInput, undoStack, redoStack } = state;
 
     if (!lastChange || !currentInput) return;
     debug("repeatLastChange", lastChange);
@@ -245,6 +250,24 @@ export function repeatLastChange(state: State): void {
         }
     } else if (lastChange.command) {
         switch (lastChange.command) {
+            case "i":
+            case "a":
+            case "I":
+            case "A":
+                // Repeat insert: insert the text that was typed
+                if (lastChange.insertedText) {
+                    saveState(currentInput, undoStack, redoStack);
+                    const pos = getCursorPos(currentInput);
+                    currentInput.value =
+                        currentInput.value.substring(0, pos) +
+                        lastChange.insertedText +
+                        currentInput.value.substring(pos);
+                    setCursorPos(
+                        currentInput,
+                        pos + lastChange.insertedText.length - 1,
+                    );
+                }
+                break;
             case "o":
             case "O":
             case "s":
@@ -658,7 +681,7 @@ export function processNormalCommand(key: string, state: State): void {
             if (operatorPending) {
                 state.commandBuffer = "i";
             } else {
-                enterInsertMode();
+                enterInsertMode("i");
                 state.countBuffer = "";
             }
             break;
@@ -668,7 +691,7 @@ export function processNormalCommand(key: string, state: State): void {
                 state.commandBuffer = "a";
             } else {
                 setCursorPos(currentInput, getCursorPos(currentInput) + 1);
-                enterInsertMode();
+                enterInsertMode("a");
                 state.countBuffer = "";
             }
             break;
@@ -681,7 +704,7 @@ export function processNormalCommand(key: string, state: State): void {
                     getLineStart(currentInput, getCursorPos(currentInput)),
                 ),
             );
-            enterInsertMode();
+            enterInsertMode("I");
             state.countBuffer = "";
             break;
 
@@ -690,7 +713,7 @@ export function processNormalCommand(key: string, state: State): void {
                 currentInput,
                 getLineEnd(currentInput, getCursorPos(currentInput)),
             );
-            enterInsertMode();
+            enterInsertMode("A");
             state.countBuffer = "";
             break;
 
@@ -702,7 +725,7 @@ export function processNormalCommand(key: string, state: State): void {
                 "\n" +
                 currentInput.value.substring(posO);
             setCursorPos(currentInput, posO + 1);
-            enterInsertMode();
+            enterInsertMode("o");
             state.lastChange = { command: "o", count };
             state.countBuffer = "";
             break;
@@ -718,7 +741,7 @@ export function processNormalCommand(key: string, state: State): void {
                 "\n" +
                 currentInput.value.substring(lineStartO);
             setCursorPos(currentInput, lineStartO);
-            enterInsertMode();
+            enterInsertMode("O");
             state.lastChange = { command: "O", count };
             state.countBuffer = "";
             break;
@@ -729,7 +752,8 @@ export function processNormalCommand(key: string, state: State): void {
             currentInput.value =
                 currentInput.value.substring(0, posS) +
                 currentInput.value.substring(posS + 1);
-            enterInsertMode();
+            setCursorPos(currentInput, posS);
+            enterInsertMode("s");
             state.lastChange = { command: "s", count };
             state.countBuffer = "";
             break;
@@ -776,6 +800,22 @@ export function processNormalCommand(key: string, state: State): void {
                 currentInput.value.substring(0, posD) +
                 currentInput.value.substring(lineEndD);
             state.lastChange = { command: "D", count };
+            state.countBuffer = "";
+            break;
+
+        case "C":
+            // C is equivalent to c$
+            saveState(currentInput, undoStack, redoStack);
+            const posC = getCursorPos(currentInput);
+            const lineEndC = getLineEnd(currentInput, posC);
+            clipboard.content = currentInput.value.substring(posC, lineEndC);
+            clipboard.linewise = false;
+            currentInput.value =
+                currentInput.value.substring(0, posC) +
+                currentInput.value.substring(lineEndC);
+            setCursorPos(currentInput, posC);
+            enterInsertMode("C");
+            state.lastChange = { command: "C", count };
             state.countBuffer = "";
             break;
 

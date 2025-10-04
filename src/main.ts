@@ -36,6 +36,12 @@ let redoStack: UndoState[] = [];
 let lastChange: LastChange | null = null;
 let allowBlur = false; // Track whether blur is intentional
 let escapePressed = false; // Track if ESC was recently pressed
+let savedCursorPos: number | null = null; // Remember cursor position across blur/focus
+
+// Insert mode tracking
+let insertStartPos: number | null = null;
+let insertStartValue: string | null = null;
+let insertCommand: string | null = null; // 'i', 'a', 'I', 'A', etc.
 
 // Visual mode state
 let visualStart: number | null = null; // Starting position of visual selection
@@ -55,14 +61,18 @@ function isEscapeKey(e: KeyboardEvent): boolean {
 }
 
 // Mode transition functions
-function enterInsertMode(): void {
-    debug("enterInsertMode", { from: mode });
+function enterInsertMode(command = "i"): void {
+    debug("enterInsertMode", { from: mode, command });
     mode = "insert";
     visualStart = null;
     visualEnd = null;
     clearVisualSelection();
     removeCustomCaret(currentInput);
     if (currentInput) {
+        // Record insert start state for dot repeat
+        insertStartPos = getCursorPos(currentInput);
+        insertStartValue = currentInput.value;
+        insertCommand = command;
         updateLineNumbers(currentInput);
     }
     updateIndicator(mode, currentInput);
@@ -70,23 +80,61 @@ function enterInsertMode(): void {
 
 function enterNormalMode(): void {
     debug("enterNormalMode", { from: mode });
+    const wasInsertMode = mode === "insert";
     mode = "normal";
     visualStart = null;
     visualEnd = null;
     clearVisualSelection();
     updateIndicator(mode, currentInput);
 
-    // Move cursor back one if at end of line (vim behavior)
-    if (currentInput) {
+    // Record last insert for dot repeat
+    if (
+        wasInsertMode &&
+        currentInput &&
+        insertStartPos !== null &&
+        insertStartValue !== null &&
+        insertCommand !== null
+    ) {
+        const currentPos = getCursorPos(currentInput);
+        const currentValue = currentInput.value;
+
+        // Calculate what was inserted by finding the text that was added
+        // We need to handle the case where text might have been inserted anywhere
+        // For simplicity, we'll use the cursor positions to extract the inserted text
+        const insertedText = currentValue.substring(insertStartPos, currentPos);
+
+        debug("enterNormalMode: recording insert", {
+            insertCommand,
+            insertStartPos,
+            insertStartValue,
+            currentValue,
+            currentPos,
+            insertedText,
+        });
+
+        lastChange = {
+            command: insertCommand,
+            insertedText,
+            count: 1,
+        };
+
+        // Clear insert tracking
+        insertStartPos = null;
+        insertStartValue = null;
+        insertCommand = null;
+    }
+
+    // Move cursor back one when exiting insert mode (vim behavior)
+    // In vim, when you press Escape in insert mode, the cursor moves back one
+    // to land on the last inserted character, unless already at position 0
+    if (currentInput && wasInsertMode) {
         const pos = getCursorPos(currentInput);
-        const lineEnd = getLineEnd(currentInput, pos);
-        if (
-            pos === lineEnd &&
-            pos > 0 &&
-            currentInput.value[pos - 1] !== "\n"
-        ) {
+        if (pos > 0) {
             setCursorPos(currentInput, pos - 1);
         }
+    }
+
+    if (currentInput) {
         createCustomCaret(currentInput);
         updateLineNumbers(currentInput);
     }
@@ -118,7 +166,15 @@ function enterVisualMode(lineMode = false): void {
 }
 
 function exitVisualMode(): void {
-    debug("exitVisualMode");
+    debug("exitVisualMode", { visualStart, visualEnd });
+
+    // When exiting visual mode, move cursor to the start of the selection
+    // (the anchor point where visual mode was initiated)
+    if (currentInput && visualStart !== null && visualEnd !== null) {
+        const anchorPos = Math.min(visualStart, visualEnd);
+        setCursorPos(currentInput, anchorPos);
+    }
+
     visualStart = null;
     visualEnd = null;
     clearVisualSelection();
@@ -282,8 +338,17 @@ function handleFocus(e: FocusEvent): void {
             );
         } else {
             // Same input refocused - just update indicator, don't reset mode
-            debug("handleFocus: same input refocused, keeping mode", { mode });
+            debug("handleFocus: same input refocused, keeping mode", {
+                mode,
+                savedCursorPos,
+            });
             updateIndicator(mode, currentInput);
+            // Restore cursor position if we saved it
+            if (savedCursorPos !== null) {
+                debug("Restoring saved cursor position", savedCursorPos);
+                setCursorPos(currentInput, savedCursorPos);
+                savedCursorPos = null;
+            }
             // Recreate custom caret if in normal mode
             if (mode === "normal") {
                 createCustomCaret(currentInput);
@@ -293,13 +358,17 @@ function handleFocus(e: FocusEvent): void {
 }
 
 function handleBlur(e: FocusEvent): void {
-    if (e.target === currentInput) {
+    if (e.target === currentInput && currentInput) {
+        // Save cursor position for potential refocus
+        savedCursorPos = getCursorPos(currentInput);
+
         debug("handleBlur", {
             mode,
             allowBlur,
             escapePressed,
             relatedTarget: e.relatedTarget,
             isTrusted: e.isTrusted,
+            savedCursorPos,
         });
 
         // Check if blur is caused by clicking on another element
@@ -310,8 +379,10 @@ function handleBlur(e: FocusEvent): void {
             removeCustomCaret(currentInput);
             removeLineNumbers();
             clearVisualSelection();
-            currentInput = null;
+            // Don't reset currentInput - keep it so we can detect refocus of same element
+            // currentInput = null;
             updateIndicator(mode, currentInput);
+            // Keep savedCursorPos in case we refocus later
             return;
         }
 
