@@ -149,6 +149,166 @@ export class DOMVisualSelectionRenderer implements VisualSelectionRenderer {
     }
 }
 
+// Calculate visual row information for word-wrapped text
+function calculateVisualRows(
+    input: EditableElement,
+): { logicalLine: number; visualRow: number; totalVisualRows: number }[] {
+    if (input.tagName !== "TEXTAREA") {
+        // Single-line inputs don't wrap
+        const lines = input.value.split("\n");
+        return lines.map((_, i) => ({
+            logicalLine: i + 1,
+            visualRow: 1,
+            totalVisualRows: 1,
+        }));
+    }
+
+    const text = input.value;
+    const lines = text.split("\n");
+    const result: {
+        logicalLine: number;
+        visualRow: number;
+        totalVisualRows: number;
+    }[] = [];
+
+    // Create a mirror element to measure wrapping
+    const mirror = document.createElement("div");
+    mirror.style.position = "absolute";
+    mirror.style.visibility = "hidden";
+    mirror.style.whiteSpace = "pre-wrap";
+    mirror.style.wordWrap = "break-word";
+    mirror.style.overflowWrap = "break-word";
+
+    const computedStyle = window.getComputedStyle(input);
+
+    // Use clientWidth which automatically excludes scrollbar width
+    // clientWidth = width - vertical scrollbar - borders
+    const clientWidth = input.clientWidth;
+    const paddingLeft = parseFloat(computedStyle.paddingLeft);
+    const paddingRight = parseFloat(computedStyle.paddingRight);
+    const contentWidth = clientWidth - paddingLeft - paddingRight;
+
+    mirror.style.width = `${contentWidth}px`;
+
+    const stylesToCopy = [
+        "font-family",
+        "font-size",
+        "font-weight",
+        "font-style",
+        "letter-spacing",
+        "text-transform",
+        "word-spacing",
+        "text-indent",
+        "line-height",
+    ];
+
+    stylesToCopy.forEach((prop) => {
+        const value =
+            typeof computedStyle.getPropertyValue === "function"
+                ? computedStyle.getPropertyValue(prop)
+                : (computedStyle as Record<string, string>)[
+                      prop.replace(/-([a-z])/g, (g) => g[1].toUpperCase())
+                  ];
+        mirror.style.setProperty(prop, value);
+    });
+
+    document.body.appendChild(mirror);
+
+    const lineHeight = parseFloat(computedStyle.lineHeight);
+    const fontSize = parseFloat(computedStyle.fontSize);
+    const effectiveLineHeight = isNaN(lineHeight) ? fontSize * 1.2 : lineHeight;
+
+    lines.forEach((line, index) => {
+        // Measure this line
+        mirror.textContent = line || " "; // Use space for empty lines
+
+        // Force a reflow to get accurate measurements
+        const mirrorHeight = mirror.offsetHeight;
+        const visualRows = Math.max(
+            1,
+            Math.round(mirrorHeight / effectiveLineHeight),
+        );
+
+        // Add entry for each visual row of this logical line
+        for (let vRow = 1; vRow <= visualRows; vRow++) {
+            result.push({
+                logicalLine: index + 1,
+                visualRow: vRow,
+                totalVisualRows: visualRows,
+            });
+        }
+    });
+
+    mirror.remove();
+    return result;
+}
+
+// Get current visual row using native caret position
+function getCurrentVisualRow(
+    input: EditableElement,
+    visualRowsInfo: ReturnType<typeof calculateVisualRows>,
+): number {
+    const pos = getCursorPos(input);
+    const textBefore = input.value.substring(0, pos);
+    const currentLogicalLine = (textBefore.match(/\n/g) || []).length + 1;
+
+    if (input.tagName !== "TEXTAREA") {
+        // For single-line inputs, find the logical line
+        return visualRowsInfo.findIndex(
+            (r) => r.logicalLine === currentLogicalLine,
+        );
+    }
+
+    // Try to use native caret position via Selection API
+    try {
+        input.focus();
+        input.setSelectionRange(pos, pos);
+
+        const selection = window.getSelection();
+        if (!selection || selection.rangeCount === 0) {
+            throw new Error("No selection available");
+        }
+
+        const range = selection.getRangeAt(0);
+        // Check if getBoundingClientRect is available (not in jsdom)
+        if (typeof range.getBoundingClientRect !== "function") {
+            throw new Error("getBoundingClientRect not available");
+        }
+
+        const caretRect = range.getBoundingClientRect();
+        const inputRect = input.getBoundingClientRect();
+        const computedStyle = window.getComputedStyle(input);
+        const paddingTop = parseFloat(computedStyle.paddingTop);
+        const borderTop = parseFloat(computedStyle.borderTopWidth);
+
+        // Calculate which visual row based on Y position
+        const lineHeight = parseFloat(computedStyle.lineHeight);
+        const fontSize = parseFloat(computedStyle.fontSize);
+        const effectiveLineHeight = isNaN(lineHeight)
+            ? fontSize * 1.2
+            : lineHeight;
+
+        const relativeY =
+            caretRect.top -
+            inputRect.top -
+            paddingTop -
+            borderTop +
+            input.scrollTop;
+        const visualRow = Math.max(
+            0,
+            Math.floor(relativeY / effectiveLineHeight),
+        );
+
+        return Math.min(visualRow, visualRowsInfo.length - 1);
+    } catch {
+        // Fallback: find the first visual row of the current logical line
+        const firstRowIndex = visualRowsInfo.findIndex(
+            (r) => r.logicalLine === currentLogicalLine && r.visualRow === 1,
+        );
+        return firstRowIndex !== -1 ? firstRowIndex : 0;
+    }
+}
+
 // DOM-based line numbers renderer
 export class DOMLineNumbersRenderer implements LineNumbersRenderer {
     private container: HTMLDivElement;
@@ -156,6 +316,7 @@ export class DOMLineNumbersRenderer implements LineNumbersRenderer {
 
     constructor() {
         this.container = document.createElement("div");
+        this.container.setAttribute("data-vim-line-numbers", "true");
         this.container.style.position = "absolute";
         this.container.style.pointerEvents = "none";
         this.container.style.zIndex = "9997"; // Below visual selection
@@ -206,30 +367,69 @@ export class DOMLineNumbersRenderer implements LineNumbersRenderer {
         this.container.style.width = "auto";
         this.container.style.minWidth = "40px";
 
-        // Generate line numbers
+        // Calculate visual rows (accounting for word wrap)
+        const visualRowsInfo = calculateVisualRows(input);
+        const currentVisualRow = getCurrentVisualRow(input, visualRowsInfo);
+
+        // Generate line numbers for each visual row
         const lines: string[] = [];
         const useRelative = TAMPER_VIM_MODE.relativeLineNumbers;
 
-        for (let i = 1; i <= totalLines; i++) {
-            let lineNum: string;
-            if (useRelative) {
-                if (i === currentLine) {
-                    lineNum = String(i);
+        // If visual rows calculation failed or is empty, fall back to simple line numbering
+        if (visualRowsInfo.length === 0) {
+            for (let i = 1; i <= totalLines; i++) {
+                let lineNum: string;
+                if (useRelative) {
+                    if (i === currentLine) {
+                        lineNum = String(i);
+                    } else {
+                        lineNum = String(Math.abs(i - currentLine));
+                    }
                 } else {
-                    lineNum = String(Math.abs(i - currentLine));
+                    lineNum = String(i);
                 }
-            } else {
-                lineNum = String(i);
-            }
 
-            // Highlight current line
-            if (i === currentLine) {
-                lines.push(
-                    `<span style="color: rgba(255, 255, 255, 1); font-weight: bold; background-color: rgba(255, 255, 255, 0.2); display: inline-block; width: 100%; padding: 0 2px;">${lineNum.padStart(3, " ")}</span>`,
-                );
-            } else {
-                lines.push(lineNum.padStart(3, " "));
+                // Highlight current line
+                if (i === currentLine) {
+                    lines.push(
+                        `<span style="color: rgba(255, 255, 255, 1); font-weight: bold; background-color: rgba(255, 255, 255, 0.2); display: inline-block; width: 100%; padding: 0 2px;">${lineNum.padStart(3, " ")}</span>`,
+                    );
+                } else {
+                    lines.push(lineNum.padStart(3, " "));
+                }
             }
+        } else {
+            visualRowsInfo.forEach((rowInfo, idx) => {
+                let lineNum: string;
+
+                // Only show line number on the first visual row of each logical line
+                if (rowInfo.visualRow === 1) {
+                    const logicalLine = rowInfo.logicalLine;
+                    if (useRelative) {
+                        if (logicalLine === currentLine) {
+                            lineNum = String(logicalLine);
+                        } else {
+                            lineNum = String(
+                                Math.abs(logicalLine - currentLine),
+                            );
+                        }
+                    } else {
+                        lineNum = String(logicalLine);
+                    }
+                } else {
+                    // Continuation of wrapped line - show empty space
+                    lineNum = "";
+                }
+
+                // Highlight current visual row
+                if (idx === currentVisualRow) {
+                    lines.push(
+                        `<span style="color: rgba(255, 255, 255, 1); font-weight: bold; background-color: rgba(255, 255, 255, 0.2); display: inline-block; width: 100%; padding: 0 2px;">${lineNum.padStart(3, " ")}</span>`,
+                    );
+                } else {
+                    lines.push(lineNum.padStart(3, " "));
+                }
+            });
         }
 
         this.container.innerHTML = lines.join("\n");

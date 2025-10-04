@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Vim Mode for Text Inputs
 // @namespace    http://tampermonkey.net/
-// @version      1.0.60
+// @version      1.0.61
 // @description  Vim-like editing for textareas and inputs
 // @match        *://*/*
 // @updateURL    https://raw.githubusercontent.com/levabala/tampermonkey-vim-mode/refs/heads/main/dist/tampermonkey_vim_mode.js
@@ -270,12 +270,136 @@
                 this.container.remove();
             }
         }
+        function calculateVisualRows(input) {
+            if (input.tagName !== "TEXTAREA") {
+                const lines2 = input.value.split(`
+`);
+                return lines2.map((_, i) => ({
+                    logicalLine: i + 1,
+                    visualRow: 1,
+                    totalVisualRows: 1,
+                }));
+            }
+            const text = input.value;
+            const lines = text.split(`
+`);
+            const result = [];
+            const mirror = document.createElement("div");
+            mirror.style.position = "absolute";
+            mirror.style.visibility = "hidden";
+            mirror.style.whiteSpace = "pre-wrap";
+            mirror.style.wordWrap = "break-word";
+            mirror.style.overflowWrap = "break-word";
+            const computedStyle = window.getComputedStyle(input);
+            const clientWidth = input.clientWidth;
+            const paddingLeft = parseFloat(computedStyle.paddingLeft);
+            const paddingRight = parseFloat(computedStyle.paddingRight);
+            const contentWidth = clientWidth - paddingLeft - paddingRight;
+            mirror.style.width = `${contentWidth}px`;
+            const stylesToCopy = [
+                "font-family",
+                "font-size",
+                "font-weight",
+                "font-style",
+                "letter-spacing",
+                "text-transform",
+                "word-spacing",
+                "text-indent",
+                "line-height",
+            ];
+            stylesToCopy.forEach((prop) => {
+                const value =
+                    typeof computedStyle.getPropertyValue === "function"
+                        ? computedStyle.getPropertyValue(prop)
+                        : computedStyle[
+                              prop.replace(/-([a-z])/g, (g) =>
+                                  g[1].toUpperCase(),
+                              )
+                          ];
+                mirror.style.setProperty(prop, value);
+            });
+            document.body.appendChild(mirror);
+            const lineHeight = parseFloat(computedStyle.lineHeight);
+            const fontSize = parseFloat(computedStyle.fontSize);
+            const effectiveLineHeight = isNaN(lineHeight)
+                ? fontSize * 1.2
+                : lineHeight;
+            lines.forEach((line, index) => {
+                mirror.textContent = line || " ";
+                const mirrorHeight = mirror.offsetHeight;
+                const visualRows = Math.max(
+                    1,
+                    Math.round(mirrorHeight / effectiveLineHeight),
+                );
+                for (let vRow = 1; vRow <= visualRows; vRow++) {
+                    result.push({
+                        logicalLine: index + 1,
+                        visualRow: vRow,
+                        totalVisualRows: visualRows,
+                    });
+                }
+            });
+            mirror.remove();
+            return result;
+        }
+        function getCurrentVisualRow(input, visualRowsInfo) {
+            const pos = getCursorPos(input);
+            const textBefore = input.value.substring(0, pos);
+            const currentLogicalLine =
+                (textBefore.match(/\n/g) || []).length + 1;
+            if (input.tagName !== "TEXTAREA") {
+                return visualRowsInfo.findIndex(
+                    (r) => r.logicalLine === currentLogicalLine,
+                );
+            }
+            try {
+                input.focus();
+                input.setSelectionRange(pos, pos);
+                const selection = window.getSelection();
+                if (!selection || selection.rangeCount === 0) {
+                    throw new Error("No selection available");
+                }
+                const range = selection.getRangeAt(0);
+                if (typeof range.getBoundingClientRect !== "function") {
+                    throw new Error("getBoundingClientRect not available");
+                }
+                const caretRect = range.getBoundingClientRect();
+                const inputRect = input.getBoundingClientRect();
+                const computedStyle = window.getComputedStyle(input);
+                const paddingTop = parseFloat(computedStyle.paddingTop);
+                const borderTop = parseFloat(computedStyle.borderTopWidth);
+                const lineHeight = parseFloat(computedStyle.lineHeight);
+                const fontSize = parseFloat(computedStyle.fontSize);
+                const effectiveLineHeight = isNaN(lineHeight)
+                    ? fontSize * 1.2
+                    : lineHeight;
+                const relativeY =
+                    caretRect.top -
+                    inputRect.top -
+                    paddingTop -
+                    borderTop +
+                    input.scrollTop;
+                const visualRow = Math.max(
+                    0,
+                    Math.floor(relativeY / effectiveLineHeight),
+                );
+                return Math.min(visualRow, visualRowsInfo.length - 1);
+            } catch {
+                const firstRowIndex = visualRowsInfo.findIndex(
+                    (r) =>
+                        r.logicalLine === currentLogicalLine &&
+                        r.visualRow === 1,
+                );
+                return firstRowIndex !== -1 ? firstRowIndex : 0;
+            }
+        }
 
         class DOMLineNumbersRenderer {
             container;
             currentInput = null;
             constructor() {
                 this.container = document.createElement("div");
+                this.container.setAttribute("data-vim-line-numbers", "true");
                 this.container.style.position = "absolute";
                 this.container.style.pointerEvents = "none";
                 this.container.style.zIndex = "9997";
@@ -316,26 +440,60 @@
                 this.container.style.height = `${rect.height - paddingTop - paddingBottom - borderTop - borderBottom}px`;
                 this.container.style.width = "auto";
                 this.container.style.minWidth = "40px";
+                const visualRowsInfo = calculateVisualRows(input);
+                const currentVisualRow = getCurrentVisualRow(
+                    input,
+                    visualRowsInfo,
+                );
                 const lines = [];
                 const useRelative = TAMPER_VIM_MODE.relativeLineNumbers;
-                for (let i = 1; i <= totalLines; i++) {
-                    let lineNum;
-                    if (useRelative) {
-                        if (i === currentLine) {
-                            lineNum = String(i);
+                if (visualRowsInfo.length === 0) {
+                    for (let i = 1; i <= totalLines; i++) {
+                        let lineNum;
+                        if (useRelative) {
+                            if (i === currentLine) {
+                                lineNum = String(i);
+                            } else {
+                                lineNum = String(Math.abs(i - currentLine));
+                            }
                         } else {
-                            lineNum = String(Math.abs(i - currentLine));
+                            lineNum = String(i);
                         }
-                    } else {
-                        lineNum = String(i);
+                        if (i === currentLine) {
+                            lines.push(
+                                `<span style="color: rgba(255, 255, 255, 1); font-weight: bold; background-color: rgba(255, 255, 255, 0.2); display: inline-block; width: 100%; padding: 0 2px;">${lineNum.padStart(3, " ")}</span>`,
+                            );
+                        } else {
+                            lines.push(lineNum.padStart(3, " "));
+                        }
                     }
-                    if (i === currentLine) {
-                        lines.push(
-                            `<span style="color: rgba(255, 255, 255, 1); font-weight: bold; background-color: rgba(255, 255, 255, 0.2); display: inline-block; width: 100%; padding: 0 2px;">${lineNum.padStart(3, " ")}</span>`,
-                        );
-                    } else {
-                        lines.push(lineNum.padStart(3, " "));
-                    }
+                } else {
+                    visualRowsInfo.forEach((rowInfo, idx) => {
+                        let lineNum;
+                        if (rowInfo.visualRow === 1) {
+                            const logicalLine = rowInfo.logicalLine;
+                            if (useRelative) {
+                                if (logicalLine === currentLine) {
+                                    lineNum = String(logicalLine);
+                                } else {
+                                    lineNum = String(
+                                        Math.abs(logicalLine - currentLine),
+                                    );
+                                }
+                            } else {
+                                lineNum = String(logicalLine);
+                            }
+                        } else {
+                            lineNum = "";
+                        }
+                        if (idx === currentVisualRow) {
+                            lines.push(
+                                `<span style="color: rgba(255, 255, 255, 1); font-weight: bold; background-color: rgba(255, 255, 255, 0.2); display: inline-block; width: 100%; padding: 0 2px;">${lineNum.padStart(3, " ")}</span>`,
+                            );
+                        } else {
+                            lines.push(lineNum.padStart(3, " "));
+                        }
+                    });
                 }
                 this.container.innerHTML = lines.join(`
 `);
@@ -2698,7 +2856,11 @@
                         mode === "insert"
                     ) {
                         debug("input event: updating line numbers");
-                        updateLineNumbers(currentInput);
+                        requestAnimationFrame(() => {
+                            if (currentInput) {
+                                updateLineNumbers(currentInput);
+                            }
+                        });
                     }
                 },
                 true,

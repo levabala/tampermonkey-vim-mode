@@ -594,7 +594,12 @@ if (typeof window === "undefined" || typeof document === "undefined") {
                 mode === "insert"
             ) {
                 debug("input event: updating line numbers");
-                updateLineNumbers(currentInput);
+                // Use requestAnimationFrame to ensure DOM has reflowed
+                requestAnimationFrame(() => {
+                    if (currentInput) {
+                        updateLineNumbers(currentInput);
+                    }
+                });
             }
         },
         true,

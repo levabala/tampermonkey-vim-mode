@@ -26,13 +26,9 @@ describe("Line numbers on initial focus", () => {
         textarea.focus();
 
         // Check that line numbers container exists and is visible
-        const lineNumbersContainers = Array.from(
-            document.querySelectorAll('div[style*="position: absolute"]'),
+        const lineNumbersContainer = document.querySelector(
+            'div[data-vim-line-numbers="true"]',
         );
-        const lineNumbersContainer = lineNumbersContainers.find((el) => {
-            const content = el.textContent || "";
-            return content.includes("1") && content.includes("2");
-        });
 
         expect(lineNumbersContainer).toBeTruthy();
         expect(lineNumbersContainer?.textContent).toContain("1");
@@ -52,13 +48,9 @@ describe("Line numbers on initial focus", () => {
         textarea.focus();
 
         // Find the line numbers container
-        const containers = Array.from(
-            document.querySelectorAll('div[style*="position: absolute"]'),
+        const lineNumbersContainer = document.querySelector(
+            'div[data-vim-line-numbers="true"]',
         );
-        const lineNumbersContainer = containers.find((el) => {
-            const content = el.textContent || "";
-            return content.includes("1") && content.includes("2");
-        });
 
         expect(lineNumbersContainer).toBeTruthy();
 
@@ -77,13 +69,9 @@ describe("Line numbers on initial focus", () => {
         textarea.focus();
 
         // Find the line numbers container
-        const containers = Array.from(
-            document.querySelectorAll('div[style*="position: absolute"]'),
-        );
-        const lineNumbersContainer = containers.find((el) => {
-            const content = el.textContent || "";
-            return content.includes("1") && content.includes("2");
-        }) as HTMLElement;
+        const lineNumbersContainer = document.querySelector(
+            'div[data-vim-line-numbers="true"]',
+        ) as HTMLElement;
 
         expect(lineNumbersContainer).toBeTruthy();
 
