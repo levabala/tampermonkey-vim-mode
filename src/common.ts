@@ -206,7 +206,7 @@ function calculateVisualRows(
         const value =
             typeof computedStyle.getPropertyValue === "function"
                 ? computedStyle.getPropertyValue(prop)
-                : (computedStyle as Record<string, string>)[
+                : (computedStyle as unknown as Record<string, string>)[
                       prop.replace(/-([a-z])/g, (g) => g[1].toUpperCase())
                   ];
         mirror.style.setProperty(prop, value);
