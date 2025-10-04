@@ -164,7 +164,7 @@ export class DOMLineNumbersRenderer implements LineNumbersRenderer {
         this.container.style.fontFamily = "monospace";
         this.container.style.textAlign = "right";
         this.container.style.whiteSpace = "pre";
-        this.container.style.padding = "2px 8px 2px 4px";
+        this.container.style.padding = "0 8px 0 4px";
         this.container.style.borderRadius = "2px";
         this.container.style.boxSizing = "border-box";
         document.body.appendChild(this.container);
@@ -184,26 +184,25 @@ export class DOMLineNumbersRenderer implements LineNumbersRenderer {
         const rect = input.getBoundingClientRect();
         const computedStyle = window.getComputedStyle(input);
         const paddingTop = parseFloat(computedStyle.paddingTop);
+        const paddingBottom = parseFloat(computedStyle.paddingBottom);
+        const borderTop = parseFloat(computedStyle.borderTopWidth);
+        const borderBottom = parseFloat(computedStyle.borderBottomWidth);
 
-        // Match the input's font properties for accurate line height
+        // Match the input's font properties exactly
         const fontSize = computedStyle.fontSize;
         const fontFamily = computedStyle.fontFamily;
         const lineHeightStr = computedStyle.lineHeight;
-        const lineHeight =
-            lineHeightStr === "normal"
-                ? `${parseFloat(fontSize) * 1.2}px`
-                : lineHeightStr;
 
         this.container.style.fontSize = fontSize;
         this.container.style.fontFamily = fontFamily;
-        this.container.style.lineHeight = lineHeight;
+        this.container.style.lineHeight = lineHeightStr;
 
-        // Position the container to the left of the input
+        // Position the container to the left of the input, accounting for padding and border
         this.container.style.display = "block";
-        this.container.style.top = `${rect.top + window.scrollY}px`;
+        this.container.style.top = `${rect.top + window.scrollY + paddingTop + borderTop}px`;
         this.container.style.right = `${window.innerWidth - (rect.left + window.scrollX) + 2}px`; // 2px gap from textarea
         this.container.style.left = "auto";
-        this.container.style.height = `${rect.height}px`;
+        this.container.style.height = `${rect.height - paddingTop - paddingBottom - borderTop - borderBottom}px`;
         this.container.style.width = "auto";
         this.container.style.minWidth = "40px";
 
@@ -245,7 +244,6 @@ export class DOMLineNumbersRenderer implements LineNumbersRenderer {
                 const wrapper = document.createElement("div");
                 wrapper.innerHTML = this.container.innerHTML;
                 wrapper.style.transform = `translateY(-${input.scrollTop}px)`;
-                wrapper.style.paddingTop = `${paddingTop}px`;
                 this.container.innerHTML = "";
                 this.container.appendChild(wrapper);
             } else if (
@@ -254,8 +252,6 @@ export class DOMLineNumbersRenderer implements LineNumbersRenderer {
             ) {
                 (firstChild as HTMLElement).style.transform =
                     `translateY(-${input.scrollTop}px)`;
-                (firstChild as HTMLElement).style.paddingTop =
-                    `${paddingTop}px`;
             }
         }
     }
@@ -711,6 +707,7 @@ export function getFirstNonBlank(
 export function scrollTextarea(
     currentInput: EditableElement,
     lines: number,
+    moveCaret = false,
 ): void {
     // Calculate line height from element styles
     const computedStyle = window.getComputedStyle(currentInput);
@@ -720,6 +717,16 @@ export function scrollTextarea(
 
     const scrollAmount = lines * effectiveLineHeight;
     const oldScrollTop = currentInput.scrollTop;
+
+    // If moveCaret is true, calculate current caret position relative to viewport
+    let caretLineBeforeScroll = 0;
+    let currentPos = 0;
+    if (moveCaret) {
+        currentPos = getCursorPos(currentInput);
+        const textBeforeCaret = currentInput.value.substring(0, currentPos);
+        const linesBeforeCaret = (textBeforeCaret.match(/\n/g) || []).length;
+        caretLineBeforeScroll = linesBeforeCaret;
+    }
 
     // Try to scroll the textarea
     currentInput.scrollTop += scrollAmount;
@@ -733,11 +740,38 @@ export function scrollTextarea(
     if (Math.abs(remainingScroll) > 1) {
         window.scrollBy(0, remainingScroll);
     }
+
+    // If moveCaret is true, move caret by the same number of lines we scrolled
+    if (moveCaret) {
+        const linesScrolled = Math.round(actualScroll / effectiveLineHeight);
+        const targetLine = caretLineBeforeScroll + linesScrolled;
+
+        // Find the position at the target line
+        const textLines = currentInput.value.split("\n");
+        const clampedTargetLine = Math.max(
+            0,
+            Math.min(targetLine, textLines.length - 1),
+        );
+
+        // Get column position on current line
+        const currentLine = getLine(currentInput, currentPos);
+        const columnOffset = currentPos - currentLine.start;
+
+        // Calculate new position at target line with same column offset
+        let newPos = 0;
+        for (let i = 0; i < clampedTargetLine; i++) {
+            newPos += textLines[i].length + 1; // +1 for newline
+        }
+        newPos += Math.min(columnOffset, textLines[clampedTargetLine].length);
+
+        setCursorPos(currentInput, newPos);
+    }
 }
 
 export function scrollHalfPage(
     currentInput: EditableElement,
     down: boolean,
+    moveCaret = false,
 ): void {
     const computedStyle = window.getComputedStyle(currentInput);
     const lineHeight = parseFloat(computedStyle.lineHeight);
@@ -749,7 +783,11 @@ export function scrollHalfPage(
     const halfPageLines = Math.floor(visibleHeight / effectiveLineHeight / 2);
 
     // Scroll by half page
-    scrollTextarea(currentInput, down ? halfPageLines : -halfPageLines);
+    scrollTextarea(
+        currentInput,
+        down ? halfPageLines : -halfPageLines,
+        moveCaret,
+    );
 }
 
 export function isWordChar(char: string): boolean {

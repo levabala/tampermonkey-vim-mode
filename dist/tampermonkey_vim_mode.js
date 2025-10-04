@@ -284,7 +284,7 @@
                 this.container.style.fontFamily = "monospace";
                 this.container.style.textAlign = "right";
                 this.container.style.whiteSpace = "pre";
-                this.container.style.padding = "2px 8px 2px 4px";
+                this.container.style.padding = "0 8px 0 4px";
                 this.container.style.borderRadius = "2px";
                 this.container.style.boxSizing = "border-box";
                 document.body.appendChild(this.container);
@@ -298,21 +298,22 @@
                 const rect = input.getBoundingClientRect();
                 const computedStyle = window.getComputedStyle(input);
                 const paddingTop = parseFloat(computedStyle.paddingTop);
+                const paddingBottom = parseFloat(computedStyle.paddingBottom);
+                const borderTop = parseFloat(computedStyle.borderTopWidth);
+                const borderBottom = parseFloat(
+                    computedStyle.borderBottomWidth,
+                );
                 const fontSize = computedStyle.fontSize;
                 const fontFamily = computedStyle.fontFamily;
                 const lineHeightStr = computedStyle.lineHeight;
-                const lineHeight =
-                    lineHeightStr === "normal"
-                        ? `${parseFloat(fontSize) * 1.2}px`
-                        : lineHeightStr;
                 this.container.style.fontSize = fontSize;
                 this.container.style.fontFamily = fontFamily;
-                this.container.style.lineHeight = lineHeight;
+                this.container.style.lineHeight = lineHeightStr;
                 this.container.style.display = "block";
-                this.container.style.top = `${rect.top + window.scrollY}px`;
+                this.container.style.top = `${rect.top + window.scrollY + paddingTop + borderTop}px`;
                 this.container.style.right = `${window.innerWidth - (rect.left + window.scrollX) + 2}px`;
                 this.container.style.left = "auto";
-                this.container.style.height = `${rect.height}px`;
+                this.container.style.height = `${rect.height - paddingTop - paddingBottom - borderTop - borderBottom}px`;
                 this.container.style.width = "auto";
                 this.container.style.minWidth = "40px";
                 const lines = [];
@@ -345,7 +346,6 @@
                         const wrapper = document.createElement("div");
                         wrapper.innerHTML = this.container.innerHTML;
                         wrapper.style.transform = `translateY(-${input.scrollTop}px)`;
-                        wrapper.style.paddingTop = `${paddingTop}px`;
                         this.container.innerHTML = "";
                         this.container.appendChild(wrapper);
                     } else if (
@@ -353,7 +353,6 @@
                         firstChild.nodeType === Node.ELEMENT_NODE
                     ) {
                         firstChild.style.transform = `translateY(-${input.scrollTop}px)`;
-                        firstChild.style.paddingTop = `${paddingTop}px`;
                     }
                 }
             }
@@ -716,7 +715,7 @@
             }
             return pos;
         }
-        function scrollTextarea(currentInput, lines) {
+        function scrollTextarea(currentInput, lines, moveCaret = false) {
             const computedStyle = window.getComputedStyle(currentInput);
             const lineHeight = parseFloat(computedStyle.lineHeight);
             const fontSize = parseFloat(computedStyle.fontSize);
@@ -725,14 +724,49 @@
                 : lineHeight;
             const scrollAmount = lines * effectiveLineHeight;
             const oldScrollTop = currentInput.scrollTop;
+            let caretLineBeforeScroll = 0;
+            let currentPos = 0;
+            if (moveCaret) {
+                currentPos = getCursorPos(currentInput);
+                const textBeforeCaret = currentInput.value.substring(
+                    0,
+                    currentPos,
+                );
+                const linesBeforeCaret = (textBeforeCaret.match(/\n/g) || [])
+                    .length;
+                caretLineBeforeScroll = linesBeforeCaret;
+            }
             currentInput.scrollTop += scrollAmount;
             const actualScroll = currentInput.scrollTop - oldScrollTop;
             const remainingScroll = scrollAmount - actualScroll;
             if (Math.abs(remainingScroll) > 1) {
                 window.scrollBy(0, remainingScroll);
             }
+            if (moveCaret) {
+                const linesScrolled = Math.round(
+                    actualScroll / effectiveLineHeight,
+                );
+                const targetLine = caretLineBeforeScroll + linesScrolled;
+                const textLines = currentInput.value.split(`
+`);
+                const clampedTargetLine = Math.max(
+                    0,
+                    Math.min(targetLine, textLines.length - 1),
+                );
+                const currentLine = getLine(currentInput, currentPos);
+                const columnOffset = currentPos - currentLine.start;
+                let newPos = 0;
+                for (let i = 0; i < clampedTargetLine; i++) {
+                    newPos += textLines[i].length + 1;
+                }
+                newPos += Math.min(
+                    columnOffset,
+                    textLines[clampedTargetLine].length,
+                );
+                setCursorPos(currentInput, newPos);
+            }
         }
-        function scrollHalfPage(currentInput, down) {
+        function scrollHalfPage(currentInput, down, moveCaret = false) {
             const computedStyle = window.getComputedStyle(currentInput);
             const lineHeight = parseFloat(computedStyle.lineHeight);
             const fontSize = parseFloat(computedStyle.fontSize);
@@ -743,7 +777,11 @@
             const halfPageLines = Math.floor(
                 visibleHeight / effectiveLineHeight / 2,
             );
-            scrollTextarea(currentInput, down ? halfPageLines : -halfPageLines);
+            scrollTextarea(
+                currentInput,
+                down ? halfPageLines : -halfPageLines,
+                moveCaret,
+            );
         }
         function isWordChar(char) {
             return /\w/.test(char);
@@ -2334,11 +2372,17 @@
                         });
                         if (
                             event.key === "Escape" ||
-                            (event.ctrlKey && event.key === "]")
+                            (event.ctrlKey && event.key === "]") ||
+                            (event.ctrlKey &&
+                                (event.key === "e" ||
+                                    event.key === "y" ||
+                                    event.key === "d" ||
+                                    event.key === "u"))
                         ) {
                             debug(
-                                "ESC/Ctrl-] in onkeydown - calling handleKeyDown",
+                                "Special key in onkeydown - calling handleKeyDown",
                             );
+                            event.preventDefault();
                             handleKeyDown(event);
                             return false;
                         }
@@ -2359,11 +2403,17 @@
                                 propagationStopped: kbEvent.cancelBubble,
                             });
                             if (
-                                kbEvent.key === "Escape" ||
-                                (kbEvent.ctrlKey && kbEvent.key === "]")
+                                !kbEvent.defaultPrevented &&
+                                (kbEvent.key === "Escape" ||
+                                    (kbEvent.ctrlKey && kbEvent.key === "]") ||
+                                    (kbEvent.ctrlKey &&
+                                        (kbEvent.key === "e" ||
+                                            kbEvent.key === "y" ||
+                                            kbEvent.key === "d" ||
+                                            kbEvent.key === "u")))
                             ) {
                                 debug(
-                                    "DIRECT ESC/Ctrl-] on element - calling handleKeyDown",
+                                    "DIRECT special key on element - calling handleKeyDown",
                                 );
                                 handleKeyDown(kbEvent);
                             }
@@ -2474,6 +2524,10 @@
                 debug("handleKeyDown: no currentInput, returning");
                 return;
             }
+            if (e.defaultPrevented) {
+                debug("handleKeyDown: event already handled, skipping");
+                return;
+            }
             debug("handleKeyDown", {
                 key: e.key,
                 ctrl: e.ctrlKey,
@@ -2515,25 +2569,29 @@
             if (e.ctrlKey && e.key === "e") {
                 debug("handleKeyDown: Ctrl-e scroll down one line");
                 e.preventDefault();
-                scrollTextarea(currentInput, 1);
+                const moveCaret = mode === "normal" || mode === "visual";
+                scrollTextarea(currentInput, 1, moveCaret);
                 return;
             }
             if (e.ctrlKey && e.key === "y") {
                 debug("handleKeyDown: Ctrl-y scroll up one line");
                 e.preventDefault();
-                scrollTextarea(currentInput, -1);
+                const moveCaret = mode === "normal" || mode === "visual";
+                scrollTextarea(currentInput, -1, moveCaret);
                 return;
             }
             if (e.ctrlKey && e.key === "d") {
                 debug("handleKeyDown: Ctrl-d scroll down half page");
                 e.preventDefault();
-                scrollHalfPage(currentInput, true);
+                const moveCaret = mode === "normal" || mode === "visual";
+                scrollHalfPage(currentInput, true, moveCaret);
                 return;
             }
             if (e.ctrlKey && e.key === "u") {
                 debug("handleKeyDown: Ctrl-u scroll up half page");
                 e.preventDefault();
-                scrollHalfPage(currentInput, false);
+                const moveCaret = mode === "normal" || mode === "visual";
+                scrollHalfPage(currentInput, false, moveCaret);
                 return;
             }
             if (e.ctrlKey && e.key === "r" && mode !== "insert") {

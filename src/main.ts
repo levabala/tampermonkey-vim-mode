@@ -214,11 +214,18 @@ function handleFocus(e: FocusEvent): void {
                     key: event.key,
                     ctrl: event.ctrlKey,
                 });
+                // Handle ESC/Ctrl-] and scrolling commands
                 if (
                     event.key === "Escape" ||
-                    (event.ctrlKey && event.key === "]")
+                    (event.ctrlKey && event.key === "]") ||
+                    (event.ctrlKey &&
+                        (event.key === "e" ||
+                            event.key === "y" ||
+                            event.key === "d" ||
+                            event.key === "u"))
                 ) {
-                    debug("ESC/Ctrl-] in onkeydown - calling handleKeyDown");
+                    debug("Special key in onkeydown - calling handleKeyDown");
+                    event.preventDefault(); // Mark as handled
                     handleKeyDown(event);
                     return false; // Prevent default
                 }
@@ -239,12 +246,20 @@ function handleFocus(e: FocusEvent): void {
                         defaultPrevented: kbEvent.defaultPrevented,
                         propagationStopped: kbEvent.cancelBubble,
                     });
+                    // Handle ESC/Ctrl-] and scrolling commands
+                    // Skip if already handled by onkeydown property
                     if (
-                        kbEvent.key === "Escape" ||
-                        (kbEvent.ctrlKey && kbEvent.key === "]")
+                        !kbEvent.defaultPrevented &&
+                        (kbEvent.key === "Escape" ||
+                            (kbEvent.ctrlKey && kbEvent.key === "]") ||
+                            (kbEvent.ctrlKey &&
+                                (kbEvent.key === "e" ||
+                                    kbEvent.key === "y" ||
+                                    kbEvent.key === "d" ||
+                                    kbEvent.key === "u")))
                     ) {
                         debug(
-                            "DIRECT ESC/Ctrl-] on element - calling handleKeyDown",
+                            "DIRECT special key on element - calling handleKeyDown",
                         );
                         handleKeyDown(kbEvent);
                     }
@@ -369,6 +384,12 @@ function handleKeyDown(e: KeyboardEvent): void {
         return;
     }
 
+    // Skip if event was already handled (by onkeydown property or earlier listener)
+    if (e.defaultPrevented) {
+        debug("handleKeyDown: event already handled, skipping");
+        return;
+    }
+
     debug("handleKeyDown", {
         key: e.key,
         ctrl: e.ctrlKey,
@@ -411,31 +432,36 @@ function handleKeyDown(e: KeyboardEvent): void {
     }
 
     // Scrolling commands (work in all modes - insert, normal, and visual)
+    // In normal and visual modes, move the caret with the scroll
     if (e.ctrlKey && e.key === "e") {
         debug("handleKeyDown: Ctrl-e scroll down one line");
         e.preventDefault();
-        scrollTextarea(currentInput, 1);
+        const moveCaret = mode === "normal" || mode === "visual";
+        scrollTextarea(currentInput, 1, moveCaret);
         return;
     }
 
     if (e.ctrlKey && e.key === "y") {
         debug("handleKeyDown: Ctrl-y scroll up one line");
         e.preventDefault();
-        scrollTextarea(currentInput, -1);
+        const moveCaret = mode === "normal" || mode === "visual";
+        scrollTextarea(currentInput, -1, moveCaret);
         return;
     }
 
     if (e.ctrlKey && e.key === "d") {
         debug("handleKeyDown: Ctrl-d scroll down half page");
         e.preventDefault();
-        scrollHalfPage(currentInput, true);
+        const moveCaret = mode === "normal" || mode === "visual";
+        scrollHalfPage(currentInput, true, moveCaret);
         return;
     }
 
     if (e.ctrlKey && e.key === "u") {
         debug("handleKeyDown: Ctrl-u scroll up half page");
         e.preventDefault();
-        scrollHalfPage(currentInput, false);
+        const moveCaret = mode === "normal" || mode === "visual";
+        scrollHalfPage(currentInput, false, moveCaret);
         return;
     }
 
