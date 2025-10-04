@@ -25,11 +25,16 @@ This is a Tampermonkey userscript that adds Vim-like modal editing to all text i
 **Build system**: The project uses Bun as the build tool and runtime. Key commands:
 
 - `bun run build`: Build the userscript from TypeScript sources
-- `bun run test`: Run test suite with Vitest
-- `bun run test:watch`: Run tests in watch mode
-- `bun run test:ui`: Run tests with UI
-- `bun run test:coverage`: Run tests with coverage report
+- `bun run test`: Run unit test suite with Vitest
+- `bun run test:watch`: Run unit tests in watch mode
+- `bun run test:ui`: Run unit tests with UI
+- `bun run test:coverage`: Run unit tests with coverage report
+- `bun run test:e2e`: Run E2E tests with Playwright
+- `bun run test:e2e:ui`: Run E2E tests with Playwright UI
+- `bun run test:e2e:headed`: Run E2E tests in headed mode
+- `bun run test:e2e:report`: Run E2E tests and show report
 - `bun run typecheck`: Type-check TypeScript without emitting files
+- `bun run typecheck:tsgo`: Type-check with tsgo (faster TypeScript compiler)
 - `bun run lint`: Lint code with ESLint
 - `bun run lint:fix`: Auto-fix linting issues
 - `bun run format`: Format code with Prettier
@@ -40,7 +45,7 @@ This is a Tampermonkey userscript that adds Vim-like modal editing to all text i
 2. Run `bun run build` to generate `dist/tampermonkey_vim_mode.js`
 3. Reload the script in Tampermonkey to test changes
 
-**Testing**: Automated tests using Vitest with jsdom for DOM manipulation. Tests are in the `test/` directory.
+**Testing**: Using Playwright for E2E browser-based integration testing. Test files are in the `e2e/` directory.
 
 **Deployment**: The built script (`dist/tampermonkey_vim_mode.js`) is distributed via GitHub Gist (see `@updateURL` and `@downloadURL` in the userscript header).
 
@@ -62,19 +67,20 @@ Refer to `SPEC.md` for the complete list of supported Vim commands. The implemen
 
 When asked to write a test and fix a bug, follow this workflow to verify the test catches the bug:
 
-1. **Write the test first** - Create a test that reproduces the bug
-2. **Commit the test separately** - `git add test/... && git commit -m "Add test for [bug description]"`
-3. **Verify test fails** - Run `bun run test` and confirm the new test fails
+1. **Write the test first** - Create an E2E test in `e2e/` that reproduces the bug
+2. **Commit the test separately** - `git add e2e/... && git commit -m "Add test for [bug description]"`
+3. **Verify test fails** - Run `bun run test:e2e` and confirm the new test fails
 4. **Implement the fix** - Make code changes to fix the bug
-5. **Verify test passes** - Run `bun run test` and confirm all tests pass
+5. **Verify test passes** - Run `bun run test:e2e` and confirm all tests pass
 6. **Commit the fix** - `git add [fixed files] && git commit -m "Fix [bug description]"`
 
 This ensures the test actually catches the bug and isn't a false positive.
 
-- use bun!
-- run typecheck, lint:fix, test, test:e2e and format via bun run BEFORE committing changes (in parallel) (even if directly asked to just commit)
-- when bumping version you must do it in src/, not in dist/
-- TAMPER_VIM_MODE holds the config. changes to it must be backwards compatible
-- run e2e via "bun run e2e"
-- don't create extra test .html, use test-visual-mode.html
-- run "bun run typecheck:tsgo" after each typescript file update
+## Important Guidelines
+
+- **Always use Bun**: All commands should use `bun run` (not npm/yarn)
+- **Pre-commit checks**: Run `typecheck`, `lint:fix`, `test:e2e`, and `format` in parallel BEFORE committing changes (even if directly asked to just commit)
+- **Type checking**: Run `bun run typecheck:tsgo` after each TypeScript file update for fast validation
+- **Version bumping**: When bumping version, update it in `src/setup.ts`, not in `dist/`
+- **Config compatibility**: `TAMPER_VIM_MODE` holds user config - changes must be backwards compatible
+- **Test HTML file**: Use existing `test.html` for manual testing - don't create new test HTML files

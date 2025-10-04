@@ -128,26 +128,58 @@ async function runInOurImplementation(
 
 test.describe("Nvim Parity Tests", () => {
     test.beforeEach(async ({ page }) => {
-        const htmlPath = path.join(process.cwd(), "test-visual-mode.html");
+        const htmlPath = path.join(process.cwd(), "test.html");
         await page.goto(`file://${htmlPath}`);
         await page.waitForTimeout(500);
     });
 
     // Test cases for basic motions and operations
     const testCases: VimTestCase[] = [
-        // x - delete character under cursor
+        // Basic single-character motions
         {
-            description: "x should delete character under cursor",
+            description: "l should move right",
             input: "hello",
-            keystrokes: "lx",
+            keystrokes: "l",
         },
         {
-            description: "multiple x deletions",
+            description: "h should move left",
+            input: "hello",
+            keystrokes: "llh",
+        },
+        {
+            description: "0 should move to start of line",
             input: "hello world",
-            keystrokes: "xxx",
+            keystrokes: "lllll0",
+        },
+        {
+            description: "$ should move to end of line",
+            input: "hello",
+            keystrokes: "$",
         },
 
-        // w - move forward by word
+        // Vertical motions
+        {
+            description: "j should move down",
+            input: "line1\nline2\nline3",
+            keystrokes: "j",
+        },
+        {
+            description: "k should move up",
+            input: "line1\nline2\nline3",
+            keystrokes: "jjk",
+        },
+        {
+            description: "gg should move to first line",
+            input: "line1\nline2\nline3",
+            keystrokes: "$jjgg",
+        },
+        {
+            description: "G should move to last line",
+            input: "line1\nline2\nline3",
+            keystrokes: "G",
+        },
+
+        // Word motions
         {
             description: "w should move to next word",
             input: "hello world",
@@ -163,6 +195,11 @@ test.describe("Nvim Parity Tests", () => {
             input: "hello",
             keystrokes: "wwwww",
         },
+        {
+            description: "w should not skip brackets",
+            input: "foo (bar",
+            keystrokes: "ww",
+        },
 
         // b - move backward by word
         {
@@ -174,6 +211,11 @@ test.describe("Nvim Parity Tests", () => {
             description: "b with multiple words",
             input: "one two three",
             keystrokes: "llllllllllllbb",
+        },
+        {
+            description: "b should move backward by word",
+            input: "hello world test",
+            keystrokes: "$bb",
         },
 
         // e - move to end of word
@@ -188,15 +230,109 @@ test.describe("Nvim Parity Tests", () => {
             keystrokes: "ee",
         },
 
-        // Combined operations
+        // WORD motions (whitespace-separated)
+        {
+            description: "W should move forward by WORD",
+            input: "hello-world test.123 foo",
+            keystrokes: "W",
+        },
+        {
+            description: "B should move backward by WORD",
+            input: "hello-world test.123 foo",
+            keystrokes: "$B",
+        },
+        {
+            description: "E should move to end of WORD",
+            input: "hello-world test.123",
+            keystrokes: "E",
+        },
+
+        // Find motions
+        {
+            description: "f should find character forward",
+            input: "hello world",
+            keystrokes: "fw",
+        },
+        {
+            description: "F should find character backward",
+            input: "hello world",
+            keystrokes: "$Fh",
+        },
+        {
+            description: "t should move before character",
+            input: "hello world",
+            keystrokes: "tw",
+        },
+        {
+            description: "T should move after character backward",
+            input: "hello world",
+            keystrokes: "$Th",
+        },
+        {
+            description: "f should find opening bracket",
+            input: "hello (world)",
+            keystrokes: "f(",
+        },
+        {
+            description: "f should find quote",
+            input: 'say "hello"',
+            keystrokes: 'f"',
+        },
+        {
+            description: "f should find punctuation",
+            input: "hello. world",
+            keystrokes: "f.",
+        },
+
+        // Delete operations
+        {
+            description: "x should delete character under cursor",
+            input: "hello",
+            keystrokes: "lx",
+        },
+        {
+            description: "multiple x deletions",
+            input: "hello world",
+            keystrokes: "xxx",
+        },
+        {
+            description: "X should delete character before cursor",
+            input: "hello",
+            keystrokes: "llX",
+        },
         {
             description: "dw should delete word",
             input: "hello world",
             keystrokes: "dw",
         },
-        // Note: cw and de have known differences from vim behavior
-        // cw in vim keeps trailing space, our impl deletes it
-        // de in vim deletes to end of word, our impl leaves one char
+        {
+            description: "dd should delete line",
+            input: "line1\nline2\nline3",
+            keystrokes: "jdd",
+        },
+        {
+            description: "D should delete to end of line",
+            input: "hello world",
+            keystrokes: "llllllD",
+        },
+
+        // Change operations
+        // FIXME: cw has known difference - vim keeps trailing space, we delete it
+        {
+            description: "c$ should change to end",
+            input: "hello world",
+            keystrokes: "llllllc$there\x1b",
+        },
+        {
+            description: "C should change to end of line",
+            input: "hello world",
+            keystrokes: "llllllCtest\x1b",
+        },
+        {
+            description: "s should substitute character",
+            input: "hello",
+            keystrokes: "sX\x1b",
+        },
 
         // Insert mode tests (to test cursor position)
         {
@@ -218,6 +354,70 @@ test.describe("Nvim Parity Tests", () => {
             description: "I should insert at start of line",
             input: "hello",
             keystrokes: "lllllIX\x1b",
+        },
+        {
+            description: "o should open line below",
+            input: "line1\nline2",
+            keystrokes: "onew\x1b",
+        },
+        {
+            description: "O should open line above",
+            input: "line1\nline2",
+            keystrokes: "jOnew\x1b",
+        },
+
+        // Yank and paste
+        {
+            description: "yw and p should yank word and paste",
+            input: "hello world",
+            keystrokes: "yw$p",
+        },
+        {
+            description: "yy and P should yank line and paste above",
+            input: "line1\nline2\nline3",
+            keystrokes: "jyykP",
+        },
+        {
+            description: "yy and p should yank line and paste below",
+            input: "line1\nline2\nline3",
+            keystrokes: "jyyjp",
+        },
+
+        // Undo and redo
+        {
+            description: "u should undo",
+            input: "hello",
+            keystrokes: "lxu",
+        },
+        {
+            description: "Ctrl-r should redo",
+            input: "hello",
+            keystrokes: "lxu\x12",
+        },
+
+        // Counts
+        {
+            description: "3w should move 3 words forward",
+            input: "hello world test",
+            keystrokes: "3w",
+        },
+        {
+            description: "3x should delete 3 characters",
+            input: "hello",
+            keystrokes: "3x",
+        },
+
+        // Dot repeat
+        {
+            description: ". should repeat delete",
+            input: "hello world test",
+            keystrokes: "x.",
+        },
+        // FIXME: . repeat with cw has known difference due to cw behavior
+        {
+            description: ". should repeat insert",
+            input: "hello",
+            keystrokes: "iX\x1bl.",
         },
     ];
 

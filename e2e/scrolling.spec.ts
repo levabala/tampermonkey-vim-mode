@@ -4,7 +4,7 @@ import * as path from "path";
 test.describe("Scrolling Commands", () => {
     test.beforeEach(async ({ page }) => {
         // Load the HTML file directly
-        const htmlPath = path.join(process.cwd(), "test-visual-mode.html");
+        const htmlPath = path.join(process.cwd(), "test.html");
         await page.goto(`file://${htmlPath}`);
         // Wait for the script to load
         await page.waitForTimeout(500);
