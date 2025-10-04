@@ -743,8 +743,9 @@
                 window.scrollBy(0, remainingScroll);
             }
             if (moveCaret) {
+                const totalScrollAmount = scrollAmount;
                 const linesScrolled = Math.round(
-                    actualScroll / effectiveLineHeight,
+                    totalScrollAmount / effectiveLineHeight,
                 );
                 const targetLine = caretLineBeforeScroll + linesScrolled;
                 const textLines = currentInput.value.split(`

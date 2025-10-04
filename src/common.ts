@@ -742,8 +742,13 @@ export function scrollTextarea(
     }
 
     // If moveCaret is true, move caret by the same number of lines we scrolled
+    // This includes both textarea scroll and window scroll
     if (moveCaret) {
-        const linesScrolled = Math.round(actualScroll / effectiveLineHeight);
+        // Calculate total scroll in lines (textarea + window)
+        const totalScrollAmount = scrollAmount;
+        const linesScrolled = Math.round(
+            totalScrollAmount / effectiveLineHeight,
+        );
         const targetLine = caretLineBeforeScroll + linesScrolled;
 
         // Find the position at the target line
