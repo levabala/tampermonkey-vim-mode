@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Vim Mode for Text Inputs
 // @namespace    http://tampermonkey.net/
-// @version      1.0.71
+// @version      1.0.72
 // @description  Vim-like editing for textareas and inputs
 // @match        *://*/*
 // @updateURL    https://raw.githubusercontent.com/levabala/tampermonkey-vim-mode/refs/heads/main/dist/tampermonkey_vim_mode.js
@@ -953,6 +953,9 @@
             if (forward) {
                 while (pos < text.length && !isWhitespace(text[pos])) pos++;
                 while (pos < text.length && isWhitespace(text[pos])) pos++;
+                if (pos >= text.length && text.length > 0) {
+                    pos = text.length - 1;
+                }
                 return pos;
             } else {
                 if (pos > 0) pos--;
@@ -1026,6 +1029,9 @@
                         )
                             pos++;
                     }
+                }
+                if (pos >= text.length && text.length > 0) {
+                    pos = text.length - 1;
                 }
                 return pos;
             } else {
@@ -1405,25 +1411,50 @@
                         );
                         wantedColumn = null;
                         break;
-                    case "$":
-                        pos = getLineEnd(currentInput, pos);
+                    case "$": {
+                        const lineEnd = getLineEnd(currentInput, pos);
+                        const line = getLine(currentInput, pos);
+                        if (lineEnd > line.start) {
+                            pos = lineEnd - 1;
+                        } else {
+                            pos = lineEnd;
+                        }
                         wantedColumn = null;
                         break;
-                    case "gg":
-                        pos = 0;
-                        wantedColumn = null;
+                    }
+                    case "gg": {
+                        const currentLine = getLine(currentInput, pos);
+                        const offset = pos - currentLine.start;
+                        if (wantedColumn === null) {
+                            wantedColumn = offset;
+                        }
+                        const firstLine = getLine(currentInput, 0);
+                        pos = Math.min(
+                            firstLine.start + wantedColumn,
+                            firstLine.end,
+                        );
                         break;
+                    }
                     case "G": {
+                        const currentLineG = getLine(currentInput, pos);
+                        const offsetG = pos - currentLineG.start;
+                        if (wantedColumn === null) {
+                            wantedColumn = offsetG;
+                        }
                         const text = currentInput.value;
-                        pos = text.length;
+                        let lastLineStart = text.length;
                         while (
-                            pos > 0 &&
-                            text[pos - 1] !==
+                            lastLineStart > 0 &&
+                            text[lastLineStart - 1] !==
                                 `
 `
                         )
-                            pos--;
-                        wantedColumn = null;
+                            lastLineStart--;
+                        const lastLine = getLine(currentInput, lastLineStart);
+                        pos = Math.min(
+                            lastLine.start + wantedColumn,
+                            lastLine.end,
+                        );
                         break;
                     }
                     case "{":
@@ -1448,8 +1479,11 @@
             const startPos = getCursorPos(currentInput);
             debug("getMotionRange", { motion, count, startPos });
             executeMotion(currentInput, motion, count);
-            const endPos = getCursorPos(currentInput);
+            let endPos = getCursorPos(currentInput);
             setCursorPos(currentInput, startPos);
+            if (motion === "$") {
+                endPos = Math.min(endPos + 1, currentInput.value.length);
+            }
             const range = {
                 start: Math.min(startPos, endPos),
                 end: Math.max(startPos, endPos),

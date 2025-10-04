@@ -129,21 +129,53 @@ export function executeMotion(
                 );
                 wantedColumn = null;
                 break;
-            case "$":
-                pos = getLineEnd(currentInput, pos);
+            case "$": {
+                const lineEnd = getLineEnd(currentInput, pos);
+                // In Vim, $ positions cursor at last character, not after it
+                // If there's content on the line, position at last char
+                const line = getLine(currentInput, pos);
+                if (lineEnd > line.start) {
+                    pos = lineEnd - 1;
+                } else {
+                    pos = lineEnd;
+                }
                 wantedColumn = null;
                 break;
-            case "gg":
-                pos = 0;
-                wantedColumn = null;
+            }
+            case "gg": {
+                // gg behaves like a vertical motion - maintains column
+                const currentLine = getLine(currentInput, pos);
+                const offset = pos - currentLine.start;
+
+                // Initialize or maintain wanted column
+                if (wantedColumn === null) {
+                    wantedColumn = offset;
+                }
+
+                // Move to first line, same column
+                const firstLine = getLine(currentInput, 0);
+                pos = Math.min(firstLine.start + wantedColumn, firstLine.end);
                 break;
+            }
             case "G": {
-                // Go to start of last line (not end of text)
+                // G behaves like a vertical motion - maintains column
+                const currentLineG = getLine(currentInput, pos);
+                const offsetG = pos - currentLineG.start;
+
+                // Initialize or maintain wanted column
+                if (wantedColumn === null) {
+                    wantedColumn = offsetG;
+                }
+
+                // Find start of last line
                 const text = currentInput.value;
-                pos = text.length;
-                // Move back to start of last line
-                while (pos > 0 && text[pos - 1] !== "\n") pos--;
-                wantedColumn = null;
+                let lastLineStart = text.length;
+                while (lastLineStart > 0 && text[lastLineStart - 1] !== "\n")
+                    lastLineStart--;
+
+                // Move to last line, same column
+                const lastLine = getLine(currentInput, lastLineStart);
+                pos = Math.min(lastLine.start + wantedColumn, lastLine.end);
                 break;
             }
             case "{":
@@ -174,8 +206,14 @@ export function getMotionRange(
     const startPos = getCursorPos(currentInput);
     debug("getMotionRange", { motion, count, startPos });
     executeMotion(currentInput, motion, count);
-    const endPos = getCursorPos(currentInput);
+    let endPos = getCursorPos(currentInput);
     setCursorPos(currentInput, startPos);
+
+    // Some motions are inclusive (the character at endPos should be included)
+    // $ motion is inclusive when used with operators
+    if (motion === "$") {
+        endPos = Math.min(endPos + 1, currentInput.value.length);
+    }
 
     const range = {
         start: Math.min(startPos, endPos),

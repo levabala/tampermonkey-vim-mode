@@ -1015,6 +1015,12 @@ export function findWORDStart(
         while (pos < text.length && !isWhitespace(text[pos])) pos++;
         // Skip whitespace
         while (pos < text.length && isWhitespace(text[pos])) pos++;
+
+        // In normal mode, cursor can't go past the last character
+        if (pos >= text.length && text.length > 0) {
+            pos = text.length - 1;
+        }
+
         return pos;
     } else {
         // Move back one if we're at WORD start
@@ -1096,6 +1102,13 @@ export function findWordStart(
                     pos++;
             }
         }
+
+        // In normal mode, cursor can't go past the last character
+        // If we've moved past the end, stay at the last valid position
+        if (pos >= text.length && text.length > 0) {
+            pos = text.length - 1;
+        }
+
         return pos;
     } else {
         // Move back one if we're at word start
