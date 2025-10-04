@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Vim Mode for Text Inputs
 // @namespace    http://tampermonkey.net/
-// @version      1.0.69
+// @version      1.0.70
 // @description  Vim-like editing for textareas and inputs
 // @match        *://*/*
 // @updateURL    https://raw.githubusercontent.com/levabala/tampermonkey-vim-mode/refs/heads/main/dist/tampermonkey_vim_mode.js
@@ -2636,6 +2636,7 @@
         var allowBlur = false;
         var escapePressed = false;
         var savedCursorPos = null;
+        var inputModes = new WeakMap();
         var insertStartPos = null;
         var insertStartValue = null;
         var insertCommand = null;
@@ -2663,6 +2664,7 @@
                 insertStartValue = currentInput.value;
                 insertCommand = command;
                 updateLineNumbers(currentInput);
+                inputModes.set(currentInput, mode);
             }
             updateIndicator(mode, currentInput);
         }
@@ -2674,6 +2676,9 @@
             visualEnd = null;
             clearVisualSelection();
             updateIndicator(mode, currentInput);
+            if (currentInput) {
+                inputModes.set(currentInput, mode);
+            }
             if (
                 wasInsertMode &&
                 currentInput &&
@@ -2735,6 +2740,7 @@
                     visualEnd,
                 );
                 updateLineNumbers(currentInput);
+                inputModes.set(currentInput, mode);
             }
             updateIndicator(mode, currentInput);
         }
@@ -2827,6 +2833,7 @@
                     mode = "insert";
                     undoStack = [];
                     redoStack = [];
+                    inputModes.set(currentInput, mode);
                     updateIndicator(mode, currentInput);
                     updateLineNumbers(currentInput);
                     debug("Attaching direct keydown listener to element");
@@ -2885,7 +2892,9 @@
                         true,
                     );
                 } else {
-                    debug("handleFocus: same input refocused, keeping mode", {
+                    const savedMode = inputModes.get(currentInput) || "normal";
+                    mode = savedMode;
+                    debug("handleFocus: same input refocused, restoring mode", {
                         mode,
                         savedCursorPos,
                     });

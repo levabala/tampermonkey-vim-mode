@@ -38,6 +38,9 @@ let allowBlur = false; // Track whether blur is intentional
 let escapePressed = false; // Track if ESC was recently pressed
 let savedCursorPos: number | null = null; // Remember cursor position across blur/focus
 
+// Per-input mode tracking for proper blur/refocus behavior
+const inputModes = new WeakMap<EditableElement, Mode>();
+
 // Insert mode tracking
 let insertStartPos: number | null = null;
 let insertStartValue: string | null = null;
@@ -74,6 +77,8 @@ function enterInsertMode(command = "i"): void {
         insertStartValue = currentInput.value;
         insertCommand = command;
         updateLineNumbers(currentInput);
+        // Save mode to input-specific state
+        inputModes.set(currentInput, mode);
     }
     updateIndicator(mode, currentInput);
 }
@@ -86,6 +91,11 @@ function enterNormalMode(): void {
     visualEnd = null;
     clearVisualSelection();
     updateIndicator(mode, currentInput);
+
+    // Save mode to input-specific state
+    if (currentInput) {
+        inputModes.set(currentInput, mode);
+    }
 
     // Record last insert for dot repeat
     if (
@@ -161,6 +171,8 @@ function enterVisualMode(lineMode = false): void {
         createCustomCaret(currentInput);
         updateVisualSelection(currentInput, mode, visualStart, visualEnd);
         updateLineNumbers(currentInput);
+        // Save mode to input-specific state
+        inputModes.set(currentInput, mode);
     }
     updateIndicator(mode, currentInput);
 }
@@ -273,6 +285,8 @@ function handleFocus(e: FocusEvent): void {
             mode = "insert";
             undoStack = [];
             redoStack = [];
+            // Save initial mode to input-specific state
+            inputModes.set(currentInput, mode);
             updateIndicator(mode, currentInput);
             updateLineNumbers(currentInput);
 
@@ -337,8 +351,11 @@ function handleFocus(e: FocusEvent): void {
                 true,
             );
         } else {
-            // Same input refocused - just update indicator, don't reset mode
-            debug("handleFocus: same input refocused, keeping mode", {
+            // Same input refocused - restore mode from input-specific state
+            const savedMode = inputModes.get(currentInput) || "normal";
+            mode = savedMode;
+
+            debug("handleFocus: same input refocused, restoring mode", {
                 mode,
                 savedCursorPos,
             });

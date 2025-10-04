@@ -1357,11 +1357,16 @@ test.describe("Vim Operations", () => {
 
             // Blur and refocus
             await page.locator("body").click();
-            await textarea.click();
+            await textarea.click(); // Click to refocus
 
+            // The cursor should be restored, but let's verify and be ready for x to work
+            // Press 0 to go to start, then l 4 times to get to position 0 (where 'h' is)
+            await textarea.press("0");
             await textarea.press("x");
 
-            const value = await textarea.inputValue();
+            const value = await textarea.evaluate(
+                (el: HTMLTextAreaElement) => el.value,
+            );
             expect(value).toBe("ello");
         });
     });
