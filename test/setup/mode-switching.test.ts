@@ -39,11 +39,11 @@ describe("Mode Switching", () => {
         expect(window.getModeText()).toBe("-- NORMAL --");
     });
 
-    it("should switch to normal mode on Ctrl-]", () => {
+    it("should switch to normal mode on Ctrl-[", () => {
         input.focus();
         input.dispatchEvent(
             new KeyboardEvent("keydown", {
-                key: "]",
+                key: "[",
                 ctrlKey: true,
                 bubbles: true,
             }),
@@ -117,7 +117,7 @@ describe("Mode Switching", () => {
         expect(window.getModeText()).toBe("-- NORMAL --");
     });
 
-    it("should exit visual mode on Ctrl-]", () => {
+    it("should exit visual mode on Ctrl-[", () => {
         input.value = "hello world";
         input.focus();
         // Switch to normal mode first
@@ -132,10 +132,10 @@ describe("Mode Switching", () => {
         );
         expect(window.getModeText()).toBe("-- VISUAL --");
 
-        // Exit visual mode with Ctrl-]
+        // Exit visual mode with Ctrl-[
         input.dispatchEvent(
             new KeyboardEvent("keydown", {
-                key: "]",
+                key: "[",
                 ctrlKey: true,
                 bubbles: true,
             }),
@@ -143,7 +143,7 @@ describe("Mode Switching", () => {
         expect(window.getModeText()).toBe("-- NORMAL --");
     });
 
-    it("should exit visual-line mode on Ctrl-]", () => {
+    it("should exit visual-line mode on Ctrl-[", () => {
         input.value = "hello world";
         input.focus();
         // Switch to normal mode first
@@ -162,10 +162,10 @@ describe("Mode Switching", () => {
         );
         expect(window.getModeText()).toBe("-- VISUAL LINE --");
 
-        // Exit visual-line mode with Ctrl-]
+        // Exit visual-line mode with Ctrl-[
         input.dispatchEvent(
             new KeyboardEvent("keydown", {
-                key: "]",
+                key: "[",
                 ctrlKey: true,
                 bubbles: true,
             }),

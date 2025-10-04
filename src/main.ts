@@ -214,10 +214,10 @@ function handleFocus(e: FocusEvent): void {
                     key: event.key,
                     ctrl: event.ctrlKey,
                 });
-                // Handle ESC/Ctrl-] and scrolling commands
+                // Handle ESC/Ctrl-[ and scrolling commands
                 if (
                     event.key === "Escape" ||
-                    (event.ctrlKey && event.key === "]") ||
+                    (event.ctrlKey && event.key === "[") ||
                     (event.ctrlKey &&
                         (event.key === "e" ||
                             event.key === "y" ||
@@ -246,12 +246,12 @@ function handleFocus(e: FocusEvent): void {
                         defaultPrevented: kbEvent.defaultPrevented,
                         propagationStopped: kbEvent.cancelBubble,
                     });
-                    // Handle ESC/Ctrl-] and scrolling commands
+                    // Handle ESC/Ctrl-[ and scrolling commands
                     // Skip if already handled by onkeydown property
                     if (
                         !kbEvent.defaultPrevented &&
                         (kbEvent.key === "Escape" ||
-                            (kbEvent.ctrlKey && kbEvent.key === "]") ||
+                            (kbEvent.ctrlKey && kbEvent.key === "[") ||
                             (kbEvent.ctrlKey &&
                                 (kbEvent.key === "e" ||
                                     kbEvent.key === "y" ||
@@ -397,9 +397,9 @@ function handleKeyDown(e: KeyboardEvent): void {
         target: (e.target as HTMLElement).tagName,
     });
 
-    // Handle ESC/Ctrl-] early to prevent default blur behavior
-    if (e.key === "Escape" || (e.ctrlKey && e.key === "]")) {
-        debug("handleKeyDown: ESC/Ctrl-] pressed", {
+    // Handle ESC/Ctrl-[ early to prevent default blur behavior
+    if (e.key === "Escape" || (e.ctrlKey && e.key === "[")) {
+        debug("handleKeyDown: ESC/Ctrl-[ pressed", {
             mode,
             eventTarget: e.target,
             currentInput,
@@ -494,13 +494,13 @@ debug("Vim Mode initialized");
 if (typeof window === "undefined" || typeof document === "undefined") {
     debug("Skipping event listener setup - no window/document");
 } else {
-    // Track ESC/Ctrl-] key state at the earliest possible point
+    // Track ESC/Ctrl-[ key state at the earliest possible point
     // Use keydown on window to catch before page handlers
     window.addEventListener(
         "keydown",
         (e: KeyboardEvent) => {
-            if (e.key === "Escape" || (e.ctrlKey && e.key === "]")) {
-                debug("GLOBAL ESC/Ctrl-] keydown detected", {
+            if (e.key === "Escape" || (e.ctrlKey && e.key === "[")) {
+                debug("GLOBAL ESC/Ctrl-[ keydown detected", {
                     key: e.key,
                     ctrl: e.ctrlKey,
                     target: (e.target as HTMLElement).tagName,
@@ -519,12 +519,12 @@ if (typeof window === "undefined" || typeof document === "undefined") {
         true,
     );
 
-    // Track keyup as well to detect if ESC/Ctrl-] was released
+    // Track keyup as well to detect if ESC/Ctrl-[ was released
     window.addEventListener(
         "keyup",
         (e: KeyboardEvent) => {
-            if (e.key === "Escape" || (e.ctrlKey && e.key === "]")) {
-                debug("GLOBAL ESC/Ctrl-] keyup detected", {
+            if (e.key === "Escape" || (e.ctrlKey && e.key === "[")) {
+                debug("GLOBAL ESC/Ctrl-[ keyup detected", {
                     key: e.key,
                     ctrl: e.ctrlKey,
                     target: (e.target as HTMLElement).tagName,
@@ -537,8 +537,8 @@ if (typeof window === "undefined" || typeof document === "undefined") {
 
     // Test if event listeners work at all
     const testListener = (e: KeyboardEvent) => {
-        if (e.key === "Escape" || (e.ctrlKey && e.key === "]")) {
-            debug("RAW ESC/Ctrl-] DETECTED on document", {
+        if (e.key === "Escape" || (e.ctrlKey && e.key === "[")) {
+            debug("RAW ESC/Ctrl-[ DETECTED on document", {
                 key: e.key,
                 ctrl: e.ctrlKey,
                 target: (e.target as HTMLElement).tagName,
@@ -555,8 +555,8 @@ if (typeof window === "undefined" || typeof document === "undefined") {
     window.addEventListener(
         "keydown",
         (e: KeyboardEvent) => {
-            if (e.key === "Escape" || (e.ctrlKey && e.key === "]")) {
-                debug("WINDOW ESC/Ctrl-] listener", {
+            if (e.key === "Escape" || (e.ctrlKey && e.key === "[")) {
+                debug("WINDOW ESC/Ctrl-[ listener", {
                     key: e.key,
                     ctrl: e.ctrlKey,
                     target: (e.target as HTMLElement).tagName,
@@ -593,8 +593,8 @@ if (typeof window === "undefined" || typeof document === "undefined") {
     document.addEventListener(
         "keydown",
         (e: KeyboardEvent) => {
-            if (e.key === "Escape" || (e.ctrlKey && e.key === "]")) {
-                debug("Secondary ESC/Ctrl-] listener (bubbling phase)", {
+            if (e.key === "Escape" || (e.ctrlKey && e.key === "[")) {
+                debug("Secondary ESC/Ctrl-[ listener (bubbling phase)", {
                     key: e.key,
                     ctrl: e.ctrlKey,
                     defaultPrevented: e.defaultPrevented,

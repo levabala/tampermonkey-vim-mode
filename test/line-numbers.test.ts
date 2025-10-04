@@ -157,12 +157,26 @@ describe("Line Numbers with Text Wrap", () => {
             ) as HTMLElement;
 
             // Line numbers container should be positioned at the top of the textarea
+            // accounting for padding and border
             const textareaRect = textarea.getBoundingClientRect();
+            const computedStyle = window.getComputedStyle(textarea);
+            const paddingTop = parseFloat(computedStyle.paddingTop);
+            const borderTop = parseFloat(computedStyle.borderTopWidth);
             const containerTop = parseInt(container.style.top);
-            expect(containerTop).toBe(textareaRect.top + window.scrollY);
+            expect(containerTop).toBe(
+                textareaRect.top + window.scrollY + paddingTop + borderTop,
+            );
 
-            // Height should match textarea height
-            expect(container.style.height).toBe(`${textareaRect.height}px`);
+            // Height should match textarea content height (excluding padding and border)
+            const paddingBottom = parseFloat(computedStyle.paddingBottom);
+            const borderBottom = parseFloat(computedStyle.borderBottomWidth);
+            const expectedHeight =
+                textareaRect.height -
+                paddingTop -
+                borderTop -
+                paddingBottom -
+                borderBottom;
+            expect(container.style.height).toBe(`${expectedHeight}px`);
         });
 
         it("should handle scroll correctly with wrapped lines", () => {

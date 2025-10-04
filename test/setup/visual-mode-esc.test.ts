@@ -12,7 +12,7 @@ declare global {
     }
 }
 
-describe("Visual Mode ESC/Ctrl-] Behavior", () => {
+describe("Visual Mode ESC/Ctrl-[ Behavior", () => {
     let input: HTMLInputElement;
     let textarea: HTMLTextAreaElement;
 
@@ -55,7 +55,7 @@ describe("Visual Mode ESC/Ctrl-] Behavior", () => {
         expect(document.activeElement).toBe(input);
     });
 
-    it("should switch from visual mode to normal mode on Ctrl-] without blurring", () => {
+    it("should switch from visual mode to normal mode on Ctrl-[ without blurring", () => {
         input.value = "hello world";
         input.focus();
         expect(window.getModeText()).toBe("-- INSERT --");
@@ -72,10 +72,10 @@ describe("Visual Mode ESC/Ctrl-] Behavior", () => {
         );
         expect(window.getModeText()).toBe("-- VISUAL --");
 
-        // Press Ctrl-] - should switch to normal mode without blurring
+        // Press Ctrl-[ - should switch to normal mode without blurring
         input.dispatchEvent(
             new KeyboardEvent("keydown", {
-                key: "]",
+                key: "[",
                 ctrlKey: true,
                 bubbles: true,
             }),

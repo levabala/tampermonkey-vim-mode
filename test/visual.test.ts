@@ -102,7 +102,7 @@ describe("Visual mode ESC behavior", () => {
         expect(true).toBe(true);
     });
 
-    it("should work with Ctrl-] instead of ESC in visual mode", async () => {
+    it("should work with Ctrl-[ instead of ESC in visual mode", async () => {
         const textarea = createTextarea("test content");
 
         // Focus the textarea (starts in insert mode)
@@ -117,11 +117,11 @@ describe("Visual mode ESC behavior", () => {
         pressKey(textarea, "v");
         await waitForNextTick();
 
-        // Verify textarea still has focus before Ctrl-]
+        // Verify textarea still has focus before Ctrl-[
         expect(document.activeElement).toBe(textarea);
 
-        // Press Ctrl-] - should switch to normal mode, NOT blur
-        pressKey(textarea, "]", { ctrlKey: true });
+        // Press Ctrl-[ - should switch to normal mode, NOT blur
+        pressKey(textarea, "[", { ctrlKey: true });
         await waitForNextTick();
 
         // Verify textarea still has focus (did not blur)
