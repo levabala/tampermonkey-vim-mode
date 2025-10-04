@@ -76,3 +76,4 @@ This ensures the test actually catches the bug and isn't a false positive.
 - when bumping version you must do it in src/, not in dist/
 - TAMPER_VIM_MODE holds the config. changes to it must be backwards compatible
 - run e2e via "bun run e2e"
+- don't create extra test .html, use test-visual-mode.html
