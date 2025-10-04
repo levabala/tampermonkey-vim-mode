@@ -502,6 +502,57 @@ test.describe("Vim Operations", () => {
             );
             expect(pos).toBe(5); // Empty line
         });
+
+        test("should not skip brackets at start of word with w", async ({
+            page,
+        }) => {
+            const textarea = page.locator("textarea");
+            await textarea.click();
+            await textarea.fill("foo (bar");
+            await textarea.press("Escape");
+
+            await textarea.evaluate((el: HTMLTextAreaElement) => {
+                el.selectionStart = 0;
+                el.selectionEnd = 0;
+            });
+
+            // From "f" in "foo"
+            await textarea.press("w");
+
+            let pos = await textarea.evaluate(
+                (el: HTMLTextAreaElement) => el.selectionStart,
+            );
+            expect(pos).toBe(4); // Should be on "(" not skip it
+
+            // From "(" - should move to "b"
+            await textarea.press("w");
+
+            pos = await textarea.evaluate(
+                (el: HTMLTextAreaElement) => el.selectionStart,
+            );
+            expect(pos).toBe(5); // Should be on "b" in "bar"
+        });
+
+        test("should not skip brackets with w (bracket at word start)", async ({
+            page,
+        }) => {
+            const textarea = page.locator("textarea");
+            await textarea.click();
+            await textarea.fill("foo [bar");
+            await textarea.press("Escape");
+
+            await textarea.evaluate((el: HTMLTextAreaElement) => {
+                el.selectionStart = 0;
+                el.selectionEnd = 0;
+            });
+
+            await textarea.press("w");
+
+            const pos = await textarea.evaluate(
+                (el: HTMLTextAreaElement) => el.selectionStart,
+            );
+            expect(pos).toBe(4); // Should be on "[" not skip it
+        });
     });
 
     test.describe("Delete Operations", () => {
