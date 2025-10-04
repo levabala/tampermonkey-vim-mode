@@ -135,153 +135,153 @@ test.describe("Nvim Parity Tests", () => {
 
     // Test cases for basic motions and operations
     const testCases: VimTestCase[] = [
-        // Basic single-character motions
+        // Basic single-character motions (verified by deleting char at cursor)
         {
             description: "l should move right",
             input: "hello",
-            keystrokes: "l",
+            keystrokes: "lx",
         },
         {
             description: "h should move left",
             input: "hello",
-            keystrokes: "llh",
+            keystrokes: "llhx",
         },
         {
             description: "0 should move to start of line",
             input: "hello world",
-            keystrokes: "lllll0",
+            keystrokes: "lllll0x",
         },
         {
             description: "$ should move to end of line",
             input: "hello",
-            keystrokes: "$",
+            keystrokes: "$x",
         },
 
-        // Vertical motions
+        // Vertical motions (verified by deleting char at cursor)
         {
             description: "j should move down",
             input: "line1\nline2\nline3",
-            keystrokes: "j",
+            keystrokes: "jx",
         },
         {
             description: "k should move up",
             input: "line1\nline2\nline3",
-            keystrokes: "jjk",
+            keystrokes: "jjkx",
         },
         {
             description: "gg should move to first line",
             input: "line1\nline2\nline3",
-            keystrokes: "$jjgg",
+            keystrokes: "$jjggx",
         },
         {
             description: "G should move to last line",
             input: "line1\nline2\nline3",
-            keystrokes: "G",
+            keystrokes: "Gx",
         },
 
-        // Word motions
+        // Word motions (verified by deleting char at cursor)
         {
             description: "w should move to next word",
             input: "hello world",
-            keystrokes: "w",
+            keystrokes: "wx",
         },
         {
             description: "w with multiple words",
             input: "one two three",
-            keystrokes: "ww",
+            keystrokes: "wwx",
         },
         {
             description: "w at end of line",
             input: "hello",
-            keystrokes: "wwwww",
+            keystrokes: "wwwwwx",
         },
         {
             description: "w should not skip brackets",
             input: "foo (bar",
-            keystrokes: "ww",
+            keystrokes: "wwx",
         },
 
-        // b - move backward by word
+        // b - move backward by word (verified by deleting char at cursor)
         {
             description: "b should move to previous word",
             input: "hello world",
-            keystrokes: "llllllb",
+            keystrokes: "llllllbx",
         },
         {
             description: "b with multiple words",
             input: "one two three",
-            keystrokes: "llllllllllllbb",
+            keystrokes: "llllllllllllbbx",
         },
         {
             description: "b should move backward by word",
             input: "hello world test",
-            keystrokes: "$bb",
+            keystrokes: "$bbx",
         },
 
-        // e - move to end of word
+        // e - move to end of word (verified by deleting char at cursor)
         {
             description: "e should move to end of word",
             input: "hello world",
-            keystrokes: "e",
+            keystrokes: "ex",
         },
         {
             description: "e with multiple words",
             input: "one two three",
-            keystrokes: "ee",
+            keystrokes: "eex",
         },
 
-        // WORD motions (whitespace-separated)
+        // WORD motions (whitespace-separated, verified by deleting char at cursor)
         {
             description: "W should move forward by WORD",
             input: "hello-world test.123 foo",
-            keystrokes: "W",
+            keystrokes: "Wx",
         },
         {
             description: "B should move backward by WORD",
             input: "hello-world test.123 foo",
-            keystrokes: "$B",
+            keystrokes: "$Bx",
         },
         {
             description: "E should move to end of WORD",
             input: "hello-world test.123",
-            keystrokes: "E",
+            keystrokes: "Ex",
         },
 
-        // Find motions
+        // Find motions (verified by deleting char at cursor)
         {
             description: "f should find character forward",
             input: "hello world",
-            keystrokes: "fw",
+            keystrokes: "fwx",
         },
         {
             description: "F should find character backward",
             input: "hello world",
-            keystrokes: "$Fh",
+            keystrokes: "$Fhx",
         },
         {
             description: "t should move before character",
             input: "hello world",
-            keystrokes: "tw",
+            keystrokes: "twx",
         },
         {
             description: "T should move after character backward",
             input: "hello world",
-            keystrokes: "$Th",
+            keystrokes: "$Thx",
         },
         {
             description: "f should find opening bracket",
             input: "hello (world)",
-            keystrokes: "f(",
+            keystrokes: "f(x",
         },
         {
             description: "f should find quote",
             input: 'say "hello"',
-            keystrokes: 'f"',
+            keystrokes: 'f"x',
         },
         {
             description: "f should find punctuation",
             input: "hello. world",
-            keystrokes: "f.",
+            keystrokes: "f.x",
         },
 
         // Delete operations
@@ -383,23 +383,23 @@ test.describe("Nvim Parity Tests", () => {
             keystrokes: "jyyjp",
         },
 
-        // Undo and redo
+        // Undo and redo (delete, undo, then delete at start to verify cursor position)
         {
             description: "u should undo",
             input: "hello",
-            keystrokes: "lxu",
+            keystrokes: "lxu0x",
         },
         {
             description: "Ctrl-r should redo",
             input: "hello",
-            keystrokes: "lxu\x12",
+            keystrokes: "lxu\x12x",
         },
 
-        // Counts
+        // Counts (verified by deleting char at cursor)
         {
             description: "3w should move 3 words forward",
             input: "hello world test",
-            keystrokes: "3w",
+            keystrokes: "3wx",
         },
         {
             description: "3x should delete 3 characters",
@@ -435,6 +435,15 @@ test.describe("Nvim Parity Tests", () => {
                 testCase.input,
                 testCase.keystrokes,
             );
+
+            // Guard: nvim-parity tests must change text (we can't verify cursor-only motions)
+            if (nvimResult.text === testCase.input) {
+                throw new Error(
+                    `Test "${testCase.description}" does not change text. ` +
+                        `Nvim-parity tests can only verify operations that modify text. ` +
+                        `Motion-only tests should be in vim-operations.spec.ts instead.`,
+                );
+            }
 
             // Compare results
             expect(ourResult.text).toBe(nvimResult.text);

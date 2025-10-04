@@ -51,7 +51,7 @@ This is a Tampermonkey userscript that adds Vim-like modal editing to all text i
 
 ## Vim Feature Coverage
 
-Refer to `SPEC.md` for the complete list of supported Vim commands. The implementation covers:
+The implementation covers:
 
 - Basic motions: `h`, `j`, `k`, `l`, `w`, `b`, `e`, `0`, `^`, `$`, `gg`, `G`
 - Advanced motions: `f`, `t`, `%`, `{`, `}`
@@ -84,3 +84,4 @@ This ensures the test actually catches the bug and isn't a false positive.
 - **Version bumping**: When bumping version, update it in `src/setup.ts`, not in `dist/`
 - **Config compatibility**: `TAMPER_VIM_MODE` holds user config - changes must be backwards compatible
 - **Test HTML file**: Use existing `test.html` for manual testing - don't create new test HTML files
+- **Nvim parity testing**: Tests in `e2e/nvim-parity.spec.ts` must verify text changes, not just cursor position. For motion tests, follow the motion with a text-changing operation (like `x` to delete a character) to verify cursor landed in the correct position. The framework includes a guard that fails tests where input text equals output text.
