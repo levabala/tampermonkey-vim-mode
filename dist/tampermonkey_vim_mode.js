@@ -1753,6 +1753,13 @@
   var escapePressed = false;
   var visualStart = null;
   var visualEnd = null;
+  var ESCAPE_KEYS = [
+    { key: "Escape", ctrlKey: false },
+    { key: "[", ctrlKey: true }
+  ];
+  function isEscapeKey(e) {
+    return ESCAPE_KEYS.some((escKey) => e.key === escKey.key && e.ctrlKey === escKey.ctrlKey);
+  }
   function enterInsertMode() {
     debug("enterInsertMode", { from: mode });
     mode = "insert";
@@ -1889,7 +1896,7 @@
             key: event.key,
             ctrl: event.ctrlKey
           });
-          if (event.key === "Escape" || event.ctrlKey && event.key === "[" || event.ctrlKey && (event.key === "e" || event.key === "y" || event.key === "d" || event.key === "u")) {
+          if (isEscapeKey(event) || event.ctrlKey && (event.key === "e" || event.key === "y" || event.key === "d" || event.key === "u")) {
             debug("Special key in onkeydown - calling handleKeyDown");
             event.preventDefault();
             handleKeyDown(event);
@@ -1909,7 +1916,7 @@
             defaultPrevented: kbEvent.defaultPrevented,
             propagationStopped: kbEvent.cancelBubble
           });
-          if (!kbEvent.defaultPrevented && (kbEvent.key === "Escape" || kbEvent.ctrlKey && kbEvent.key === "[" || kbEvent.ctrlKey && (kbEvent.key === "e" || kbEvent.key === "y" || kbEvent.key === "d" || kbEvent.key === "u"))) {
+          if (!kbEvent.defaultPrevented && (isEscapeKey(kbEvent) || kbEvent.ctrlKey && (kbEvent.key === "e" || kbEvent.key === "y" || kbEvent.key === "d" || kbEvent.key === "u"))) {
             debug("DIRECT special key on element - calling handleKeyDown");
             handleKeyDown(kbEvent);
           }
@@ -2005,7 +2012,7 @@
       mode,
       target: e.target.tagName
     });
-    if (e.key === "Escape" || e.ctrlKey && e.key === "[") {
+    if (isEscapeKey(e)) {
       debug("handleKeyDown: ESC/Ctrl-[ pressed", {
         mode,
         eventTarget: e.target,
@@ -2080,7 +2087,7 @@
     debug("Skipping event listener setup - no window/document");
   } else {
     window.addEventListener("keydown", (e) => {
-      if (e.key === "Escape" || e.ctrlKey && e.key === "[") {
+      if (isEscapeKey(e)) {
         debug("GLOBAL ESC/Ctrl-[ keydown detected", {
           key: e.key,
           ctrl: e.ctrlKey,
@@ -2097,7 +2104,7 @@
       }
     }, true);
     window.addEventListener("keyup", (e) => {
-      if (e.key === "Escape" || e.ctrlKey && e.key === "[") {
+      if (isEscapeKey(e)) {
         debug("GLOBAL ESC/Ctrl-[ keyup detected", {
           key: e.key,
           ctrl: e.ctrlKey,
@@ -2107,7 +2114,7 @@
       }
     }, true);
     const testListener = (e) => {
-      if (e.key === "Escape" || e.ctrlKey && e.key === "[") {
+      if (isEscapeKey(e)) {
         debug("RAW ESC/Ctrl-[ DETECTED on document", {
           key: e.key,
           ctrl: e.ctrlKey,
@@ -2121,7 +2128,7 @@
       }
     };
     window.addEventListener("keydown", (e) => {
-      if (e.key === "Escape" || e.ctrlKey && e.key === "[") {
+      if (isEscapeKey(e)) {
         debug("WINDOW ESC/Ctrl-[ listener", {
           key: e.key,
           ctrl: e.ctrlKey,
@@ -2142,7 +2149,7 @@
       }
     }, true);
     document.addEventListener("keydown", (e) => {
-      if (e.key === "Escape" || e.ctrlKey && e.key === "[") {
+      if (isEscapeKey(e)) {
         debug("Secondary ESC/Ctrl-[ listener (bubbling phase)", {
           key: e.key,
           ctrl: e.ctrlKey,

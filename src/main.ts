@@ -38,6 +38,19 @@ let escapePressed = false; // Track if ESC was recently pressed
 let visualStart: number | null = null; // Starting position of visual selection
 let visualEnd: number | null = null; // Current end position of visual selection
 
+// Escape keys - ESC and Ctrl-[
+const ESCAPE_KEYS = [
+    { key: "Escape", ctrlKey: false },
+    { key: "[", ctrlKey: true },
+];
+
+// Helper function to check if a key event is an escape key
+function isEscapeKey(e: KeyboardEvent): boolean {
+    return ESCAPE_KEYS.some(
+        (escKey) => e.key === escKey.key && e.ctrlKey === escKey.ctrlKey,
+    );
+}
+
 // Mode transition functions
 function enterInsertMode(): void {
     debug("enterInsertMode", { from: mode });
@@ -216,8 +229,7 @@ function handleFocus(e: FocusEvent): void {
                 });
                 // Handle ESC/Ctrl-[ and scrolling commands
                 if (
-                    event.key === "Escape" ||
-                    (event.ctrlKey && event.key === "[") ||
+                    isEscapeKey(event) ||
                     (event.ctrlKey &&
                         (event.key === "e" ||
                             event.key === "y" ||
@@ -250,8 +262,7 @@ function handleFocus(e: FocusEvent): void {
                     // Skip if already handled by onkeydown property
                     if (
                         !kbEvent.defaultPrevented &&
-                        (kbEvent.key === "Escape" ||
-                            (kbEvent.ctrlKey && kbEvent.key === "[") ||
+                        (isEscapeKey(kbEvent) ||
                             (kbEvent.ctrlKey &&
                                 (kbEvent.key === "e" ||
                                     kbEvent.key === "y" ||
@@ -398,7 +409,7 @@ function handleKeyDown(e: KeyboardEvent): void {
     });
 
     // Handle ESC/Ctrl-[ early to prevent default blur behavior
-    if (e.key === "Escape" || (e.ctrlKey && e.key === "[")) {
+    if (isEscapeKey(e)) {
         debug("handleKeyDown: ESC/Ctrl-[ pressed", {
             mode,
             eventTarget: e.target,
@@ -499,7 +510,7 @@ if (typeof window === "undefined" || typeof document === "undefined") {
     window.addEventListener(
         "keydown",
         (e: KeyboardEvent) => {
-            if (e.key === "Escape" || (e.ctrlKey && e.key === "[")) {
+            if (isEscapeKey(e)) {
                 debug("GLOBAL ESC/Ctrl-[ keydown detected", {
                     key: e.key,
                     ctrl: e.ctrlKey,
@@ -523,7 +534,7 @@ if (typeof window === "undefined" || typeof document === "undefined") {
     window.addEventListener(
         "keyup",
         (e: KeyboardEvent) => {
-            if (e.key === "Escape" || (e.ctrlKey && e.key === "[")) {
+            if (isEscapeKey(e)) {
                 debug("GLOBAL ESC/Ctrl-[ keyup detected", {
                     key: e.key,
                     ctrl: e.ctrlKey,
@@ -537,7 +548,7 @@ if (typeof window === "undefined" || typeof document === "undefined") {
 
     // Test if event listeners work at all
     const testListener = (e: KeyboardEvent) => {
-        if (e.key === "Escape" || (e.ctrlKey && e.key === "[")) {
+        if (isEscapeKey(e)) {
             debug("RAW ESC/Ctrl-[ DETECTED on document", {
                 key: e.key,
                 ctrl: e.ctrlKey,
@@ -555,7 +566,7 @@ if (typeof window === "undefined" || typeof document === "undefined") {
     window.addEventListener(
         "keydown",
         (e: KeyboardEvent) => {
-            if (e.key === "Escape" || (e.ctrlKey && e.key === "[")) {
+            if (isEscapeKey(e)) {
                 debug("WINDOW ESC/Ctrl-[ listener", {
                     key: e.key,
                     ctrl: e.ctrlKey,
@@ -593,7 +604,7 @@ if (typeof window === "undefined" || typeof document === "undefined") {
     document.addEventListener(
         "keydown",
         (e: KeyboardEvent) => {
-            if (e.key === "Escape" || (e.ctrlKey && e.key === "[")) {
+            if (isEscapeKey(e)) {
                 debug("Secondary ESC/Ctrl-[ listener (bubbling phase)", {
                     key: e.key,
                     ctrl: e.ctrlKey,
