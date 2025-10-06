@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Vim Mode for Text Inputs
 // @namespace    http://tampermonkey.net/
-// @version      1.0.74
+// @version      1.0.75
 // @description  Vim-like editing for textareas and inputs
 // @match        *://*/*
 // @updateURL    https://raw.githubusercontent.com/levabala/tampermonkey-vim-mode/refs/heads/main/dist/tampermonkey_vim_mode.js
@@ -133,8 +133,7 @@ if (typeof document !== "undefined") {
         bottom: 10px;
         left: 10px;
         padding: 8px 16px;
-        padding-bottom: 16px;
-        background: rgba(0, 0, 0, 0.85);
+        background: rgba(0, 0, 0, 0.5);
         color: white;
         font-family: monospace;
         font-size: 14px;
@@ -151,8 +150,8 @@ if (typeof document !== "undefined") {
     versionLabel.textContent = `v${version}`;
     versionLabel.style.cssText = `
         position: absolute;
-        bottom: 2px;
-        left: 4px;
+        top: -10px;
+        right: 4px;
         font-size: 8px;
         font-weight: normal;
         opacity: 0.6;
@@ -181,19 +180,19 @@ export function updateIndicator(
     switch (mode) {
         case "insert":
             text = "-- INSERT --";
-            color = "rgba(0, 100, 0, 0.85)";
+            color = "rgba(0, 100, 0, 0.5)";
             break;
         case "visual":
             text = "-- VISUAL --";
-            color = "rgba(100, 100, 0, 0.85)";
+            color = "rgba(100, 100, 0, 0.5)";
             break;
         case "visual-line":
             text = "-- VISUAL LINE --";
-            color = "rgba(100, 100, 0, 0.85)";
+            color = "rgba(100, 100, 0, 0.5)";
             break;
         default:
             text = "-- NORMAL --";
-            color = "rgba(0, 0, 0, 0.85)";
+            color = "rgba(0, 0, 0, 0.5)";
     }
     modeText.textContent = text;
     indicator.style.background = color;
