@@ -87,3 +87,4 @@ This ensures the test actually catches the bug and isn't a false positive.
 - **Nvim parity testing**: Tests in `e2e/nvim-parity.spec.ts` must verify text changes, not just cursor position. For motion tests, follow the motion with a text-changing operation (like `x` to delete a character) to verify cursor landed in the correct position. The framework includes a guard that fails tests where input text equals output text.
 - call tests only with existing "bun run" commands (you can add more args to them)
 - all the custom temporary scripts/shell commands must be run with a timeout
+- you must run build before e2e tests

@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Vim Mode for Text Inputs
 // @namespace    http://tampermonkey.net/
-// @version      1.0.75
+// @version      1.0.76
 // @description  Vim-like editing for textareas and inputs
 // @match        *://*/*
 // @updateURL    https://raw.githubusercontent.com/levabala/tampermonkey-vim-mode/refs/heads/main/dist/tampermonkey_vim_mode.js
@@ -150,8 +150,8 @@ if (typeof document !== "undefined") {
     versionLabel.textContent = `v${version}`;
     versionLabel.style.cssText = `
         position: absolute;
-        top: -10px;
-        right: 4px;
+        bottom: 2px;
+        left: 4px;
         font-size: 8px;
         font-weight: normal;
         opacity: 0.6;
