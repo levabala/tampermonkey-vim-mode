@@ -13,7 +13,7 @@ test.describe("Line Numbers Column Alignment", () => {
     test("should render line numbers column with proper alignment", async ({
         page,
     }) => {
-        const textarea = page.locator("textarea");
+        const textarea = page.locator("#large-textarea");
 
         // Click to focus and enter normal mode
         await textarea.click();
@@ -40,7 +40,7 @@ test.describe("Line Numbers Column Alignment", () => {
     });
 
     test("should maintain alignment with wrapped text", async ({ page }) => {
-        const textarea = page.locator("textarea");
+        const textarea = page.locator("#large-textarea");
 
         // Click and enter normal mode
         await textarea.click();
@@ -78,7 +78,7 @@ test.describe("Line Numbers Column Alignment", () => {
     });
 
     test("should show correct number of lines", async ({ page }) => {
-        const textarea = page.locator("textarea");
+        const textarea = page.locator("#large-textarea");
 
         // Click and enter normal mode
         await textarea.click();
@@ -101,7 +101,7 @@ test.describe("Line Numbers Column Alignment", () => {
     });
 
     test("should highlight current line correctly", async ({ page }) => {
-        const textarea = page.locator("textarea");
+        const textarea = page.locator("#large-textarea");
 
         // Click and enter normal mode
         await textarea.click();
@@ -121,7 +121,7 @@ test.describe("Line Numbers Column Alignment", () => {
     });
 
     test("should sync scroll with textarea", async ({ page }) => {
-        const textarea = page.locator("textarea");
+        const textarea = page.locator("#large-textarea");
 
         // Click and enter normal mode
         await textarea.click();
@@ -167,7 +167,7 @@ test.describe("Line Numbers Column Alignment", () => {
         await page.reload();
         await page.waitForTimeout(500);
 
-        const textarea = page.locator("textarea");
+        const textarea = page.locator("#large-textarea");
 
         // Click and enter normal mode
         await textarea.click();

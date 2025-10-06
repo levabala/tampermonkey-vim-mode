@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Vim Mode for Text Inputs
 // @namespace    http://tampermonkey.net/
-// @version      1.0.78
+// @version      1.0.79
 // @description  Vim-like editing for textareas and inputs
 // @match        *://*/*
 // @updateURL    https://raw.githubusercontent.com/levabala/tampermonkey-vim-mode/refs/heads/main/dist/tampermonkey_vim_mode.js
@@ -363,6 +363,10 @@
             }
             render(input, currentLine, totalLines) {
                 if (!TAMPER_VIM_MODE.showLineNumbers) {
+                    this.hide();
+                    return;
+                }
+                if (totalLines <= 5) {
                     this.hide();
                     return;
                 }

@@ -88,7 +88,7 @@ async function runInOurImplementation(
     input: string,
     keystrokes: string,
 ): Promise<{ text: string; cursorPos: number }> {
-    const textarea = page.locator("textarea");
+    const textarea = page.locator("#large-textarea");
     await textarea.click();
     await textarea.fill(input);
 

@@ -11,7 +11,7 @@ test.describe("Line Number Highlight Movement", () => {
     test("should move row highlight when caret moves between lines", async ({
         page,
     }) => {
-        const textarea = page.locator("textarea");
+        const textarea = page.locator("#large-textarea");
 
         // Enter normal mode
         await textarea.click();
@@ -62,7 +62,7 @@ test.describe("Line Number Highlight Movement", () => {
     test("should move row highlight when using j/k navigation", async ({
         page,
     }) => {
-        const textarea = page.locator("textarea");
+        const textarea = page.locator("#large-textarea");
 
         // Enter normal mode
         await textarea.click();

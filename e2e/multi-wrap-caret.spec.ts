@@ -11,7 +11,7 @@ test.describe("Multi-Wrap Line Caret Position", () => {
     test("should correctly position caret across multi-wrap lines", async ({
         page,
     }) => {
-        const textarea = page.locator("textarea");
+        const textarea = page.locator("#large-textarea");
 
         // Click into textarea and enter normal mode
         await textarea.click();
@@ -98,7 +98,7 @@ test.describe("Multi-Wrap Line Caret Position", () => {
                         document.body.removeChild(mirror);
                     }
                 },
-                { textareaSelector: "textarea", index: charIndex },
+                { textareaSelector: "#large-textarea", index: charIndex },
             );
         };
 
@@ -106,7 +106,7 @@ test.describe("Multi-Wrap Line Caret Position", () => {
         const getCaretPosition = async () => {
             return await page.evaluate(() => {
                 const textarea = document.querySelector(
-                    "textarea",
+                    "#large-textarea",
                 ) as HTMLTextAreaElement;
                 const caret = document.querySelector(
                     'div[style*="mix-blend-mode: difference"][style*="position: absolute"]',
@@ -145,7 +145,7 @@ test.describe("Multi-Wrap Line Caret Position", () => {
         // Get padding once to adjust mirror coordinates
         const padding = await page.evaluate(() => {
             const textarea = document.querySelector(
-                "textarea",
+                "#large-textarea",
             ) as HTMLTextAreaElement;
             const computed = window.getComputedStyle(textarea);
             return {

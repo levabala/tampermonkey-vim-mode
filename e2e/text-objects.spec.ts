@@ -11,7 +11,7 @@ test.describe("Text Objects with Pairs", () => {
     });
 
     test("should delete inside parentheses with di(", async ({ page }) => {
-        const textarea = page.locator("textarea");
+        const textarea = page.locator("#large-textarea");
         await textarea.click();
 
         // Set initial content
@@ -34,7 +34,7 @@ test.describe("Text Objects with Pairs", () => {
     });
 
     test("should delete around parentheses with da)", async ({ page }) => {
-        const textarea = page.locator("textarea");
+        const textarea = page.locator("#large-textarea");
         await textarea.click();
 
         await textarea.fill("foo(bar)baz");
@@ -54,7 +54,7 @@ test.describe("Text Objects with Pairs", () => {
     });
 
     test("should change inside braces with ci{", async ({ page }) => {
-        const textarea = page.locator("textarea");
+        const textarea = page.locator("#large-textarea");
         await textarea.click();
 
         await textarea.fill("foo{bar}baz");
@@ -80,7 +80,7 @@ test.describe("Text Objects with Pairs", () => {
     });
 
     test("should delete inside angle brackets with di<", async ({ page }) => {
-        const textarea = page.locator("textarea");
+        const textarea = page.locator("#large-textarea");
         await textarea.click();
 
         await textarea.fill("foo<bar>baz");
@@ -100,7 +100,7 @@ test.describe("Text Objects with Pairs", () => {
     });
 
     test("should delete inside brackets with di]", async ({ page }) => {
-        const textarea = page.locator("textarea");
+        const textarea = page.locator("#large-textarea");
         await textarea.click();
 
         await textarea.fill("foo[bar]baz");
@@ -120,7 +120,7 @@ test.describe("Text Objects with Pairs", () => {
     });
 
     test('should yank inside quotes with yi" and paste', async ({ page }) => {
-        const textarea = page.locator("textarea");
+        const textarea = page.locator("#large-textarea");
         await textarea.click();
 
         await textarea.fill('foo"bar"baz');
@@ -147,7 +147,7 @@ test.describe("Text Objects with Pairs", () => {
     test("should visual select inside parentheses with vi( and delete", async ({
         page,
     }) => {
-        const textarea = page.locator("textarea");
+        const textarea = page.locator("#large-textarea");
         await textarea.click();
 
         await textarea.fill("foo(bar)baz");
@@ -171,7 +171,7 @@ test.describe("Text Objects with Pairs", () => {
     });
 
     test("should handle multiword content in parentheses", async ({ page }) => {
-        const textarea = page.locator("textarea");
+        const textarea = page.locator("#large-textarea");
         await textarea.click();
 
         await textarea.fill("test(hello world there)end");
@@ -192,7 +192,7 @@ test.describe("Text Objects with Pairs", () => {
     });
 
     test("should handle nested parentheses", async ({ page }) => {
-        const textarea = page.locator("textarea");
+        const textarea = page.locator("#large-textarea");
         await textarea.click();
 
         await textarea.fill("outer(inner(deep))end");
@@ -213,7 +213,7 @@ test.describe("Text Objects with Pairs", () => {
     });
 
     test("should handle multiline content in parentheses", async ({ page }) => {
-        const textarea = page.locator("textarea");
+        const textarea = page.locator("#large-textarea");
         await textarea.click();
 
         await textarea.fill("before(line1\nline2\nline3)after");

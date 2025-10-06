@@ -11,7 +11,7 @@ test.describe("Cursor Position with Mirror Element", () => {
     test("should match real character positions across first 5 lines", async ({
         page,
     }) => {
-        const textarea = page.locator("textarea");
+        const textarea = page.locator("#large-textarea");
 
         // Click into textarea and enter normal mode
         await textarea.click();
@@ -101,7 +101,7 @@ test.describe("Cursor Position with Mirror Element", () => {
                         document.body.removeChild(mirror);
                     }
                 },
-                { textareaSelector: "textarea", index: charIndex },
+                { textareaSelector: "#large-textarea", index: charIndex },
             );
         };
 
@@ -109,7 +109,7 @@ test.describe("Cursor Position with Mirror Element", () => {
         const getCaretPosition = async () => {
             return await page.evaluate(() => {
                 const textarea = document.querySelector(
-                    "textarea",
+                    "#large-textarea",
                 ) as HTMLTextAreaElement;
                 const caret = document.querySelector(
                     'div[style*="mix-blend-mode: difference"][style*="position: absolute"]',

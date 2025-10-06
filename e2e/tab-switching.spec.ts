@@ -12,7 +12,7 @@ test.describe("Tab switching behavior", () => {
         page,
         context,
     }) => {
-        const textarea = page.locator("textarea").first();
+        const textarea = page.locator("#large-textarea");
         await textarea.fill("Hello world\nSecond line");
 
         // Focus and enter normal mode
@@ -51,7 +51,7 @@ test.describe("Tab switching behavior", () => {
         page,
         context,
     }) => {
-        const textarea = page.locator("textarea").first();
+        const textarea = page.locator("#large-textarea");
         await textarea.fill("Hello world\nSecond line");
 
         // Focus and enter normal mode

@@ -275,6 +275,12 @@ export class DOMLineNumbersRenderer implements LineNumbersRenderer {
             return;
         }
 
+        // Don't show line numbers for textareas with 5 or fewer lines
+        if (totalLines <= 5) {
+            this.hide();
+            return;
+        }
+
         debug("DOMLineNumbersRenderer.render", {
             currentLine,
             totalLines,

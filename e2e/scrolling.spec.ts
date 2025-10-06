@@ -13,7 +13,7 @@ test.describe("Scrolling Commands", () => {
     test("should scroll down one line with Ctrl-e in insert mode", async ({
         page,
     }) => {
-        const textarea = page.locator("textarea");
+        const textarea = page.locator("#large-textarea");
 
         // Click to focus
         await textarea.click();
@@ -39,7 +39,7 @@ test.describe("Scrolling Commands", () => {
     test("should scroll up one line with Ctrl-y in insert mode", async ({
         page,
     }) => {
-        const textarea = page.locator("textarea");
+        const textarea = page.locator("#large-textarea");
 
         // Click to focus
         await textarea.click();
@@ -69,7 +69,7 @@ test.describe("Scrolling Commands", () => {
     test("should scroll down half page with Ctrl-d in insert mode", async ({
         page,
     }) => {
-        const textarea = page.locator("textarea");
+        const textarea = page.locator("#large-textarea");
 
         // Click to focus
         await textarea.click();
@@ -93,7 +93,7 @@ test.describe("Scrolling Commands", () => {
     test("should scroll up half page with Ctrl-u in insert mode", async ({
         page,
     }) => {
-        const textarea = page.locator("textarea");
+        const textarea = page.locator("#large-textarea");
 
         // Click to focus
         await textarea.click();
@@ -123,7 +123,7 @@ test.describe("Scrolling Commands", () => {
     test("should scroll down one line with Ctrl-e in normal mode", async ({
         page,
     }) => {
-        const textarea = page.locator("textarea");
+        const textarea = page.locator("#large-textarea");
 
         // Click to focus
         await textarea.click();
@@ -151,7 +151,7 @@ test.describe("Scrolling Commands", () => {
     test("should scroll down half page with Ctrl-d in normal mode", async ({
         page,
     }) => {
-        const textarea = page.locator("textarea");
+        const textarea = page.locator("#large-textarea");
 
         // Click to focus
         await textarea.click();
@@ -179,7 +179,7 @@ test.describe("Scrolling Commands", () => {
     test("should scroll window when textarea reaches bottom", async ({
         page,
     }) => {
-        const textarea = page.locator("textarea");
+        const textarea = page.locator("#large-textarea");
 
         // Click to focus
         await textarea.click();
@@ -215,7 +215,7 @@ test.describe("Scrolling Commands", () => {
     });
 
     test("should scroll window when textarea reaches top", async ({ page }) => {
-        const textarea = page.locator("textarea");
+        const textarea = page.locator("#large-textarea");
 
         // Click to focus
         await textarea.click();

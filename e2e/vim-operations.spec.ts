@@ -12,7 +12,7 @@ test.describe("Vim Operations", () => {
         test("should remember column when moving through empty lines", async ({
             page,
         }) => {
-            const textarea = page.locator("textarea");
+            const textarea = page.locator("#large-textarea");
             await textarea.click();
             await textarea.fill("hello\n\nworld");
             await textarea.press("Escape");
@@ -32,7 +32,7 @@ test.describe("Vim Operations", () => {
         });
 
         test("should handle w motion on empty lines", async ({ page }) => {
-            const textarea = page.locator("textarea");
+            const textarea = page.locator("#large-textarea");
             await textarea.click();
             await textarea.fill("word\n\ntest");
             await textarea.press("Escape");
@@ -53,7 +53,7 @@ test.describe("Vim Operations", () => {
         test("should not skip brackets at start of word with w", async ({
             page,
         }) => {
-            const textarea = page.locator("textarea");
+            const textarea = page.locator("#large-textarea");
             await textarea.click();
             await textarea.fill("foo (bar");
             await textarea.press("Escape");
@@ -83,7 +83,7 @@ test.describe("Vim Operations", () => {
         test("should not skip brackets with w (bracket at word start)", async ({
             page,
         }) => {
-            const textarea = page.locator("textarea");
+            const textarea = page.locator("#large-textarea");
             await textarea.click();
             await textarea.fill("foo [bar");
             await textarea.press("Escape");
@@ -104,7 +104,7 @@ test.describe("Vim Operations", () => {
 
     test.describe("Delete Operations", () => {
         test("should delete line with dd", async ({ page }) => {
-            const textarea = page.locator("textarea");
+            const textarea = page.locator("#large-textarea");
             await textarea.click();
             await textarea.fill("line1\nline2\nline3");
             await textarea.press("Escape");
@@ -122,7 +122,7 @@ test.describe("Vim Operations", () => {
         });
 
         test("should delete empty line with dd", async ({ page }) => {
-            const textarea = page.locator("textarea");
+            const textarea = page.locator("#large-textarea");
             await textarea.click();
             await textarea.fill("line1\n\nline3");
             await textarea.press("Escape");
@@ -142,7 +142,7 @@ test.describe("Vim Operations", () => {
 
     test.describe("Change Operations", () => {
         test("should change word with cw", async ({ page }) => {
-            const textarea = page.locator("textarea");
+            const textarea = page.locator("#large-textarea");
             await textarea.click();
             await textarea.fill("hello world");
             await textarea.press("Escape");
@@ -167,7 +167,7 @@ test.describe("Vim Operations", () => {
 
     test.describe("Yank and Paste", () => {
         test("should paste line-wise with p after yy", async ({ page }) => {
-            const textarea = page.locator("textarea");
+            const textarea = page.locator("#large-textarea");
             await textarea.click();
             await textarea.fill("line1\nline2\nline3");
             await textarea.press("Escape");
@@ -187,7 +187,7 @@ test.describe("Vim Operations", () => {
         });
 
         test("should paste character-wise after yw", async ({ page }) => {
-            const textarea = page.locator("textarea");
+            const textarea = page.locator("#large-textarea");
             await textarea.click();
             await textarea.fill("hello world");
             await textarea.press("Escape");
@@ -209,7 +209,7 @@ test.describe("Vim Operations", () => {
 
     test.describe("Insert Commands", () => {
         test("should enter insert mode with i", async ({ page }) => {
-            const textarea = page.locator("textarea");
+            const textarea = page.locator("#large-textarea");
             await textarea.click();
             await textarea.fill("hello");
             await textarea.press("Escape");
@@ -227,7 +227,7 @@ test.describe("Vim Operations", () => {
         });
 
         test("should append with a", async ({ page }) => {
-            const textarea = page.locator("textarea");
+            const textarea = page.locator("#large-textarea");
             await textarea.click();
             await textarea.fill("hello");
             await textarea.press("Escape");
@@ -249,7 +249,7 @@ test.describe("Vim Operations", () => {
         test("should enter visual mode with v and delete selection", async ({
             page,
         }) => {
-            const textarea = page.locator("textarea");
+            const textarea = page.locator("#large-textarea");
             await textarea.click();
             await textarea.fill("hello world");
             await textarea.press("Escape");
@@ -271,7 +271,7 @@ test.describe("Vim Operations", () => {
         });
 
         test("should yank in visual mode", async ({ page }) => {
-            const textarea = page.locator("textarea");
+            const textarea = page.locator("#large-textarea");
             await textarea.click();
             await textarea.fill("hello world");
             await textarea.press("Escape");
@@ -295,7 +295,7 @@ test.describe("Vim Operations", () => {
         });
 
         test('should select inside quotes with vi"', async ({ page }) => {
-            const textarea = page.locator("textarea");
+            const textarea = page.locator("#large-textarea");
             await textarea.click();
             await textarea.fill('say "hello world"');
             await textarea.press("Escape");
@@ -320,7 +320,7 @@ test.describe("Vim Operations", () => {
 
     test.describe("Visual Line Mode", () => {
         test("should enter visual line mode with V", async ({ page }) => {
-            const textarea = page.locator("textarea");
+            const textarea = page.locator("#large-textarea");
             await textarea.click();
             await textarea.fill("line1\nline2\nline3");
             await textarea.press("Escape");
@@ -338,7 +338,7 @@ test.describe("Vim Operations", () => {
         });
 
         test("should select multiple lines with V and j", async ({ page }) => {
-            const textarea = page.locator("textarea");
+            const textarea = page.locator("#large-textarea");
             await textarea.click();
             await textarea.fill("line1\nline2\nline3");
             await textarea.press("Escape");
@@ -357,7 +357,7 @@ test.describe("Vim Operations", () => {
         });
 
         test("should yank line with V and y", async ({ page }) => {
-            const textarea = page.locator("textarea");
+            const textarea = page.locator("#large-textarea");
             await textarea.click();
             await textarea.fill("line1\nline2\nline3");
             await textarea.press("Escape");
@@ -379,7 +379,7 @@ test.describe("Vim Operations", () => {
 
     test.describe("Visual Mode with Find Motions", () => {
         test("should use f in visual mode", async ({ page }) => {
-            const textarea = page.locator("textarea");
+            const textarea = page.locator("#large-textarea");
             await textarea.click();
             await textarea.fill("hello world");
             await textarea.press("Escape");
@@ -399,7 +399,7 @@ test.describe("Vim Operations", () => {
         });
 
         test("should use t in visual mode", async ({ page }) => {
-            const textarea = page.locator("textarea");
+            const textarea = page.locator("#large-textarea");
             await textarea.click();
             await textarea.fill("hello world");
             await textarea.press("Escape");
@@ -421,7 +421,7 @@ test.describe("Vim Operations", () => {
 
     test.describe("Mode Switching", () => {
         test("should exit insert mode with Ctrl-[", async ({ page }) => {
-            const textarea = page.locator("textarea");
+            const textarea = page.locator("#large-textarea");
             await textarea.click();
             await textarea.fill("hello");
             await textarea.press("Escape");
@@ -443,7 +443,7 @@ test.describe("Vim Operations", () => {
         });
 
         test("should exit visual mode with Escape", async ({ page }) => {
-            const textarea = page.locator("textarea");
+            const textarea = page.locator("#large-textarea");
             await textarea.click();
             await textarea.fill("hello world");
             await textarea.press("Escape");
@@ -466,7 +466,7 @@ test.describe("Vim Operations", () => {
         });
 
         test("should maintain mode after focus and blur", async ({ page }) => {
-            const textarea = page.locator("textarea");
+            const textarea = page.locator("#large-textarea");
             await textarea.click();
             await textarea.fill("hello");
             await textarea.press("Escape");
@@ -489,7 +489,7 @@ test.describe("Vim Operations", () => {
 
     test.describe("Text Objects", () => {
         test("should change inside brackets with ci[", async ({ page }) => {
-            const textarea = page.locator("textarea");
+            const textarea = page.locator("#large-textarea");
             await textarea.click();
             await textarea.fill("array[index]");
             await textarea.press("Escape");
@@ -509,7 +509,7 @@ test.describe("Vim Operations", () => {
         });
 
         test("should yank inside braces with yi{", async ({ page }) => {
-            const textarea = page.locator("textarea");
+            const textarea = page.locator("#large-textarea");
             await textarea.click();
             await textarea.fill("func {body}");
             await textarea.press("Escape");
@@ -533,7 +533,7 @@ test.describe("Vim Operations", () => {
         test('should delete inside double quotes with di"', async ({
             page,
         }) => {
-            const textarea = page.locator("textarea");
+            const textarea = page.locator("#large-textarea");
             await textarea.click();
             await textarea.fill('say "hello world"');
             await textarea.press("Escape");
@@ -554,7 +554,7 @@ test.describe("Vim Operations", () => {
         test("should delete inside single quotes with di'", async ({
             page,
         }) => {
-            const textarea = page.locator("textarea");
+            const textarea = page.locator("#large-textarea");
             await textarea.click();
             await textarea.fill("say 'hello'");
             await textarea.press("Escape");
@@ -573,7 +573,7 @@ test.describe("Vim Operations", () => {
         });
 
         test("should delete inside backticks with di`", async ({ page }) => {
-            const textarea = page.locator("textarea");
+            const textarea = page.locator("#large-textarea");
             await textarea.click();
             await textarea.fill("cmd `ls -la`");
             await textarea.press("Escape");
@@ -594,7 +594,7 @@ test.describe("Vim Operations", () => {
         test("should delete inside angle brackets with di<", async ({
             page,
         }) => {
-            const textarea = page.locator("textarea");
+            const textarea = page.locator("#large-textarea");
             await textarea.click();
             await textarea.fill("tag <content>");
             await textarea.press("Escape");
@@ -613,7 +613,7 @@ test.describe("Vim Operations", () => {
         });
 
         test("should handle multiline text objects", async ({ page }) => {
-            const textarea = page.locator("textarea");
+            const textarea = page.locator("#large-textarea");
             await textarea.click();
             await textarea.fill("func {\n  line1\n  line2\n}");
             await textarea.press("Escape");

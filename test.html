@@ -22,6 +22,9 @@
                 padding: 10px;
                 overflow: auto;
             }
+            textarea.small {
+                height: 100px; /* Small textarea with few lines */
+            }
             .instructions {
                 background: #f0f0f0;
                 padding: 15px;
@@ -72,8 +75,18 @@
             </p>
         </div>
 
+        <h3>Small Textarea (5 lines or less - no line numbers)</h3>
+        <textarea id="small-textarea" class="small">
+Line 1
+Line 2
+Line 3
+Line 4
+Line 5</textarea
+        >
+
+        <h3>Large Textarea (line numbers should appear)</h3>
         <div class="container">
-            <textarea>
+            <textarea id="large-textarea">
 TEXT OBJECTS TEST EXAMPLES:
 Simple: foo(bar)baz and [hello] and {world} and <test> and "quotes" and 'single' and `backticks`
 Multiword: test(hello world there)end and [multiple words here] and {many words inside}after

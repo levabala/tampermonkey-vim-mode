@@ -11,7 +11,7 @@ test.describe("Wrapped Lines Cursor Position", () => {
     test("should not allow cursor to go past last character on wrapped line", async ({
         page,
     }) => {
-        const textarea = page.locator("textarea");
+        const textarea = page.locator("#large-textarea");
 
         // Create a long line that will wrap
         const longLine = "a".repeat(200);
@@ -47,7 +47,7 @@ test.describe("Wrapped Lines Cursor Position", () => {
     test("should correctly navigate wrapped lines with j/k", async ({
         page,
     }) => {
-        const textarea = page.locator("textarea");
+        const textarea = page.locator("#large-textarea");
 
         // Create text with a very long line that wraps multiple times
         const longLine = "a".repeat(300);
@@ -83,7 +83,7 @@ test.describe("Wrapped Lines Cursor Position", () => {
     test("should keep cursor on screen-wrapped line when moving horizontally", async ({
         page,
     }) => {
-        const textarea = page.locator("textarea");
+        const textarea = page.locator("#large-textarea");
 
         // Create a line that wraps at a specific width
         const longLine = "word ".repeat(50); // 250 characters
@@ -131,7 +131,7 @@ test.describe("Wrapped Lines Cursor Position", () => {
     test("should handle custom caret positioning on wrapped lines", async ({
         page,
     }) => {
-        const textarea = page.locator("textarea");
+        const textarea = page.locator("#large-textarea");
 
         // Very long line that definitely wraps
         const longLine = "x".repeat(500);
@@ -166,7 +166,7 @@ test.describe("Wrapped Lines Cursor Position", () => {
     test("should not go past end of wrapped line when typing and deleting", async ({
         page,
     }) => {
-        const textarea = page.locator("textarea");
+        const textarea = page.locator("#large-textarea");
 
         // Create a line and go to end
         await textarea.click();
