@@ -27,32 +27,36 @@ test.describe("Line Number Highlight Movement", () => {
         await page.keyboard.press("G");
         await page.waitForTimeout(100);
 
-        // Check that line 3 is highlighted
+        // Count how many bold spans there are
         let innerHTML = await lineNumbersContainer.innerHTML();
-        const line3HighlightRegex = /<span[^>]*>3<\/span>/;
-        const match3 = innerHTML.match(line3HighlightRegex);
-        expect(match3).toBeTruthy();
-        const line3Span = match3![0];
-        expect(line3Span).toContain("font-weight: bold");
+        let boldSpans = innerHTML.match(/font-weight:\s*bold/g);
+
+        // Expect exactly one bold span
+        expect(boldSpans?.length).toBe(1);
+
+        // Verify it's line 3 that's bold
+        const line3Match = innerHTML.match(
+            /<span[^>]*font-weight:\s*bold[^>]*>\s*3\s*<\/span>/,
+        );
+        expect(line3Match).toBeTruthy();
 
         // Move down to line 7
         await page.keyboard.press("7");
         await page.keyboard.press("G");
         await page.waitForTimeout(100);
 
-        // Check that line 7 is now highlighted and line 3 is not
+        // Check that there's still only one bold span
         innerHTML = await lineNumbersContainer.innerHTML();
-        const line7HighlightRegex = /<span[^>]*>7<\/span>/;
-        const match7 = innerHTML.match(line7HighlightRegex);
-        expect(match7).toBeTruthy();
-        const line7Span = match7![0];
-        expect(line7Span).toContain("font-weight: bold");
+        boldSpans = innerHTML.match(/font-weight:\s*bold/g);
 
-        // Verify line 3 is no longer bold
-        const match3After = innerHTML.match(line3HighlightRegex);
-        expect(match3After).toBeTruthy();
-        const line3SpanAfter = match3After![0];
-        expect(line3SpanAfter).not.toContain("font-weight: bold");
+        // Expect exactly one bold span
+        expect(boldSpans?.length).toBe(1);
+
+        // Verify it's line 7 that's bold
+        const line7Match = innerHTML.match(
+            /<span[^>]*font-weight:\s*bold[^>]*>\s*7\s*<\/span>/,
+        );
+        expect(line7Match).toBeTruthy();
     });
 
     test("should move row highlight when using j/k navigation", async ({
@@ -73,6 +77,11 @@ test.describe("Line Number Highlight Movement", () => {
             'div[data-vim-line-numbers="true"]',
         );
 
+        // Check line 1 is highlighted
+        let innerHTML = await lineNumbersContainer.innerHTML();
+        let boldSpans = innerHTML.match(/font-weight:\s*bold/g);
+        expect(boldSpans?.length).toBe(1);
+
         // Move down 5 times with j
         for (let i = 0; i < 5; i++) {
             await page.keyboard.press("j");
@@ -80,10 +89,14 @@ test.describe("Line Number Highlight Movement", () => {
         }
 
         // Should be on line 6 (started at 1, moved down 5)
-        const innerHTML = await lineNumbersContainer.innerHTML();
-        const line6HighlightRegex = /<span[^>]*>6<\/span>/;
-        const match = innerHTML.match(line6HighlightRegex);
-        expect(match).toBeTruthy();
-        expect(match![0]).toContain("font-weight: bold");
+        innerHTML = await lineNumbersContainer.innerHTML();
+        boldSpans = innerHTML.match(/font-weight:\s*bold/g);
+        expect(boldSpans?.length).toBe(1);
+
+        // Verify it's line 6 that's bold
+        const line6Match = innerHTML.match(
+            /<span[^>]*font-weight:\s*bold[^>]*>\s*6\s*<\/span>/,
+        );
+        expect(line6Match).toBeTruthy();
     });
 });

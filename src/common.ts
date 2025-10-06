@@ -243,72 +243,6 @@ function calculateVisualRows(
     return result;
 }
 
-// Get current visual row using native caret position
-function getCurrentVisualRow(
-    input: EditableElement,
-    visualRowsInfo: ReturnType<typeof calculateVisualRows>,
-): number {
-    const pos = getCursorPos(input);
-    const textBefore = input.value.substring(0, pos);
-    const currentLogicalLine = (textBefore.match(/\n/g) || []).length + 1;
-
-    if (input.tagName !== "TEXTAREA") {
-        // For single-line inputs, find the logical line
-        return visualRowsInfo.findIndex(
-            (r) => r.logicalLine === currentLogicalLine,
-        );
-    }
-
-    // Try to use native caret position via Selection API
-    try {
-        input.focus();
-        input.setSelectionRange(pos, pos);
-
-        const selection = window.getSelection();
-        if (!selection || selection.rangeCount === 0) {
-            throw new Error("No selection available");
-        }
-
-        const range = selection.getRangeAt(0);
-        // Check if getBoundingClientRect is available (not in jsdom)
-        if (typeof range.getBoundingClientRect !== "function") {
-            throw new Error("getBoundingClientRect not available");
-        }
-
-        const caretRect = range.getBoundingClientRect();
-        const inputRect = input.getBoundingClientRect();
-        const computedStyle = window.getComputedStyle(input);
-        const paddingTop = parseFloat(computedStyle.paddingTop);
-        const borderTop = parseFloat(computedStyle.borderTopWidth);
-
-        // Calculate which visual row based on Y position
-        const lineHeight = parseFloat(computedStyle.lineHeight);
-        const fontSize = parseFloat(computedStyle.fontSize);
-        const effectiveLineHeight = isNaN(lineHeight)
-            ? fontSize * 1.2
-            : lineHeight;
-
-        const relativeY =
-            caretRect.top -
-            inputRect.top -
-            paddingTop -
-            borderTop +
-            input.scrollTop;
-        const visualRow = Math.max(
-            0,
-            Math.floor(relativeY / effectiveLineHeight),
-        );
-
-        return Math.min(visualRow, visualRowsInfo.length - 1);
-    } catch {
-        // Fallback: find the first visual row of the current logical line
-        const firstRowIndex = visualRowsInfo.findIndex(
-            (r) => r.logicalLine === currentLogicalLine && r.visualRow === 1,
-        );
-        return firstRowIndex !== -1 ? firstRowIndex : 0;
-    }
-}
-
 // DOM-based line numbers renderer
 export class DOMLineNumbersRenderer implements LineNumbersRenderer {
     private container: HTMLDivElement;
@@ -341,6 +275,12 @@ export class DOMLineNumbersRenderer implements LineNumbersRenderer {
             return;
         }
 
+        debug("DOMLineNumbersRenderer.render", {
+            currentLine,
+            totalLines,
+            cursorPos: getCursorPos(input),
+        });
+
         this.currentInput = input;
         const rect = input.getBoundingClientRect();
         const computedStyle = window.getComputedStyle(input);
@@ -369,14 +309,29 @@ export class DOMLineNumbersRenderer implements LineNumbersRenderer {
 
         // Calculate visual rows (accounting for word wrap)
         const visualRowsInfo = calculateVisualRows(input);
-        const currentVisualRow = getCurrentVisualRow(input, visualRowsInfo);
+
+        // Find the visual row index for the current logical line
+        // We use the currentLine parameter instead of trying to calculate it from cursor position
+        // to avoid interfering with focus and selection
+        const currentVisualRow = visualRowsInfo.findIndex(
+            (r) => r.logicalLine === currentLine && r.visualRow === 1,
+        );
+
+        debug("DOMLineNumbersRenderer visual rows", {
+            visualRowsCount: visualRowsInfo.length,
+            currentVisualRow,
+            currentLine,
+        });
 
         // Generate line numbers for each visual row
         const lines: string[] = [];
         const useRelative = TAMPER_VIM_MODE.relativeLineNumbers;
 
-        // If visual rows calculation failed or is empty, fall back to simple line numbering
-        if (visualRowsInfo.length === 0) {
+        // Use simple line numbering if visual rows calculation failed
+        // OR if we're using simple line-based highlighting
+        const useSimpleMode = visualRowsInfo.length === 0;
+
+        if (useSimpleMode) {
             for (let i = 1; i <= totalLines; i++) {
                 let lineNum: string;
                 if (useRelative) {
@@ -432,27 +387,17 @@ export class DOMLineNumbersRenderer implements LineNumbersRenderer {
             });
         }
 
-        this.container.innerHTML = lines.join("\n");
-
         // Sync scroll position
         if (input.tagName === "TEXTAREA") {
             this.container.style.overflow = "hidden";
-            // Use a wrapper div to handle scrolling
-            const firstChild = this.container.firstChild;
-            if (firstChild && firstChild.nodeType === Node.TEXT_NODE) {
-                // Wrap text in a div to enable translation
-                const wrapper = document.createElement("div");
-                wrapper.innerHTML = this.container.innerHTML;
-                wrapper.style.transform = `translateY(-${input.scrollTop}px)`;
-                this.container.innerHTML = "";
-                this.container.appendChild(wrapper);
-            } else if (
-                firstChild &&
-                firstChild.nodeType === Node.ELEMENT_NODE
-            ) {
-                (firstChild as HTMLElement).style.transform =
-                    `translateY(-${input.scrollTop}px)`;
-            }
+            // Always wrap in a div to handle scrolling and avoid applying transform to individual elements
+            const wrapper = document.createElement("div");
+            wrapper.innerHTML = lines.join("\n");
+            wrapper.style.transform = `translateY(-${input.scrollTop}px)`;
+            this.container.innerHTML = "";
+            this.container.appendChild(wrapper);
+        } else {
+            this.container.innerHTML = lines.join("\n");
         }
     }
 

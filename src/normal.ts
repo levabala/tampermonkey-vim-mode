@@ -170,15 +170,35 @@ export function executeMotion(
                     wantedColumn = offsetG;
                 }
 
-                // Find start of last line
                 const text = currentInput.value;
-                let lastLineStart = text.length;
-                while (lastLineStart > 0 && text[lastLineStart - 1] !== "\n")
-                    lastLineStart--;
+                let targetLineStart: number;
 
-                // Move to last line, same column
-                const lastLine = getLine(currentInput, lastLineStart);
-                pos = Math.min(lastLine.start + wantedColumn, lastLine.end);
+                // If count is specified, go to that line number
+                // Otherwise go to last line
+                if (count > 1) {
+                    // Go to line number specified by count
+                    const lines = text.split("\n");
+                    const targetLineIndex = Math.min(
+                        count - 1,
+                        lines.length - 1,
+                    );
+                    targetLineStart = lines
+                        .slice(0, targetLineIndex)
+                        .join("\n").length;
+                    if (targetLineIndex > 0) targetLineStart += 1; // Account for newline
+                } else {
+                    // Find start of last line
+                    targetLineStart = text.length;
+                    while (
+                        targetLineStart > 0 &&
+                        text[targetLineStart - 1] !== "\n"
+                    )
+                        targetLineStart--;
+                }
+
+                // Move to target line, same column
+                const targetLine = getLine(currentInput, targetLineStart);
+                pos = Math.min(targetLine.start + wantedColumn, targetLine.end);
                 break;
             }
             case "{":
