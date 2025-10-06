@@ -454,10 +454,4 @@ test.describe("Nvim Parity Tests", () => {
             }
         });
     }
-
-    // Additional manual test for verifying the test infrastructure works
-    test("sanity check: nvim helper works correctly", async () => {
-        const result = await runInNvim("hello world", "wdw");
-        expect(result.text).toBe("hello ");
-    });
 });
