@@ -3216,6 +3216,53 @@
                 false,
             );
             window.addEventListener(
+                "keydown",
+                (e) => {
+                    if (!isEscapeKey(e)) return;
+                    if (
+                        currentInput &&
+                        document.activeElement !== currentInput
+                    ) {
+                        debug("Window-level escape fallback triggered", {
+                            currentInput: !!currentInput,
+                            activeElement: document.activeElement?.tagName,
+                            mode,
+                        });
+                        e.preventDefault();
+                        e.stopPropagation();
+                        commandBuffer = "";
+                        countBuffer = "";
+                        operatorPending = null;
+                        removeCustomCaret(currentInput);
+                        removeLineNumbers();
+                        clearVisualSelection();
+                        currentInput = null;
+                        mode = "normal";
+                        updateIndicator(mode, currentInput);
+                    }
+                },
+                true,
+            );
+            window.addEventListener("focus", () => {
+                debug("Window focus event", {
+                    currentInput: !!currentInput,
+                    mode,
+                    activeElement: document.activeElement?.tagName,
+                });
+                if (currentInput && document.activeElement !== currentInput) {
+                    debug("Window focus: clearing stale input state", {
+                        currentInputTag: currentInput.tagName,
+                        activeElementTag: document.activeElement?.tagName,
+                    });
+                    removeCustomCaret(currentInput);
+                    removeLineNumbers();
+                    clearVisualSelection();
+                    currentInput = null;
+                    mode = "normal";
+                    updateIndicator(mode, currentInput);
+                }
+            });
+            window.addEventListener(
                 "scroll",
                 () => {
                     if (currentInput) {

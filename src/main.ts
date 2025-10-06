@@ -714,6 +714,65 @@ if (typeof window === "undefined" || typeof document === "undefined") {
         false,
     );
 
+    // Fallback window-level escape handler
+    // This catches cases where the input has lost focus but mode indicator is still visible
+    window.addEventListener(
+        "keydown",
+        (e: KeyboardEvent) => {
+            if (!isEscapeKey(e)) return;
+
+            // Only act if we have a currentInput but it's not focused
+            // This handles the case where tab switching broke the focus state
+            if (currentInput && document.activeElement !== currentInput) {
+                debug("Window-level escape fallback triggered", {
+                    currentInput: !!currentInput,
+                    activeElement: document.activeElement?.tagName,
+                    mode,
+                });
+
+                e.preventDefault();
+                e.stopPropagation();
+
+                // Clear the stale state
+                commandBuffer = "";
+                countBuffer = "";
+                operatorPending = null;
+                removeCustomCaret(currentInput);
+                removeLineNumbers();
+                clearVisualSelection();
+                currentInput = null;
+                mode = "normal";
+                updateIndicator(mode, currentInput);
+            }
+        },
+        true,
+    );
+
+    // Window focus handler - validate state on tab/window focus
+    window.addEventListener("focus", () => {
+        debug("Window focus event", {
+            currentInput: !!currentInput,
+            mode,
+            activeElement: document.activeElement?.tagName,
+        });
+
+        // Check if we have a stale currentInput that's no longer focused
+        if (currentInput && document.activeElement !== currentInput) {
+            debug("Window focus: clearing stale input state", {
+                currentInputTag: currentInput.tagName,
+                activeElementTag: document.activeElement?.tagName,
+            });
+
+            // Clear the stale state
+            removeCustomCaret(currentInput);
+            removeLineNumbers();
+            clearVisualSelection();
+            currentInput = null;
+            mode = "normal";
+            updateIndicator(mode, currentInput);
+        }
+    });
+
     // Update custom caret and visual selection on scroll and resize
     window.addEventListener(
         "scroll",
