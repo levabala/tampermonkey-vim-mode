@@ -47,6 +47,22 @@ This is a Tampermonkey userscript that adds Vim-like modal editing to all text i
 
 **Testing**: Using Playwright for E2E browser-based integration testing. Test files are in the `e2e/` directory.
 
+**Writing E2E tests**:
+
+- All tests use `file://` protocol (NOT `http://localhost`)
+- Use `test.beforeEach` to load the test page:
+    ```typescript
+    test.beforeEach(async ({ page }) => {
+        const htmlPath = path.join(process.cwd(), "test.html");
+        await page.goto(`file://${htmlPath}`);
+        await page.waitForTimeout(500);
+    });
+    ```
+- The `test.html` file contains a single textarea with pre-filled content
+- To enter normal mode from insert mode: `await textarea.press("Escape")`
+- For multi-page tests (tab switching): use `context.newPage()` and `page.bringToFront()`
+- Always run `bun run build` before running E2E tests
+
 **Deployment**: The built script (`dist/tampermonkey_vim_mode.js`) is distributed via GitHub Gist (see `@updateURL` and `@downloadURL` in the userscript header).
 
 ## Vim Feature Coverage
