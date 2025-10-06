@@ -496,7 +496,10 @@ export function calculateCaretPosition(
         mirror.style.visibility = "hidden";
         mirror.style.whiteSpace = "pre-wrap";
         mirror.style.wordWrap = "break-word";
-        mirror.style.width = `${rect.width}px`;
+        mirror.style.overflowWrap = "break-word";
+
+        // Match the textarea's computed width exactly (includes padding)
+        mirror.style.width = computedStyle.width;
 
         // Copy all relevant styles from input to mirror
         const stylesToCopy = [
@@ -508,6 +511,7 @@ export function calculateCaretPosition(
             "text-transform",
             "word-spacing",
             "text-indent",
+            "line-height",
             "padding-left",
             "padding-top",
             "padding-right",
@@ -532,14 +536,19 @@ export function calculateCaretPosition(
         // Create a span at the cursor position to measure
         const cursorSpan = document.createElement("span");
         cursorSpan.textContent = text[pos] || " ";
+        cursorSpan.style.position = "relative";
         mirror.appendChild(cursorSpan);
+
+        // Add remaining text after cursor
+        const afterSpan = document.createTextNode(text.substring(pos + 1));
+        mirror.appendChild(afterSpan);
 
         const spanRect = cursorSpan.getBoundingClientRect();
         const mirrorRect = mirror.getBoundingClientRect();
 
         // Calculate position relative to input, accounting for scroll
-        // Note: spanRect and mirrorRect already account for padding since we copied
-        // padding styles to the mirror, so we don't add paddingLeft/paddingTop here
+        // The mirror has padding applied, so spanRect - mirrorRect gives position
+        // relative to the mirror's border box, which already includes padding
         x =
             rect.left +
             window.scrollX +

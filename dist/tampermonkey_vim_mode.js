@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Vim Mode for Text Inputs
 // @namespace    http://tampermonkey.net/
-// @version      1.0.72
+// @version      1.0.73
 // @description  Vim-like editing for textareas and inputs
 // @match        *://*/*
 // @updateURL    https://raw.githubusercontent.com/levabala/tampermonkey-vim-mode/refs/heads/main/dist/tampermonkey_vim_mode.js
@@ -541,7 +541,8 @@
                 mirror.style.visibility = "hidden";
                 mirror.style.whiteSpace = "pre-wrap";
                 mirror.style.wordWrap = "break-word";
-                mirror.style.width = `${rect.width}px`;
+                mirror.style.overflowWrap = "break-word";
+                mirror.style.width = computedStyle.width;
                 const stylesToCopy = [
                     "font-family",
                     "font-size",
@@ -551,6 +552,7 @@
                     "text-transform",
                     "word-spacing",
                     "text-indent",
+                    "line-height",
                     "padding-left",
                     "padding-top",
                     "padding-right",
@@ -570,7 +572,12 @@
                 mirror.textContent = textBeforeCursor;
                 const cursorSpan = document.createElement("span");
                 cursorSpan.textContent = text[pos] || " ";
+                cursorSpan.style.position = "relative";
                 mirror.appendChild(cursorSpan);
+                const afterSpan = document.createTextNode(
+                    text.substring(pos + 1),
+                );
+                mirror.appendChild(afterSpan);
                 const spanRect = cursorSpan.getBoundingClientRect();
                 const mirrorRect = mirror.getBoundingClientRect();
                 x =
