@@ -141,13 +141,15 @@ function enterVisualMode(lineMode = false): void {
 
         if (lineMode) {
             // Visual line mode: select whole line
-            vimState.setVisualRange(
-                getLineStart(currentInput, pos),
-                getLineEnd(currentInput, pos),
-            );
+            const lineStart = getLineStart(currentInput, pos);
+            const lineEnd = getLineEnd(currentInput, pos);
+            vimState.setVisualRange(lineStart, lineEnd);
+            // Store anchor at the end position (where cursor is)
+            vimState.setVisualAnchor(lineEnd);
         } else {
             // Visual character mode: start at cursor
             vimState.setVisualRange(pos, pos);
+            vimState.setVisualAnchor(pos);
         }
 
         updateVisualSelection(

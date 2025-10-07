@@ -20,6 +20,7 @@ interface InputState {
     // Visual mode state
     visualStart: number | null;
     visualEnd: number | null;
+    visualAnchor: number | null; // The original position where visual mode was entered
 
     // Insert mode state
     insertStartPos: number | null;
@@ -62,6 +63,7 @@ function createInputState(mode: Mode = "insert"): InputState {
         lastFindType: "",
         visualStart: null,
         visualEnd: null,
+        visualAnchor: null,
         insertStartPos: null,
         insertStartValue: null,
         insertCommand: null,
@@ -260,11 +262,21 @@ export class VimState {
         }
     }
 
+    getVisualAnchor(): number | null {
+        return this.getCurrentState()?.visualAnchor ?? null;
+    }
+
+    setVisualAnchor(value: number | null): void {
+        const state = this.getCurrentState();
+        if (state) state.visualAnchor = value;
+    }
+
     clearVisual(): void {
         const state = this.getCurrentState();
         if (state) {
             state.visualStart = null;
             state.visualEnd = null;
+            state.visualAnchor = null;
         }
     }
 
@@ -428,6 +440,7 @@ export class VimState {
         lastChange: LastChange | null;
         visualStart: number;
         visualEnd: number;
+        visualAnchor: number | null;
         allowBlur: boolean;
     } {
         const stacks = this.getHistoryStacks();
@@ -446,6 +459,7 @@ export class VimState {
             lastChange: this.getLastChange(),
             visualStart: this.getVisualStart() ?? 0,
             visualEnd: this.getVisualEnd() ?? 0,
+            visualAnchor: this.getVisualAnchor(),
             allowBlur: this.getAllowBlur(),
         };
     }
@@ -464,6 +478,7 @@ export class VimState {
         lastChange?: LastChange | null;
         visualStart?: number | null;
         visualEnd?: number | null;
+        visualAnchor?: number | null;
     }): void {
         if (legacyState.countBuffer !== undefined) {
             this.setCountBuffer(legacyState.countBuffer);
@@ -491,6 +506,9 @@ export class VimState {
         }
         if (legacyState.visualEnd !== undefined) {
             this.setVisualEnd(legacyState.visualEnd);
+        }
+        if (legacyState.visualAnchor !== undefined) {
+            this.setVisualAnchor(legacyState.visualAnchor);
         }
     }
 }

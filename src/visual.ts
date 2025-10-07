@@ -52,6 +52,7 @@ export function extendVisualSelection(
     visualStart: number,
     visualEnd: number,
     newPos: number,
+    visualAnchor: number | null = null,
 ): { visualStart: number; visualEnd: number } {
     if (mode !== "visual" && mode !== "visual-line")
         return { visualStart, visualEnd };
@@ -60,17 +61,37 @@ export function extendVisualSelection(
         visualStart,
         visualEnd,
         newPos,
+        visualAnchor,
         mode,
     });
 
     if (mode === "visual-line") {
-        // In visual line mode, extend to whole lines
-        visualEnd = getLineEnd(currentInput, newPos);
-        // Adjust start if moving backwards
-        if (newPos < visualStart) {
-            visualStart = getLineStart(currentInput, newPos);
+        // In visual line mode, we need to keep the anchor line fixed and move the other end
+        // The anchor is the original position where V was pressed
+
+        if (visualAnchor === null) {
+            // Fallback if anchor not set - shouldn't happen but handle gracefully
+            visualAnchor = visualEnd;
+        }
+
+        const anchorLineStart = getLineStart(currentInput, visualAnchor);
+        const anchorLineEnd = getLineEnd(currentInput, visualAnchor);
+        const newLineStart = getLineStart(currentInput, newPos);
+        const newLineEnd = getLineEnd(currentInput, newPos);
+
+        // Determine if newPos is before or after the anchor line
+        if (newLineEnd < anchorLineStart) {
+            // Moving before anchor - anchor stays at end, start moves
+            visualStart = newLineStart;
+            visualEnd = anchorLineEnd;
+        } else if (newLineStart > anchorLineEnd) {
+            // Moving after anchor - anchor stays at start, end moves
+            visualStart = anchorLineStart;
+            visualEnd = newLineEnd;
         } else {
-            visualStart = getLineStart(currentInput, visualStart);
+            // On the same line as anchor - select just that line
+            visualStart = anchorLineStart;
+            visualEnd = anchorLineEnd;
         }
     } else {
         // In visual character mode, just update the end
@@ -79,6 +100,13 @@ export function extendVisualSelection(
 
     debug("extendVisualSelection AFTER", { visualStart, visualEnd });
     updateVisualSelection(currentInput, mode, visualStart, visualEnd);
+
+    // In visual-line mode, keep cursor at the motion target position
+    // (updateVisualSelection sets it to visualEnd, but we want it at newPos)
+    if (mode === "visual-line") {
+        setCursorPos(currentInput, newPos);
+    }
+
     return { visualStart, visualEnd };
 }
 
@@ -122,6 +150,7 @@ export function processVisualCommand(
         mode,
         visualStart,
         visualEnd,
+        visualAnchor,
         undoStack,
         redoStack,
         clipboard,
@@ -155,6 +184,7 @@ export function processVisualCommand(
                 visualStart,
                 visualEnd,
                 newPos,
+                visualAnchor,
             );
             state.visualStart = newSelection.visualStart;
             state.visualEnd = newSelection.visualEnd;
@@ -172,6 +202,7 @@ export function processVisualCommand(
                 visualStart,
                 visualEnd,
                 newPos,
+                visualAnchor,
             );
             state.visualStart = newSelection.visualStart;
             state.visualEnd = newSelection.visualEnd;
@@ -206,6 +237,7 @@ export function processVisualCommand(
                 visualStart,
                 visualEnd,
                 newPos,
+                visualAnchor,
             );
             state.visualStart = newSelection.visualStart;
             state.visualEnd = newSelection.visualEnd;
@@ -266,6 +298,7 @@ export function processVisualCommand(
             visualStart,
             visualEnd,
             newPos,
+            visualAnchor,
         );
         state.visualStart = newSelection.visualStart;
         state.visualEnd = newSelection.visualEnd;
@@ -362,6 +395,7 @@ export function processVisualCommand(
                 visualStart,
                 visualEnd,
                 newPos,
+                visualAnchor,
             );
             state.visualStart = newSelection.visualStart;
             state.visualEnd = newSelection.visualEnd;
@@ -390,6 +424,7 @@ export function processVisualCommand(
                 visualStart,
                 visualEnd,
                 newPos,
+                visualAnchor,
             );
             state.visualStart = newSelection.visualStart;
             state.visualEnd = newSelection.visualEnd;

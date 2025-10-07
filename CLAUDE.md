@@ -97,7 +97,7 @@ This ensures the test actually catches the bug and isn't a false positive.
 
 ## Performance Testing
 
-**Performance benchmarks**: The project includes performance tests in `e2e/performance.spec.ts` that measure the speed of common operations (j/k motions, gg/G jumps) on large textareas (150 lines with 10% wrapped lines).
+**Performance benchmarks**: The project includes performance tests in `e2e/performance.spec.ts` that measure the speed of common operations (j/k motions, gg/G jumps) on large textareas (1500 lines with 10% wrapped lines).
 
 **Running performance tests**:
 
@@ -105,13 +105,19 @@ This ensures the test actually catches the bug and isn't a false positive.
 bun run build && bun run test:e2e:perf
 ```
 
-**Performance targets**:
+**Performance targets** (for 1500 lines):
 
-- j/k motions: < 20ms per motion average
-- 10j/10k: < 50ms per 10-count motion
+- j/k motions: < 30ms per motion average (smooth 30+ FPS navigation)
+- 10j/10k: < 60ms per 10-count motion
 - gg/G: < 30ms per jump
 
-**Performance test textarea**: The `test.html` file includes a dedicated `#performance-textarea` with 150 lines where every 10th line wraps (exceeds visible width). This simulates real-world usage with mixed line lengths.
+**Performance optimizations**: The codebase includes caching for expensive operations:
+
+- Visual row calculations are cached to avoid re-measuring line wrapping on every motion
+- Line information is cached with automatic invalidation on text changes
+- DOM measurements are minimized during navigation
+
+**Performance test textarea**: The `test.html` file includes a dedicated `#performance-textarea` with 1500 lines where every 10th line wraps (3x longer than regular lines). This simulates real-world usage with mixed line lengths and stress-tests navigation performance.
 
 **Performance regression testing workflow** (optional, for performance-sensitive changes):
 

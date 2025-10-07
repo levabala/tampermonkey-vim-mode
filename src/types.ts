@@ -98,6 +98,7 @@ export interface State {
     allowBlur: boolean;
     visualStart: number;
     visualEnd: number;
+    visualAnchor: number | null;
     enterInsertMode: (command?: string) => void;
     enterVisualMode: (linewise: boolean) => void;
 }

@@ -1,4 +1,4 @@
-name: Build and Test
+name: Release
 
 on:
     push:
@@ -38,11 +38,18 @@ jobs:
             - name: Build userscript
               run: bun run build
 
+            - name: Extract version
+              id: version
+              if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+              run: |
+                  VERSION=$(grep '@version' src/setup.ts | sed -E 's/.*@version[[:space:]]+([0-9.]+).*/\1/')
+                  echo "version=$VERSION" >> $GITHUB_OUTPUT
+
             - name: Create Release
               if: github.ref == 'refs/heads/main' && github.event_name == 'push'
               uses: softprops/action-gh-release@v1
               with:
-                  tag_name: v${{ github.run_number }}
-                  name: Build ${{ github.run_number }}
+                  tag_name: v${{ steps.version.outputs.version }}
+                  name: Release v${{ steps.version.outputs.version }}
                   files: dist/tampermonkey_vim_mode.js
                   generate_release_notes: true

@@ -22,6 +22,19 @@ let visualSelectionRenderer: VisualSelectionRenderer | null = null;
 // Line numbers management
 let lineNumbersRenderer: LineNumbersRenderer | null = null;
 
+// Cache for visual rows calculation
+let visualRowsCache: {
+    text: string;
+    inputElement: EditableElement;
+    clientWidth: number;
+    rows: { logicalLine: number; visualRow: number; totalVisualRows: number }[];
+} | null = null;
+
+// Clear visual rows cache (useful for testing and when input changes)
+export function clearVisualRowsCache(): void {
+    visualRowsCache = null;
+}
+
 // DOM-based text metrics implementation
 export class DOMTextMetrics implements TextMetrics {
     private canvas: HTMLCanvasElement;
@@ -165,6 +178,18 @@ function calculateVisualRows(
     }
 
     const text = input.value;
+    const clientWidth = input.clientWidth;
+
+    // Check cache first
+    if (
+        visualRowsCache &&
+        visualRowsCache.text === text &&
+        visualRowsCache.inputElement === input &&
+        visualRowsCache.clientWidth === clientWidth
+    ) {
+        return visualRowsCache.rows;
+    }
+
     const lines = text.split("\n");
     const result: {
         logicalLine: number;
@@ -184,7 +209,6 @@ function calculateVisualRows(
 
     // Use clientWidth which automatically excludes scrollbar width
     // clientWidth = width - vertical scrollbar - borders
-    const clientWidth = input.clientWidth;
     const paddingLeft = parseFloat(computedStyle.paddingLeft);
     const paddingRight = parseFloat(computedStyle.paddingRight);
     const contentWidth = clientWidth - paddingLeft - paddingRight;
@@ -241,6 +265,15 @@ function calculateVisualRows(
     });
 
     mirror.remove();
+
+    // Cache the result
+    visualRowsCache = {
+        text,
+        inputElement: input,
+        clientWidth,
+        rows: result,
+    };
+
     return result;
 }
 
@@ -895,6 +928,7 @@ let lineInfoCache: {
 // Clear line cache (useful for testing)
 export function clearLineCache(): void {
     lineInfoCache = null;
+    clearVisualRowsCache(); // Also clear visual rows cache when text changes
 }
 
 function buildLineCache(text: string): { start: number; end: number }[] {
@@ -1482,6 +1516,7 @@ export function undo(
     currentInput.value = prev.value;
     currentInput.selectionStart = prev.selectionStart;
     currentInput.selectionEnd = prev.selectionEnd;
+    clearVisualRowsCache(); // Text changed, clear cache
 }
 
 export function redo(
@@ -1501,4 +1536,5 @@ export function redo(
     currentInput.value = next.value;
     currentInput.selectionStart = next.selectionStart;
     currentInput.selectionEnd = next.selectionEnd;
+    clearVisualRowsCache(); // Text changed, clear cache
 }

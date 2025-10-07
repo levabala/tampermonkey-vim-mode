@@ -393,7 +393,7 @@ test.describe("Vim Operations", () => {
             // Enter visual line mode
             await textarea.press("V");
 
-            // Move up twice - should select line2 and line3
+            // Move up twice - should select line1, line2, and line3
             await textarea.press("k");
             await textarea.press("k");
 
