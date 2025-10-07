@@ -16,39 +16,11 @@ import {
 } from "./common.js";
 import { processNormalCommand } from "./normal.js";
 import { processVisualCommand, updateVisualSelection } from "./visual.js";
-import type { Mode, EditableElement, UndoState, LastChange } from "./types.js";
+import type { Mode, EditableElement } from "./types.js";
+import { VimState } from "./state/vim-state.js";
 
-// State
-let mode: Mode = "normal"; // 'normal', 'insert', 'visual', 'visual-line'
-let currentInput: EditableElement | null = null;
-let commandBuffer = "";
-let countBuffer = "";
-let operatorPending: string | null = null;
-let lastFindChar: string | null = null;
-let lastFindDirection: boolean | null = null;
-let lastFindType: string | null = null; // 'f', 't', 'F', or 'T'
-const clipboard: { content: string; linewise: boolean } = {
-    content: "",
-    linewise: false,
-};
-let undoStack: UndoState[] = [];
-let redoStack: UndoState[] = [];
-let lastChange: LastChange | null = null;
-let allowBlur = false; // Track whether blur is intentional
-let escapePressed = false; // Track if ESC was recently pressed
-let savedCursorPos: number | null = null; // Remember cursor position across blur/focus
-
-// Per-input mode tracking for proper blur/refocus behavior
-const inputModes = new WeakMap<EditableElement, Mode>();
-
-// Insert mode tracking
-let insertStartPos: number | null = null;
-let insertStartValue: string | null = null;
-let insertCommand: string | null = null; // 'i', 'a', 'I', 'A', etc.
-
-// Visual mode state
-let visualStart: number | null = null; // Starting position of visual selection
-let visualEnd: number | null = null; // Current end position of visual selection
+// Centralized state management
+const vimState = new VimState();
 
 // Escape keys - ESC and Ctrl-[
 const ESCAPE_KEYS = [
@@ -65,78 +37,74 @@ function isEscapeKey(e: KeyboardEvent): boolean {
 
 // Mode transition functions
 function enterInsertMode(command = "i"): void {
-    debug("enterInsertMode", { from: mode, command });
-    mode = "insert";
-    visualStart = null;
-    visualEnd = null;
+    const currentInput = vimState.getCurrentInput();
+    debug("enterInsertMode", { from: vimState.getMode(), command });
+    vimState.setMode("insert");
+    vimState.clearVisual();
     clearVisualSelection();
     removeCustomCaret(currentInput);
     if (currentInput) {
         // Record insert start state for dot repeat
-        insertStartPos = getCursorPos(currentInput);
-        insertStartValue = currentInput.value;
-        insertCommand = command;
+        vimState.setInsertState(
+            getCursorPos(currentInput),
+            currentInput.value,
+            command,
+        );
         updateLineNumbers(currentInput);
-        // Save mode to input-specific state
-        inputModes.set(currentInput, mode);
     }
-    updateIndicator(mode, currentInput);
+    updateIndicator(vimState.getMode(), currentInput);
 }
 
 function enterNormalMode(): void {
-    debug("enterNormalMode", { from: mode });
-    const wasInsertMode = mode === "insert";
-    mode = "normal";
-    visualStart = null;
-    visualEnd = null;
+    const currentInput = vimState.getCurrentInput();
+    debug("enterNormalMode", { from: vimState.getMode() });
+    const wasInsertMode = vimState.getMode() === "insert";
+    vimState.setMode("normal");
+    vimState.clearVisual();
     clearVisualSelection();
-    updateIndicator(mode, currentInput);
-
-    // Save mode to input-specific state
-    if (currentInput) {
-        inputModes.set(currentInput, mode);
-    }
+    updateIndicator(vimState.getMode(), currentInput);
 
     // Record last insert for dot repeat
-    if (
-        wasInsertMode &&
-        currentInput &&
-        insertStartPos !== null &&
-        insertStartValue !== null &&
-        insertCommand !== null
-    ) {
-        const currentPos = getCursorPos(currentInput);
-        const currentValue = currentInput.value;
+    if (wasInsertMode && currentInput) {
+        const insertStartPos = vimState.getInsertStartPos();
+        const insertStartValue = vimState.getInsertStartValue();
+        const insertCommand = vimState.getInsertCommand();
 
-        // Calculate what was inserted by finding the text that was added
-        // We need to handle the case where text might have been inserted anywhere
-        // For simplicity, we'll use the cursor positions to extract the inserted text
-        const insertedText = currentValue.substring(insertStartPos, currentPos);
+        if (
+            insertStartPos !== null &&
+            insertStartValue !== null &&
+            insertCommand !== null
+        ) {
+            const currentPos = getCursorPos(currentInput);
+            const currentValue = currentInput.value;
 
-        debug("enterNormalMode: recording insert", {
-            insertCommand,
-            insertStartPos,
-            insertStartValue,
-            currentValue,
-            currentPos,
-            insertedText,
-        });
+            // Calculate what was inserted by finding the text that was added
+            const insertedText = currentValue.substring(
+                insertStartPos,
+                currentPos,
+            );
 
-        lastChange = {
-            command: insertCommand,
-            insertedText,
-            count: 1,
-        };
+            debug("enterNormalMode: recording insert", {
+                insertCommand,
+                insertStartPos,
+                insertStartValue,
+                currentValue,
+                currentPos,
+                insertedText,
+            });
 
-        // Clear insert tracking
-        insertStartPos = null;
-        insertStartValue = null;
-        insertCommand = null;
+            vimState.setLastChange({
+                command: insertCommand,
+                insertedText,
+                count: 1,
+            });
+
+            // Clear insert tracking
+            vimState.clearInsertState();
+        }
     }
 
     // Move cursor back one when exiting insert mode (vim behavior)
-    // In vim, when you press Escape in insert mode, the cursor moves back one
-    // to land on the last inserted character, unless already at position 0
     if (currentInput && wasInsertMode) {
         const pos = getCursorPos(currentInput);
         if (pos > 0) {
@@ -151,33 +119,42 @@ function enterNormalMode(): void {
 }
 
 function enterVisualMode(lineMode = false): void {
-    debug("enterVisualMode", { lineMode, from: mode });
-    mode = lineMode ? "visual-line" : "visual";
+    const currentInput = vimState.getCurrentInput();
+    debug("enterVisualMode", { lineMode, from: vimState.getMode() });
+    const newMode = lineMode ? "visual-line" : "visual";
+    vimState.setMode(newMode);
 
     if (currentInput) {
         const pos = getCursorPos(currentInput);
 
         if (lineMode) {
             // Visual line mode: select whole line
-            visualStart = getLineStart(currentInput, pos);
-            visualEnd = getLineEnd(currentInput, pos);
+            vimState.setVisualRange(
+                getLineStart(currentInput, pos),
+                getLineEnd(currentInput, pos),
+            );
         } else {
             // Visual character mode: start at cursor
-            visualStart = pos;
-            visualEnd = pos;
+            vimState.setVisualRange(pos, pos);
         }
 
         // Ensure custom caret is active for visual mode
         createCustomCaret(currentInput);
-        updateVisualSelection(currentInput, mode, visualStart, visualEnd);
+        updateVisualSelection(
+            currentInput,
+            vimState.getMode(),
+            vimState.getVisualStart(),
+            vimState.getVisualEnd(),
+        );
         updateLineNumbers(currentInput);
-        // Save mode to input-specific state
-        inputModes.set(currentInput, mode);
     }
-    updateIndicator(mode, currentInput);
+    updateIndicator(vimState.getMode(), currentInput);
 }
 
 function exitVisualMode(): void {
+    const currentInput = vimState.getCurrentInput();
+    const visualStart = vimState.getVisualStart();
+    const visualEnd = vimState.getVisualEnd();
     debug("exitVisualMode", { visualStart, visualEnd });
 
     // When exiting visual mode, move cursor to the start of the selection
@@ -187,37 +164,30 @@ function exitVisualMode(): void {
         setCursorPos(currentInput, anchorPos);
     }
 
-    visualStart = null;
-    visualEnd = null;
+    vimState.clearVisual();
     clearVisualSelection();
     enterNormalMode();
 }
 
 // Command processing - dispatch to mode-specific handlers
 function processCommand(key: string): void {
-    debug("processCommand", { key, mode, visualStart, visualEnd });
-
-    const state = {
-        currentInput,
+    const mode = vimState.getMode();
+    debug("processCommand", {
+        key,
         mode,
-        countBuffer,
-        commandBuffer,
-        operatorPending,
-        lastFindChar: lastFindChar ?? "",
-        lastFindDirection: lastFindDirection ?? false,
-        lastFindType: lastFindType ?? "",
-        clipboard,
-        undoStack,
-        redoStack,
-        lastChange,
-        visualStart: visualStart ?? 0,
-        visualEnd: visualEnd ?? 0,
-        allowBlur,
+        visualStart: vimState.getVisualStart(),
+        visualEnd: vimState.getVisualEnd(),
+    });
+
+    // Get legacy state object for command processors
+    const state = {
+        ...vimState.getLegacyState(),
         enterInsertMode,
         enterNormalMode,
         enterVisualMode,
         exitVisualMode,
     };
+
     debug("processCommand state", {
         stateVisualStart: state.visualStart,
         stateVisualEnd: state.visualEnd,
@@ -231,43 +201,48 @@ function processCommand(key: string): void {
         processNormalCommand(key, state);
     }
 
-    // Update state from mutations
-    countBuffer = state.countBuffer;
-    commandBuffer = state.commandBuffer;
-    operatorPending = state.operatorPending;
-    lastFindChar = state.lastFindChar;
-    lastFindDirection = state.lastFindDirection;
-    lastFindType = state.lastFindType;
-    lastChange = state.lastChange;
-
-    // Only update visualStart/visualEnd if we didn't just transition TO visual mode
+    // Update VimState from mutations
+    // But don't update visualStart/visualEnd if we just entered visual mode,
     // because enterVisualMode() already set them correctly
+    const newMode = vimState.getMode();
     const enteredVisualMode =
         oldMode !== "visual" &&
         oldMode !== "visual-line" &&
-        (mode === "visual" || mode === "visual-line");
+        (newMode === "visual" || newMode === "visual-line");
 
-    if (!enteredVisualMode) {
-        visualStart = state.visualStart;
-        visualEnd = state.visualEnd;
+    if (enteredVisualMode) {
+        // Don't update visual range - it was set by enterVisualMode
+        vimState.updateFromLegacyState({
+            countBuffer: state.countBuffer,
+            commandBuffer: state.commandBuffer,
+            operatorPending: state.operatorPending,
+            lastFindChar: state.lastFindChar,
+            lastFindDirection: state.lastFindDirection,
+            lastFindType: state.lastFindType,
+            lastChange: state.lastChange,
+        });
+    } else {
+        // Update all state including visual range
+        vimState.updateFromLegacyState(state);
     }
 
     debug("processCommand end", {
         oldMode,
-        newMode: mode,
+        newMode,
         enteredVisualMode,
-        visualStart,
-        visualEnd,
+        visualStart: vimState.getVisualStart(),
+        visualEnd: vimState.getVisualEnd(),
     });
 }
 
 // Event handlers
 function handleFocus(e: FocusEvent): void {
     const el = e.target as EditableElement;
+    const currentInput = vimState.getCurrentInput();
     debug("handleFocus", {
         tag: el.tagName,
         isNewInput: currentInput !== el,
-        currentMode: mode,
+        currentMode: vimState.getMode(),
     });
 
     if (el.tagName === "INPUT" || el.tagName === "TEXTAREA") {
@@ -275,20 +250,16 @@ function handleFocus(e: FocusEvent): void {
         // Check both readOnly property and aria-readonly attribute
         if (el.readOnly || el.getAttribute("aria-readonly") === "true") {
             debug("handleFocus: skipping readonly element");
-            currentInput = null;
-            updateIndicator(mode, currentInput);
+            vimState.setCurrentInput(null);
+            updateIndicator(vimState.getMode(), null);
             return;
         }
         // Only initialize mode if this is a new input
         if (currentInput !== el) {
-            currentInput = el;
-            mode = "insert";
-            undoStack = [];
-            redoStack = [];
-            // Save initial mode to input-specific state
-            inputModes.set(currentInput, mode);
-            updateIndicator(mode, currentInput);
-            updateLineNumbers(currentInput);
+            vimState.setCurrentInput(el);
+            vimState.initializeInput(el, "insert");
+            updateIndicator(vimState.getMode(), el);
+            updateLineNumbers(el);
 
             // Attach keydown directly to the element to intercept before any page handlers
             debug("Attaching direct keydown listener to element");
@@ -351,57 +322,59 @@ function handleFocus(e: FocusEvent): void {
                 true,
             );
         } else {
-            // Same input refocused - restore mode from input-specific state
-            const savedMode = inputModes.get(currentInput) || "normal";
-            mode = savedMode;
-
-            debug("handleFocus: same input refocused, restoring mode", {
-                mode,
-                savedCursorPos,
+            // Same input refocused - state is already preserved in VimState
+            debug("handleFocus: same input refocused, restoring state", {
+                mode: vimState.getMode(),
+                savedCursorPos: vimState.getSavedCursorPos(),
             });
-            updateIndicator(mode, currentInput);
+            updateIndicator(vimState.getMode(), el);
             // Restore cursor position if we saved it
+            const savedCursorPos = vimState.getSavedCursorPos();
             if (savedCursorPos !== null) {
                 debug("Restoring saved cursor position", savedCursorPos);
-                setCursorPos(currentInput, savedCursorPos);
-                savedCursorPos = null;
+                setCursorPos(el, savedCursorPos);
+                vimState.setSavedCursorPos(null);
             }
             // Recreate custom caret if in normal mode
-            if (mode === "normal") {
-                createCustomCaret(currentInput);
+            if (vimState.getMode() === "normal") {
+                createCustomCaret(el);
             }
         }
     }
 }
 
 function handleBlur(e: FocusEvent): void {
+    const currentInput = vimState.getCurrentInput();
     if (e.target === currentInput && currentInput) {
         // Save cursor position for potential refocus
-        savedCursorPos = getCursorPos(currentInput);
+        vimState.setSavedCursorPos(getCursorPos(currentInput));
 
         debug("handleBlur", {
-            mode,
-            allowBlur,
-            escapePressed,
+            mode: vimState.getMode(),
+            allowBlur: vimState.getAllowBlur(),
+            escapePressed: vimState.getEscapePressed(),
             relatedTarget: e.relatedTarget,
             isTrusted: e.isTrusted,
-            savedCursorPos,
+            savedCursorPos: vimState.getSavedCursorPos(),
         });
 
         // Check if blur is caused by clicking on another element
         // If relatedTarget exists, user is moving focus to another element - allow it
         if (e.relatedTarget) {
             debug("handleBlur: focus moving to another element, allowing blur");
-            allowBlur = false;
+            vimState.setAllowBlur(false);
             removeCustomCaret(currentInput);
             removeLineNumbers();
             clearVisualSelection();
             // Don't reset currentInput - keep it so we can detect refocus of same element
-            // currentInput = null;
-            updateIndicator(mode, currentInput);
+            updateIndicator(vimState.getMode(), currentInput);
             // Keep savedCursorPos in case we refocus later
             return;
         }
+
+        const mode = vimState.getMode();
+        const allowBlur = vimState.getAllowBlur();
+        const escapePressed = vimState.getEscapePressed();
 
         // Check if ESC caused the blur:
         // 1. Via our global listener detecting ESC keydown
@@ -420,7 +393,7 @@ function handleBlur(e: FocusEvent): void {
 
         if (isEscapeBlur) {
             debug("handleBlur: ESC caused blur, switching to normal mode");
-            escapePressed = false; // Clear the flag
+            vimState.setEscapePressed(false); // Clear the flag
 
             // Handle visual mode differently - use exitVisualMode which does the proper cleanup
             if (mode === "visual" || mode === "visual-line") {
@@ -460,16 +433,18 @@ function handleBlur(e: FocusEvent): void {
             return;
         }
         debug("handleBlur: allowing blur", { mode, allowBlur });
-        allowBlur = false;
+        vimState.setAllowBlur(false);
         removeCustomCaret(currentInput);
         removeLineNumbers();
         clearVisualSelection();
-        currentInput = null;
-        updateIndicator(mode, currentInput);
+        vimState.setCurrentInput(null);
+        updateIndicator(vimState.getMode(), null);
     }
 }
 
 function handleKeyDown(e: KeyboardEvent): void {
+    const currentInput = vimState.getCurrentInput();
+    const mode = vimState.getMode();
     debug("handleKeyDown ENTRY", {
         hasCurrentInput: !!currentInput,
         key: e.key,
@@ -514,19 +489,21 @@ function handleKeyDown(e: KeyboardEvent): void {
             // Insert -> Normal mode
             debug("handleKeyDown: switching from insert to normal");
             enterNormalMode();
-            debug("handleKeyDown: mode switch complete", { newMode: mode });
+            debug("handleKeyDown: mode switch complete", {
+                newMode: vimState.getMode(),
+            });
         } else if (mode === "visual" || mode === "visual-line") {
             // Visual mode -> Normal mode
             debug("handleKeyDown: exiting visual mode to normal");
             exitVisualMode();
-            debug("handleKeyDown: mode switch complete", { newMode: mode });
+            debug("handleKeyDown: mode switch complete", {
+                newMode: vimState.getMode(),
+            });
         } else {
             // Normal mode -> unfocus
             debug("handleKeyDown: unfocusing from normal mode");
-            commandBuffer = "";
-            countBuffer = "";
-            operatorPending = null;
-            allowBlur = true;
+            vimState.clearCommand();
+            vimState.setAllowBlur(true);
             currentInput.blur();
         }
         debug("handleKeyDown: ESC handling complete, returning");
@@ -571,7 +548,8 @@ function handleKeyDown(e: KeyboardEvent): void {
     if (e.ctrlKey && e.key === "r" && mode !== "insert") {
         debug("handleKeyDown: Ctrl-r redo");
         e.preventDefault();
-        redo(currentInput, undoStack, redoStack);
+        const stacks = vimState.getHistoryStacks();
+        redo(currentInput, stacks.undoStack, stacks.redoStack);
         return;
     }
 
@@ -610,10 +588,10 @@ if (typeof window === "undefined" || typeof document === "undefined") {
                     defaultPrevented: e.defaultPrevented,
                     timestamp: e.timeStamp,
                 });
-                escapePressed = true;
+                vimState.setEscapePressed(true);
                 // Clear the flag after a short timeout
                 setTimeout(() => {
-                    escapePressed = false;
+                    vimState.setEscapePressed(false);
                     debug("escapePressed flag cleared");
                 }, 100);
             }
@@ -679,16 +657,18 @@ if (typeof window === "undefined" || typeof document === "undefined") {
     document.addEventListener(
         "input",
         (e: Event) => {
+            const currentInput = vimState.getCurrentInput();
             if (
                 currentInput &&
                 e.target === currentInput &&
-                mode === "insert"
+                vimState.getMode() === "insert"
             ) {
                 debug("input event: updating line numbers");
                 // Use requestAnimationFrame to ensure DOM has reflowed
                 requestAnimationFrame(() => {
-                    if (currentInput) {
-                        updateLineNumbers(currentInput);
+                    const input = vimState.getCurrentInput();
+                    if (input) {
+                        updateLineNumbers(input);
                     }
                 });
             }
@@ -706,8 +686,8 @@ if (typeof window === "undefined" || typeof document === "undefined") {
                     ctrl: e.ctrlKey,
                     defaultPrevented: e.defaultPrevented,
                     propagationStopped: e.cancelBubble,
-                    currentInput: !!currentInput,
-                    mode,
+                    currentInput: !!vimState.getCurrentInput(),
+                    mode: vimState.getMode(),
                 });
             }
         },
@@ -721,28 +701,27 @@ if (typeof window === "undefined" || typeof document === "undefined") {
         (e: KeyboardEvent) => {
             if (!isEscapeKey(e)) return;
 
+            const currentInput = vimState.getCurrentInput();
             // Only act if we have a currentInput but it's not focused
             // This handles the case where tab switching broke the focus state
             if (currentInput && document.activeElement !== currentInput) {
                 debug("Window-level escape fallback triggered", {
                     currentInput: !!currentInput,
                     activeElement: document.activeElement?.tagName,
-                    mode,
+                    mode: vimState.getMode(),
                 });
 
                 e.preventDefault();
                 e.stopPropagation();
 
                 // Clear the stale state
-                commandBuffer = "";
-                countBuffer = "";
-                operatorPending = null;
+                vimState.clearCommand();
                 removeCustomCaret(currentInput);
                 removeLineNumbers();
                 clearVisualSelection();
-                currentInput = null;
-                mode = "normal";
-                updateIndicator(mode, currentInput);
+                vimState.setCurrentInput(null);
+                vimState.setMode("normal");
+                updateIndicator(vimState.getMode(), null);
             }
         },
         true,
@@ -750,9 +729,10 @@ if (typeof window === "undefined" || typeof document === "undefined") {
 
     // Window focus handler - validate state on tab/window focus
     window.addEventListener("focus", () => {
+        const currentInput = vimState.getCurrentInput();
         debug("Window focus event", {
             currentInput: !!currentInput,
-            mode,
+            mode: vimState.getMode(),
             activeElement: document.activeElement?.tagName,
         });
 
@@ -767,9 +747,9 @@ if (typeof window === "undefined" || typeof document === "undefined") {
             removeCustomCaret(currentInput);
             removeLineNumbers();
             clearVisualSelection();
-            currentInput = null;
-            mode = "normal";
-            updateIndicator(mode, currentInput);
+            vimState.setCurrentInput(null);
+            vimState.setMode("normal");
+            updateIndicator(vimState.getMode(), null);
         }
     });
 
@@ -777,17 +757,45 @@ if (typeof window === "undefined" || typeof document === "undefined") {
     window.addEventListener(
         "scroll",
         () => {
+            const currentInput = vimState.getCurrentInput();
+            const mode = vimState.getMode();
             if (currentInput) {
                 if (mode === "normal") {
                     debug("scroll event: updating custom caret");
                     updateCustomCaret(currentInput);
                     updateLineNumbers(currentInput);
-                } else if (
-                    (mode === "visual" || mode === "visual-line") &&
-                    visualStart !== null &&
-                    visualEnd !== null
-                ) {
-                    debug("scroll event: updating visual selection");
+                } else if (mode === "visual" || mode === "visual-line") {
+                    const visualStart = vimState.getVisualStart();
+                    const visualEnd = vimState.getVisualEnd();
+                    if (visualStart !== null && visualEnd !== null) {
+                        debug("scroll event: updating visual selection");
+                        updateVisualSelection(
+                            currentInput,
+                            mode,
+                            visualStart,
+                            visualEnd,
+                        );
+                        updateLineNumbers(currentInput);
+                    }
+                }
+            }
+        },
+        true,
+    );
+
+    window.addEventListener("resize", () => {
+        const currentInput = vimState.getCurrentInput();
+        const mode = vimState.getMode();
+        if (currentInput) {
+            if (mode === "normal") {
+                debug("resize event: updating custom caret");
+                updateCustomCaret(currentInput);
+                updateLineNumbers(currentInput);
+            } else if (mode === "visual" || mode === "visual-line") {
+                const visualStart = vimState.getVisualStart();
+                const visualEnd = vimState.getVisualEnd();
+                if (visualStart !== null && visualEnd !== null) {
+                    debug("resize event: updating visual selection");
                     updateVisualSelection(
                         currentInput,
                         mode,
@@ -796,30 +804,6 @@ if (typeof window === "undefined" || typeof document === "undefined") {
                     );
                     updateLineNumbers(currentInput);
                 }
-            }
-        },
-        true,
-    );
-
-    window.addEventListener("resize", () => {
-        if (currentInput) {
-            if (mode === "normal") {
-                debug("resize event: updating custom caret");
-                updateCustomCaret(currentInput);
-                updateLineNumbers(currentInput);
-            } else if (
-                (mode === "visual" || mode === "visual-line") &&
-                visualStart !== null &&
-                visualEnd !== null
-            ) {
-                debug("resize event: updating visual selection");
-                updateVisualSelection(
-                    currentInput,
-                    mode,
-                    visualStart,
-                    visualEnd,
-                );
-                updateLineNumbers(currentInput);
             }
         }
     });
@@ -832,4 +816,4 @@ if (typeof window === "undefined" || typeof document === "undefined") {
     });
 } // End of window/document check
 
-updateIndicator(mode, currentInput);
+updateIndicator(vimState.getMode(), vimState.getCurrentInput());
