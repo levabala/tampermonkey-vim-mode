@@ -275,8 +275,15 @@ export class DOMLineNumbersRenderer implements LineNumbersRenderer {
             return;
         }
 
+        // Calculate visual rows to detect text wrapping
+        const visualRowsInfo = calculateVisualRows(input);
+        const hasWrappedLines = visualRowsInfo.some(
+            (row) => row.totalVisualRows > 1,
+        );
+
         // Don't show line numbers for textareas with 5 or fewer lines
-        if (totalLines <= 5) {
+        // unless there is text wrapping
+        if (totalLines <= 5 && !hasWrappedLines) {
             this.hide();
             return;
         }
@@ -313,8 +320,7 @@ export class DOMLineNumbersRenderer implements LineNumbersRenderer {
         this.container.style.width = "auto";
         this.container.style.minWidth = "40px";
 
-        // Calculate visual rows (accounting for word wrap)
-        const visualRowsInfo = calculateVisualRows(input);
+        // Reuse visual rows calculation from earlier (already calculated to check for wrapping)
 
         // Find the visual row index for the current logical line
         // We use the currentLine parameter instead of trying to calculate it from cursor position

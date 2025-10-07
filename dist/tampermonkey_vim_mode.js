@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Vim Mode for Text Inputs
 // @namespace    http://tampermonkey.net/
-// @version      1.0.81
+// @version      1.0.82
 // @description  Vim-like editing for textareas and inputs
 // @match        *://*/*
 // @updateURL    https://raw.githubusercontent.com/levabala/tampermonkey-vim-mode/refs/heads/main/dist/tampermonkey_vim_mode.js
@@ -366,7 +366,11 @@
                     this.hide();
                     return;
                 }
-                if (totalLines <= 5) {
+                const visualRowsInfo = calculateVisualRows(input);
+                const hasWrappedLines = visualRowsInfo.some(
+                    (row) => row.totalVisualRows > 1,
+                );
+                if (totalLines <= 5 && !hasWrappedLines) {
                     this.hide();
                     return;
                 }
@@ -397,7 +401,6 @@
                 this.container.style.height = `${rect.height - paddingTop - paddingBottom - borderTop - borderBottom}px`;
                 this.container.style.width = "auto";
                 this.container.style.minWidth = "40px";
-                const visualRowsInfo = calculateVisualRows(input);
                 const currentVisualRow = visualRowsInfo.findIndex(
                     (r) => r.logicalLine === currentLine && r.visualRow === 1,
                 );
