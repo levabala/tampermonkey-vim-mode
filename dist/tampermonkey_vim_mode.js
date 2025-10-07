@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Vim Mode for Text Inputs
 // @namespace    http://tampermonkey.net/
-// @version      1.0.86
+// @version      1.0.87
 // @description  Vim-like editing for textareas and inputs
 // @match        *://*/*
 // @updateURL    https://raw.githubusercontent.com/levabala/tampermonkey-vim-mode/refs/heads/main/dist/tampermonkey_vim_mode.js
@@ -814,25 +814,54 @@
             updateCustomCaret(currentInput);
             updateLineNumbers(currentInput);
         }
+        var lineInfoCache = null;
+        function buildLineCache(text) {
+            const lines = [];
+            let start = 0;
+            for (let i = 0; i < text.length; i++) {
+                if (
+                    text[i] ===
+                    `
+`
+                ) {
+                    lines.push({ start, end: i });
+                    start = i + 1;
+                }
+            }
+            lines.push({ start, end: text.length });
+            return lines;
+        }
+        function getLineCached(text, pos) {
+            if (!lineInfoCache || lineInfoCache.text !== text) {
+                lineInfoCache = {
+                    text,
+                    lines: buildLineCache(text),
+                };
+            }
+            const lines = lineInfoCache.lines;
+            let left = 0;
+            let right = lines.length - 1;
+            while (left <= right) {
+                const mid = Math.floor((left + right) / 2);
+                const line = lines[mid];
+                if (pos < line.start) {
+                    right = mid - 1;
+                } else if (pos > line.end) {
+                    left = mid + 1;
+                } else {
+                    return { start: line.start, end: line.end, lineIndex: mid };
+                }
+            }
+            return { start: 0, end: 0, lineIndex: 0 };
+        }
         function getLine(currentInput, pos) {
             const text = currentInput.value;
-            let start = pos;
-            while (
-                start > 0 &&
-                text[start - 1] !==
-                    `
-`
-            )
-                start--;
-            let end = pos;
-            while (
-                end < text.length &&
-                text[end] !==
-                    `
-`
-            )
-                end++;
-            return { start, end, text: text.substring(start, end) };
+            const cached = getLineCached(text, pos);
+            return {
+                start: cached.start,
+                end: cached.end,
+                text: text.substring(cached.start, cached.end),
+            };
         }
         function getLineStart(currentInput, pos) {
             const text = currentInput.value;

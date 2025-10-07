@@ -25,10 +25,6 @@ This is a Tampermonkey userscript that adds Vim-like modal editing to all text i
 **Build system**: The project uses Bun as the build tool and runtime. Key commands:
 
 - `bun run build`: Build the userscript from TypeScript sources
-- `bun run test`: Run unit test suite with Vitest
-- `bun run test:watch`: Run unit tests in watch mode
-- `bun run test:ui`: Run unit tests with UI
-- `bun run test:coverage`: Run unit tests with coverage report
 - `bun run test:e2e`: Run E2E tests with Playwright
 - `bun run test:e2e:ui`: Run E2E tests with Playwright UI
 - `bun run test:e2e:headed`: Run E2E tests in headed mode
@@ -91,6 +87,79 @@ When asked to write a test and fix a bug, follow this workflow to verify the tes
 6. **Commit the fix** - `git add [fixed files] && git commit -m "Fix [bug description]"`
 
 This ensures the test actually catches the bug and isn't a false positive.
+
+## Performance Testing
+
+**Performance benchmarks**: The project includes performance tests in `e2e/performance.spec.ts` that measure the speed of common operations (j/k motions, gg/G jumps) on large textareas (150 lines with 10% wrapped lines).
+
+**Running performance tests**:
+
+```bash
+bun run build && bun run test:e2e e2e/performance.spec.ts
+```
+
+**Performance targets**:
+
+- j/k motions: < 20ms per motion average
+- 10j/10k: < 50ms per 10-count motion
+- gg/G: < 30ms per jump
+
+**Performance test textarea**: The `test.html` file includes a dedicated `#performance-textarea` with 150 lines where every 10th line wraps (exceeds visible width). This simulates real-world usage with mixed line lengths.
+
+**Performance regression testing workflow** (optional, for performance-sensitive changes):
+
+When making changes that could impact performance (motion handling, text processing, rendering):
+
+1. **Make and commit your changes** - Implement your code and commit it normally
+
+2. **Run performance test on new code** - Measure performance with your changes:
+
+    ```bash
+    bun run build && bun run test:e2e e2e/performance.spec.ts 2>&1 | tee perf-after.txt
+    ```
+
+3. **Temporarily revert the commit** - Go back to the previous state:
+
+    ```bash
+    git revert HEAD --no-commit
+    ```
+
+4. **Run performance test on old code** - Measure baseline performance:
+
+    ```bash
+    bun run build && bun run test:e2e e2e/performance.spec.ts 2>&1 | tee perf-baseline.txt
+    ```
+
+5. **Compare results** - Review the timing differences in the console output:
+    - If performance degraded significantly (>20% slower), prompt whether optimization is required
+    - If optimization is needed, implement it and update the commit
+    - If degradation is acceptable, document the tradeoff in the commit message
+
+6. **Restore your commit** - Undo the revert:
+
+    ```bash
+    git reset --hard HEAD~1  # Remove the uncommitted revert
+    ```
+
+7. **Push if satisfied** - Push your changes:
+
+    ```bash
+    git push
+    ```
+
+8. **Clean up** - Remove temporary performance logs:
+    ```bash
+    rm perf-baseline.txt perf-after.txt
+    ```
+
+This workflow is **optional** and should only be used when:
+
+- Making changes to motion commands (j/k/w/b/e/etc)
+- Modifying text processing functions (getLine, findWord\*, etc)
+- Changing rendering/caret positioning logic
+- User reports performance issues
+
+For most changes, the standard pre-commit checks are sufficient.
 
 ## Important Guidelines
 

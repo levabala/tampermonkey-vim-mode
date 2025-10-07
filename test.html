@@ -314,6 +314,30 @@ Test visual mode and scrolling:
             >
         </div>
 
+        <h3>
+            Performance Test Textarea (150 lines for j/k performance testing)
+        </h3>
+        <textarea id="performance-textarea" rows="30" cols="80"></textarea>
+        <script>
+            // Generate 150 lines for performance testing
+            // 10% of lines should be long enough to wrap
+            const perfLines = [];
+            for (let i = 1; i <= 150; i++) {
+                if (i % 10 === 0) {
+                    // Every 10th line is extra long to cause wrapping
+                    perfLines.push(
+                        `Line ${i}: This is a very long test line with lots of content that should wrap around when displayed in the textarea because it exceeds the visible width. Lorem ipsum dolor sit amet consectetur adipiscing elit sed do eiusmod tempor incididunt ut labore et dolore magna aliqua ut enim ad minim veniam quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat.`,
+                    );
+                } else {
+                    perfLines.push(
+                        `Line ${i}: This is a test line with some content to make it realistic. Lorem ipsum dolor sit amet.`,
+                    );
+                }
+            }
+            document.getElementById("performance-textarea").value =
+                perfLines.join("\n");
+        </script>
+
         <script>
             function toggleTheme() {
                 const html = document.documentElement;

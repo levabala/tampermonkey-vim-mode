@@ -886,13 +886,76 @@ export function setCursorPos(currentInput: EditableElement, pos: number): void {
     updateLineNumbers(currentInput);
 }
 
+// Cache for line information to avoid repeated scanning
+let lineInfoCache: {
+    text: string;
+    lines: { start: number; end: number }[];
+} | null = null;
+
+// Clear line cache (useful for testing)
+export function clearLineCache(): void {
+    lineInfoCache = null;
+}
+
+function buildLineCache(text: string): { start: number; end: number }[] {
+    const lines: { start: number; end: number }[] = [];
+    let start = 0;
+
+    for (let i = 0; i < text.length; i++) {
+        if (text[i] === "\n") {
+            lines.push({ start, end: i });
+            start = i + 1;
+        }
+    }
+    // Add the last line
+    lines.push({ start, end: text.length });
+
+    return lines;
+}
+
+function getLineCached(
+    text: string,
+    pos: number,
+): { start: number; end: number; lineIndex: number } {
+    // Rebuild cache if text changed
+    if (!lineInfoCache || lineInfoCache.text !== text) {
+        lineInfoCache = {
+            text,
+            lines: buildLineCache(text),
+        };
+    }
+
+    // Binary search to find the line containing pos
+    const lines = lineInfoCache.lines;
+    let left = 0;
+    let right = lines.length - 1;
+
+    while (left <= right) {
+        const mid = Math.floor((left + right) / 2);
+        const line = lines[mid];
+
+        if (pos < line.start) {
+            right = mid - 1;
+        } else if (pos > line.end) {
+            left = mid + 1;
+        } else {
+            // Found the line
+            return { start: line.start, end: line.end, lineIndex: mid };
+        }
+    }
+
+    // Fallback (shouldn't happen)
+    return { start: 0, end: 0, lineIndex: 0 };
+}
+
 export function getLine(currentInput: EditableElement, pos: number): LineInfo {
     const text = currentInput.value;
-    let start = pos;
-    while (start > 0 && text[start - 1] !== "\n") start--;
-    let end = pos;
-    while (end < text.length && text[end] !== "\n") end++;
-    return { start, end, text: text.substring(start, end) };
+    const cached = getLineCached(text, pos);
+    return {
+        start: cached.start,
+        end: cached.end,
+        text: text.substring(cached.start, cached.end),
+    };
 }
 
 export function getLineStart(
