@@ -5,10 +5,6 @@
     "type": "module",
     "scripts": {
         "build": "bun run build.ts",
-        "test": "bunx vitest run",
-        "test:watch": "bunx vitest",
-        "test:ui": "bunx vitest --ui",
-        "test:coverage": "bunx vitest --coverage",
         "test:e2e": "bunx playwright test --reporter=list",
         "test:e2e:ui": "bunx playwright test --ui",
         "test:e2e:headed": "bunx playwright test --headed",
