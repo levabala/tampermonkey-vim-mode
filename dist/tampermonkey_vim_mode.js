@@ -76,6 +76,7 @@
   var modeText;
   if (typeof document !== "undefined") {
     indicator = document.createElement("div");
+    indicator.id = "vim-mode-indicator";
     indicator.style.cssText = `
         position: fixed;
         bottom: 10px;
@@ -2838,6 +2839,27 @@
         vimState.setMode("normal");
         updateIndicator(vimState.getMode(), null);
       }
+    });
+    const mutationObserver = new MutationObserver(() => {
+      const currentInput = vimState.getCurrentInput();
+      if (!currentInput)
+        return;
+      if (!document.contains(currentInput)) {
+        debug("MutationObserver: currentInput removed from DOM", {
+          mode: vimState.getMode(),
+          inputTag: currentInput.tagName
+        });
+        removeCustomCaret(currentInput);
+        removeLineNumbers();
+        clearVisualSelection();
+        vimState.setCurrentInput(null);
+        vimState.setMode("normal");
+        updateIndicator(vimState.getMode(), null);
+      }
+    });
+    mutationObserver.observe(document.body, {
+      childList: true,
+      subtree: true
     });
     window.addEventListener("scroll", () => {
       const currentInput = vimState.getCurrentInput();

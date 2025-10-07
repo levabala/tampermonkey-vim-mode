@@ -16,7 +16,7 @@ import {
 } from "./common.js";
 import { processNormalCommand } from "./normal.js";
 import { processVisualCommand, updateVisualSelection } from "./visual.js";
-import type { Mode, EditableElement } from "./types.js";
+import type { EditableElement } from "./types.js";
 import { VimState } from "./state/vim-state.js";
 
 // Centralized state management
@@ -751,6 +751,34 @@ if (typeof window === "undefined" || typeof document === "undefined") {
             vimState.setMode("normal");
             updateIndicator(vimState.getMode(), null);
         }
+    });
+
+    // MutationObserver to detect when the focused input is removed from DOM
+    const mutationObserver = new MutationObserver(() => {
+        const currentInput = vimState.getCurrentInput();
+        if (!currentInput) return;
+
+        // Check if currentInput is still in the document
+        if (!document.contains(currentInput)) {
+            debug("MutationObserver: currentInput removed from DOM", {
+                mode: vimState.getMode(),
+                inputTag: currentInput.tagName,
+            });
+
+            // Clean up vim state since the input is gone
+            removeCustomCaret(currentInput);
+            removeLineNumbers();
+            clearVisualSelection();
+            vimState.setCurrentInput(null);
+            vimState.setMode("normal");
+            updateIndicator(vimState.getMode(), null);
+        }
+    });
+
+    // Observe the entire document for DOM changes
+    mutationObserver.observe(document.body, {
+        childList: true,
+        subtree: true,
     });
 
     // Update custom caret and visual selection on scroll and resize
