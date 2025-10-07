@@ -571,6 +571,18 @@
       input.style.caretColor = "";
     }
   }
+  function syncCaretToMode(input, mode) {
+    debug("syncCaretToMode", { hasInput: !!input, mode });
+    if (!input) {
+      removeCustomCaret(null);
+      return;
+    }
+    if (mode === "normal") {
+      createCustomCaret(input);
+    } else {
+      removeCustomCaret(input);
+    }
+  }
   function calculateSelectionRects(input, start, end, metrics) {
     const text = input.value;
     const rects = [];
@@ -2375,11 +2387,11 @@
     vimState.setMode("insert");
     vimState.clearVisual();
     clearVisualSelection();
-    removeCustomCaret(currentInput);
     if (currentInput) {
       vimState.setInsertState(getCursorPos(currentInput), currentInput.value, command);
       updateLineNumbers(currentInput);
     }
+    syncCaretToMode(currentInput, "insert");
     updateIndicator(vimState.getMode(), currentInput);
   }
   function enterNormalMode() {
@@ -2421,9 +2433,9 @@
       }
     }
     if (currentInput) {
-      createCustomCaret(currentInput);
       updateLineNumbers(currentInput);
     }
+    syncCaretToMode(currentInput, "normal");
   }
   function enterVisualMode(lineMode = false) {
     const currentInput = vimState.getCurrentInput();
@@ -2437,10 +2449,10 @@
       } else {
         vimState.setVisualRange(pos, pos);
       }
-      createCustomCaret(currentInput);
       updateVisualSelection2(currentInput, vimState.getMode(), vimState.getVisualStart(), vimState.getVisualEnd());
       updateLineNumbers(currentInput);
     }
+    syncCaretToMode(currentInput, newMode);
     updateIndicator(vimState.getMode(), currentInput);
   }
   function exitVisualMode() {
@@ -2526,9 +2538,7 @@
         }
         updateIndicator(vimState.getMode(), el);
         updateLineNumbers(el);
-        if (vimState.getMode() === "normal") {
-          createCustomCaret(el);
-        }
+        syncCaretToMode(el, vimState.getMode());
         debug("Attaching direct keydown listener to element");
         const originalOnKeyDown = el.onkeydown;
         el.onkeydown = (event) => {
@@ -2568,9 +2578,7 @@
         });
         updateIndicator(vimState.getMode(), el);
         updateLineNumbers(el);
-        if (vimState.getMode() === "normal") {
-          createCustomCaret(el);
-        }
+        syncCaretToMode(el, vimState.getMode());
         const savedCursorPos = vimState.getSavedCursorPos();
         if (savedCursorPos !== null) {
           debug("Restoring saved cursor position", savedCursorPos);
@@ -2595,7 +2603,7 @@
       if (e.relatedTarget) {
         debug("handleBlur: focus moving to another element, allowing blur");
         vimState.setAllowBlur(false);
-        removeCustomCaret(currentInput);
+        syncCaretToMode(null, vimState.getMode());
         removeLineNumbers();
         clearVisualSelection();
         updateIndicator(vimState.getMode(), currentInput);
@@ -2604,7 +2612,7 @@
       const mode = vimState.getMode();
       const allowBlur = vimState.getAllowBlur();
       const escapePressed = vimState.getEscapePressed();
-      const isEscapeBlur = escapePressed && (mode === "insert" || mode === "visual" || mode === "visual-line") || (mode === "insert" || mode === "visual" || mode === "visual-line") && !allowBlur && !e.relatedTarget && e.isTrusted;
+      const isEscapeBlur = escapePressed && !e.relatedTarget && !allowBlur || (mode === "insert" || mode === "visual" || mode === "visual-line") && !allowBlur && !e.relatedTarget && e.isTrusted;
       if (isEscapeBlur) {
         debug("handleBlur: ESC caused blur, switching to normal mode");
         vimState.setEscapePressed(false);
@@ -2636,7 +2644,7 @@
       debug("handleBlur: allowing blur", { mode, allowBlur });
       vimState.setAllowBlur(false);
       if (mode !== "normal") {
-        removeCustomCaret(currentInput);
+        syncCaretToMode(null, mode);
       }
       removeLineNumbers();
       clearVisualSelection();
@@ -2841,7 +2849,7 @@
         e.preventDefault();
         e.stopPropagation();
         vimState.clearCommand();
-        removeCustomCaret(currentInput);
+        syncCaretToMode(null, vimState.getMode());
         removeLineNumbers();
         clearVisualSelection();
         vimState.setCurrentInput(null);
@@ -2861,7 +2869,7 @@
           currentInputTag: currentInput.tagName,
           activeElementTag: document.activeElement?.tagName
         });
-        removeCustomCaret(currentInput);
+        syncCaretToMode(null, vimState.getMode());
         removeLineNumbers();
         clearVisualSelection();
         vimState.setCurrentInput(null);
@@ -2878,7 +2886,7 @@
           mode: vimState.getMode(),
           inputTag: currentInput.tagName
         });
-        removeCustomCaret(currentInput);
+        syncCaretToMode(null, vimState.getMode());
         removeLineNumbers();
         clearVisualSelection();
         vimState.setCurrentInput(null);

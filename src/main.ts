@@ -6,8 +6,7 @@ import {
     getLineEnd,
     redo,
     saveState,
-    createCustomCaret,
-    removeCustomCaret,
+    syncCaretToMode,
     updateCustomCaret,
     clearVisualSelection,
     updateLineNumbers,
@@ -50,7 +49,7 @@ function enterInsertMode(command = "i"): void {
     vimState.setMode("insert");
     vimState.clearVisual();
     clearVisualSelection();
-    removeCustomCaret(currentInput);
+
     if (currentInput) {
         // Record insert start state for dot repeat
         vimState.setInsertState(
@@ -60,6 +59,9 @@ function enterInsertMode(command = "i"): void {
         );
         updateLineNumbers(currentInput);
     }
+
+    // Centralized caret management based on mode
+    syncCaretToMode(currentInput, "insert");
     updateIndicator(vimState.getMode(), currentInput);
 }
 
@@ -121,9 +123,11 @@ function enterNormalMode(): void {
     }
 
     if (currentInput) {
-        createCustomCaret(currentInput);
         updateLineNumbers(currentInput);
     }
+
+    // Centralized caret management based on mode
+    syncCaretToMode(currentInput, "normal");
 }
 
 function enterVisualMode(lineMode = false): void {
@@ -146,8 +150,6 @@ function enterVisualMode(lineMode = false): void {
             vimState.setVisualRange(pos, pos);
         }
 
-        // Ensure custom caret is active for visual mode
-        createCustomCaret(currentInput);
         updateVisualSelection(
             currentInput,
             vimState.getMode(),
@@ -156,6 +158,9 @@ function enterVisualMode(lineMode = false): void {
         );
         updateLineNumbers(currentInput);
     }
+
+    // Centralized caret management based on mode
+    syncCaretToMode(currentInput, newMode);
     updateIndicator(vimState.getMode(), currentInput);
 }
 
@@ -272,10 +277,8 @@ function handleFocus(e: FocusEvent): void {
             updateIndicator(vimState.getMode(), el);
             updateLineNumbers(el);
 
-            // Recreate custom caret if in normal mode
-            if (vimState.getMode() === "normal") {
-                createCustomCaret(el);
-            }
+            // Sync caret to current mode
+            syncCaretToMode(el, vimState.getMode());
 
             // Attach keydown directly to the element to intercept before any page handlers
             debug("Attaching direct keydown listener to element");
@@ -346,10 +349,8 @@ function handleFocus(e: FocusEvent): void {
             updateIndicator(vimState.getMode(), el);
             updateLineNumbers(el);
 
-            // Recreate custom caret if in normal mode
-            if (vimState.getMode() === "normal") {
-                createCustomCaret(el);
-            }
+            // Sync caret to current mode
+            syncCaretToMode(el, vimState.getMode());
 
             // Restore cursor position if we saved it
             const savedCursorPos = vimState.getSavedCursorPos();
@@ -377,14 +378,17 @@ function handleBlur(e: FocusEvent): void {
             savedCursorPos: vimState.getSavedCursorPos(),
         });
 
-        // Check if blur is caused by clicking on another element
-        // If relatedTarget exists, user is moving focus to another element - allow it
+        // Scenario 1: Focus moving to another element (relatedTarget exists)
+        // User is clicking elsewhere - allow blur and clean up UI elements
         if (e.relatedTarget) {
             debug("handleBlur: focus moving to another element, allowing blur");
             vimState.setAllowBlur(false);
-            removeCustomCaret(currentInput);
+
+            // Clean up all UI elements
+            syncCaretToMode(null, vimState.getMode()); // Remove caret
             removeLineNumbers();
             clearVisualSelection();
+
             // Don't reset currentInput - keep it so we can detect refocus of same element
             updateIndicator(vimState.getMode(), currentInput);
             // Keep savedCursorPos in case we refocus later
@@ -395,14 +399,13 @@ function handleBlur(e: FocusEvent): void {
         const allowBlur = vimState.getAllowBlur();
         const escapePressed = vimState.getEscapePressed();
 
-        // Check if ESC caused the blur:
-        // 1. Via our global listener detecting ESC keydown
-        // 2. Via blur pattern: insert/visual mode + no relatedTarget + trusted event + not explicitly allowed
+        // Scenario 2: ESC caused the blur
+        // Detect via: global ESC listener flag or blur pattern
+        // Note: mode might already be "normal" if handleKeyDown changed it before blur fired
         const isEscapeBlur =
-            (escapePressed &&
-                (mode === "insert" ||
-                    mode === "visual" ||
-                    mode === "visual-line")) ||
+            // ESC pressed recently and blur is unexpected (not explicitly allowed, no focus transfer)
+            (escapePressed && !e.relatedTarget && !allowBlur) ||
+            // Blur pattern for modes that shouldn't blur without explicit action
             ((mode === "insert" ||
                 mode === "visual" ||
                 mode === "visual-line") &&
@@ -414,7 +417,7 @@ function handleBlur(e: FocusEvent): void {
             debug("handleBlur: ESC caused blur, switching to normal mode");
             vimState.setEscapePressed(false); // Clear the flag
 
-            // Handle visual mode differently - use exitVisualMode which does the proper cleanup
+            // Mode transition handles caret lifecycle
             if (mode === "visual" || mode === "visual-line") {
                 exitVisualMode();
             } else {
@@ -432,7 +435,8 @@ function handleBlur(e: FocusEvent): void {
             return;
         }
 
-        // This shouldn't happen now, but keep for safety
+        // Scenario 3: Unexpected blur in insert/visual mode
+        // This shouldn't happen often, but prevent it for safety
         if (
             (mode === "insert" ||
                 mode === "visual" ||
@@ -451,14 +455,19 @@ function handleBlur(e: FocusEvent): void {
             }, 0);
             return;
         }
+
+        // Scenario 4: Allowed blur (e.g., ESC in normal mode to unfocus)
         debug("handleBlur: allowing blur", { mode, allowBlur });
         vimState.setAllowBlur(false);
-        // Only remove caret if not in normal mode - normal mode caret should persist
+
+        // Clean up UI elements
+        // Only remove caret if not in normal mode - normal mode caret persists for potential refocus
         if (mode !== "normal") {
-            removeCustomCaret(currentInput);
+            syncCaretToMode(null, mode); // Remove caret for insert/visual modes
         }
         removeLineNumbers();
         clearVisualSelection();
+
         vimState.setCurrentInput(null);
         updateIndicator(vimState.getMode(), null);
     }
@@ -738,7 +747,7 @@ if (typeof window === "undefined" || typeof document === "undefined") {
 
                 // Clear the stale state
                 vimState.clearCommand();
-                removeCustomCaret(currentInput);
+                syncCaretToMode(null, vimState.getMode()); // Remove caret
                 removeLineNumbers();
                 clearVisualSelection();
                 vimState.setCurrentInput(null);
@@ -766,7 +775,7 @@ if (typeof window === "undefined" || typeof document === "undefined") {
             });
 
             // Clear the stale state
-            removeCustomCaret(currentInput);
+            syncCaretToMode(null, vimState.getMode()); // Remove caret
             removeLineNumbers();
             clearVisualSelection();
             vimState.setCurrentInput(null);
@@ -788,7 +797,7 @@ if (typeof window === "undefined" || typeof document === "undefined") {
             });
 
             // Clean up vim state since the input is gone
-            removeCustomCaret(currentInput);
+            syncCaretToMode(null, vimState.getMode()); // Remove caret
             removeLineNumbers();
             clearVisualSelection();
             vimState.setCurrentInput(null);

@@ -637,6 +637,33 @@ export function removeCustomCaret(input: EditableElement | null): void {
     }
 }
 
+/**
+ * Centralized caret lifecycle management based on mode.
+ * This is the single source of truth for "should caret exist right now?"
+ *
+ * Rules:
+ * - normal mode: custom wide block caret
+ * - insert/visual modes: native caret (no custom caret)
+ * - no input: remove any existing caret
+ */
+export function syncCaretToMode(input: EditableElement | null, mode: string): void {
+    debug("syncCaretToMode", { hasInput: !!input, mode });
+
+    if (!input) {
+        // No input, remove any existing caret
+        removeCustomCaret(null);
+        return;
+    }
+
+    if (mode === "normal") {
+        // Normal mode needs custom wide caret
+        createCustomCaret(input);
+    } else {
+        // All other modes (insert, visual, visual-line) use native caret
+        removeCustomCaret(input);
+    }
+}
+
 // Calculate selection rectangles for visual mode (supports multiline)
 export function calculateSelectionRects(
     input: EditableElement,
