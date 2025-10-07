@@ -1,6 +1,5 @@
 node_modules
-dist/*
-!dist/tampermonkey_vim_mode.js
+dist/
 
 # Playwright
 test-results/
