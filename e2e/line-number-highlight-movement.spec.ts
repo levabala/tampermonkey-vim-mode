@@ -88,6 +88,9 @@ test.describe("Line Number Highlight Movement", () => {
             await page.waitForTimeout(50);
         }
 
+        // Wait for debounce to settle (50ms debounce + buffer)
+        await page.waitForTimeout(100);
+
         // Should be on line 6 (started at 1, moved down 5)
         innerHTML = await lineNumbersContainer.innerHTML();
         boldSpans = innerHTML.match(/font-weight:\s*bold/g);

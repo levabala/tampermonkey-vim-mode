@@ -875,6 +875,9 @@ export function createLineNumbers(): void {
     lineNumbersRenderer = new DOMLineNumbersRenderer();
 }
 
+// Debounce timer for line number updates
+let lineNumbersDebounceTimer: number | null = null;
+
 export function updateLineNumbers(input: EditableElement): void {
     if (!TAMPER_VIM_MODE.showLineNumbers) {
         lineNumbersRenderer?.hide();
@@ -885,13 +888,23 @@ export function updateLineNumbers(input: EditableElement): void {
         createLineNumbers();
     }
 
-    const text = input.value;
-    const pos = getCursorPos(input);
-    const textBeforeCursor = text.substring(0, pos);
-    const currentLine = (textBeforeCursor.match(/\n/g) || []).length + 1;
-    const totalLines = (text.match(/\n/g) || []).length + 1;
+    // Cancel any pending debounced update
+    if (lineNumbersDebounceTimer !== null) {
+        clearTimeout(lineNumbersDebounceTimer);
+    }
 
-    lineNumbersRenderer?.render(input, currentLine, totalLines);
+    // Debounce the update to batch rapid changes (e.g., holding 'p' to paste)
+    lineNumbersDebounceTimer = window.setTimeout(() => {
+        lineNumbersDebounceTimer = null;
+
+        const text = input.value;
+        const pos = getCursorPos(input);
+        const textBeforeCursor = text.substring(0, pos);
+        const currentLine = (textBeforeCursor.match(/\n/g) || []).length + 1;
+        const totalLines = (text.match(/\n/g) || []).length + 1;
+
+        lineNumbersRenderer?.render(input, currentLine, totalLines);
+    }, 50); // 50ms debounce - feels instant for single ops, batches rapid ops
 }
 
 export function hideLineNumbers(): void {

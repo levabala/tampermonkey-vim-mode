@@ -84,6 +84,9 @@ test.describe("Line Numbers Column Alignment", () => {
         await textarea.click();
         await page.keyboard.press("Escape");
 
+        // Wait for debounce to settle
+        await page.waitForTimeout(100);
+
         // Count logical lines in textarea
         const textContent = await textarea.inputValue();
         const logicalLines = textContent.split("\n").length;
@@ -110,6 +113,9 @@ test.describe("Line Numbers Column Alignment", () => {
         // Navigate to line 5
         await page.keyboard.press("5");
         await page.keyboard.press("G");
+
+        // Wait for debounce to settle
+        await page.waitForTimeout(100);
 
         const lineNumbersContainer = page.locator(
             'div[data-vim-line-numbers="true"]',
@@ -177,6 +183,9 @@ test.describe("Line Numbers Column Alignment", () => {
         await page.keyboard.press("1");
         await page.keyboard.press("0");
         await page.keyboard.press("G");
+
+        // Wait for debounce to settle
+        await page.waitForTimeout(100);
 
         const lineNumbersContainer = page.locator(
             'div[data-vim-line-numbers="true"]',
