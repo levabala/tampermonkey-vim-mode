@@ -69,6 +69,12 @@ export function executeMotion(
                         nextLineJ.end,
                     );
                 }
+
+                // Artificial delay for debugging
+                const start = performance.now();
+                while (performance.now() - start < 100) {
+                    // Busy wait for 100ms
+                }
                 break;
             }
             case "k": {

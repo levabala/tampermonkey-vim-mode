@@ -1383,6 +1383,8 @@
                                 nextLineJ.end,
                             );
                         }
+                        const start = performance.now();
+                        while (performance.now() - start < 100) {}
                         break;
                     }
                     case "k": {
