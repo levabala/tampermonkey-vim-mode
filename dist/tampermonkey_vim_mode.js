@@ -2350,6 +2350,10 @@
   function enterInsertMode(command = "i") {
     const currentInput = vimState.getCurrentInput();
     debug("enterInsertMode", { from: vimState.getMode(), command });
+    if (currentInput) {
+      const stacks = vimState.getHistoryStacks();
+      saveState(currentInput, stacks.undoStack, stacks.redoStack);
+    }
     vimState.setMode("insert");
     vimState.clearVisual();
     clearVisualSelection();
@@ -2499,7 +2503,9 @@
       }
       if (currentInput !== el) {
         vimState.setCurrentInput(el);
-        vimState.initializeInput(el, "insert");
+        if (!vimState.hasState(el)) {
+          vimState.initializeInput(el, "insert");
+        }
         updateIndicator(vimState.getMode(), el);
         updateLineNumbers(el);
         debug("Attaching direct keydown listener to element");

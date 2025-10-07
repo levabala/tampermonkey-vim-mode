@@ -5,6 +5,7 @@ import {
     getLineStart,
     getLineEnd,
     redo,
+    saveState,
     createCustomCaret,
     removeCustomCaret,
     updateCustomCaret,
@@ -16,7 +17,7 @@ import {
 } from "./common.js";
 import { processNormalCommand } from "./normal.js";
 import { processVisualCommand, updateVisualSelection } from "./visual.js";
-import type { Mode, EditableElement } from "./types.js";
+import type { EditableElement } from "./types.js";
 import { VimState } from "./state/vim-state.js";
 
 // Centralized state management
@@ -39,6 +40,13 @@ function isEscapeKey(e: KeyboardEvent): boolean {
 function enterInsertMode(command = "i"): void {
     const currentInput = vimState.getCurrentInput();
     debug("enterInsertMode", { from: vimState.getMode(), command });
+
+    // Save state before entering insert mode (for undo)
+    if (currentInput) {
+        const stacks = vimState.getHistoryStacks();
+        saveState(currentInput, stacks.undoStack, stacks.redoStack);
+    }
+
     vimState.setMode("insert");
     vimState.clearVisual();
     clearVisualSelection();
@@ -257,7 +265,10 @@ function handleFocus(e: FocusEvent): void {
         // Only initialize mode if this is a new input
         if (currentInput !== el) {
             vimState.setCurrentInput(el);
-            vimState.initializeInput(el, "insert");
+            // Only initialize if this input has no state (first time seeing it)
+            if (!vimState.hasState(el)) {
+                vimState.initializeInput(el, "insert");
+            }
             updateIndicator(vimState.getMode(), el);
             updateLineNumbers(el);
 
