@@ -25,7 +25,8 @@ This is a Tampermonkey userscript that adds Vim-like modal editing to all text i
 **Build system**: The project uses Bun as the build tool and runtime. Key commands:
 
 - `bun run build`: Build the userscript from TypeScript sources
-- `bun run test:e2e`: Run E2E tests with Playwright
+- `bun run test:e2e`: Run E2E tests with Playwright (excludes performance tests)
+- `bun run test:e2e:perf`: Run performance tests only
 - `bun run test:e2e:ui`: Run E2E tests with Playwright UI
 - `bun run test:e2e:headed`: Run E2E tests in headed mode
 - `bun run test:e2e:report`: Run E2E tests and show report
@@ -46,7 +47,7 @@ This is a Tampermonkey userscript that adds Vim-like modal editing to all text i
 **Performance tests**: Performance tests in `e2e/performance.spec.ts` are excluded from the default `bun run test:e2e` run. To run them:
 
 ```bash
-INCLUDE_PERF=1 bunx playwright test --reporter=list e2e/performance.spec.ts
+bun run test:e2e:perf
 ```
 
 **Writing E2E tests**:
@@ -101,7 +102,7 @@ This ensures the test actually catches the bug and isn't a false positive.
 **Running performance tests**:
 
 ```bash
-bun run build && INCLUDE_PERF=1 bunx playwright test --reporter=list e2e/performance.spec.ts
+bun run build && bun run test:e2e:perf
 ```
 
 **Performance targets**:
@@ -121,7 +122,7 @@ When making changes that could impact performance (motion handling, text process
 2. **Run performance test on new code** - Measure performance with your changes:
 
     ```bash
-    bun run build && INCLUDE_PERF=1 bunx playwright test --reporter=list e2e/performance.spec.ts 2>&1 | tee perf-after.txt
+    bun run build && bun run test:e2e:perf 2>&1 | tee perf-after.txt
     ```
 
 3. **Temporarily revert the commit** - Go back to the previous state:
@@ -133,7 +134,7 @@ When making changes that could impact performance (motion handling, text process
 4. **Run performance test on old code** - Measure baseline performance:
 
     ```bash
-    bun run build && INCLUDE_PERF=1 bunx playwright test --reporter=list e2e/performance.spec.ts 2>&1 | tee perf-baseline.txt
+    bun run build && bun run test:e2e:perf 2>&1 | tee perf-baseline.txt
     ```
 
 5. **Compare results** - Review the timing differences in the console output:
