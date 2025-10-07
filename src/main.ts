@@ -5,6 +5,7 @@ import {
     getLineStart,
     getLineEnd,
     redo,
+    saveState,
     createCustomCaret,
     removeCustomCaret,
     updateCustomCaret,
@@ -39,6 +40,13 @@ function isEscapeKey(e: KeyboardEvent): boolean {
 function enterInsertMode(command = "i"): void {
     const currentInput = vimState.getCurrentInput();
     debug("enterInsertMode", { from: vimState.getMode(), command });
+
+    // Save state before entering insert mode (for undo)
+    if (currentInput) {
+        const stacks = vimState.getHistoryStacks();
+        saveState(currentInput, stacks.undoStack, stacks.redoStack);
+    }
+
     vimState.setMode("insert");
     vimState.clearVisual();
     clearVisualSelection();
@@ -257,9 +265,17 @@ function handleFocus(e: FocusEvent): void {
         // Only initialize mode if this is a new input
         if (currentInput !== el) {
             vimState.setCurrentInput(el);
-            vimState.initializeInput(el, "insert");
+            // Only initialize if this input has no state (first time seeing it)
+            if (!vimState.hasState(el)) {
+                vimState.initializeInput(el, "insert");
+            }
             updateIndicator(vimState.getMode(), el);
             updateLineNumbers(el);
+
+            // Recreate custom caret if in normal mode
+            if (vimState.getMode() === "normal") {
+                createCustomCaret(el);
+            }
 
             // Attach keydown directly to the element to intercept before any page handlers
             debug("Attaching direct keydown listener to element");
@@ -328,16 +344,19 @@ function handleFocus(e: FocusEvent): void {
                 savedCursorPos: vimState.getSavedCursorPos(),
             });
             updateIndicator(vimState.getMode(), el);
+            updateLineNumbers(el);
+
+            // Recreate custom caret if in normal mode
+            if (vimState.getMode() === "normal") {
+                createCustomCaret(el);
+            }
+
             // Restore cursor position if we saved it
             const savedCursorPos = vimState.getSavedCursorPos();
             if (savedCursorPos !== null) {
                 debug("Restoring saved cursor position", savedCursorPos);
                 setCursorPos(el, savedCursorPos);
                 vimState.setSavedCursorPos(null);
-            }
-            // Recreate custom caret if in normal mode
-            if (vimState.getMode() === "normal") {
-                createCustomCaret(el);
             }
         }
     }
@@ -434,7 +453,10 @@ function handleBlur(e: FocusEvent): void {
         }
         debug("handleBlur: allowing blur", { mode, allowBlur });
         vimState.setAllowBlur(false);
-        removeCustomCaret(currentInput);
+        // Only remove caret if not in normal mode - normal mode caret should persist
+        if (mode !== "normal") {
+            removeCustomCaret(currentInput);
+        }
         removeLineNumbers();
         clearVisualSelection();
         vimState.setCurrentInput(null);

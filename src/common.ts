@@ -14,6 +14,7 @@ import type {
 // Custom caret management
 let customCaret: HTMLDivElement | null = null;
 let currentRenderer: CaretRenderer | null = null;
+let isCreatingCaret = false;
 
 // Visual selection management
 let visualSelectionRenderer: VisualSelectionRenderer | null = null;
@@ -540,53 +541,75 @@ export function createCustomCaret(
     input: EditableElement,
     renderer?: CaretRenderer,
 ): void {
-    // Clean up existing renderer
-    if (currentRenderer && currentRenderer instanceof DOMCaretRenderer) {
-        (currentRenderer as DOMCaretRenderer).destroy();
-    }
-    if (customCaret) {
-        customCaret.remove();
-        customCaret = null;
-    }
+    debug("createCustomCaret: called", {
+        hasCurrentRenderer: !!currentRenderer,
+        isCreating: isCreatingCaret,
+    });
 
-    // Check if custom caret is disabled via config
-    if (TAMPER_VIM_MODE.disableCustomCaret) {
-        debug("createCustomCaret: disabled via config, keeping native caret");
+    // Prevent re-entrant calls
+    if (isCreatingCaret) {
+        debug("createCustomCaret: already creating, skipping");
         return;
     }
 
-    // Test if canvas is available before hiding native caret (unless custom renderer provided)
-    if (!renderer) {
-        const testCanvas = document.createElement("canvas");
-        const testCtx = testCanvas.getContext("2d");
-        if (!testCtx) {
+    isCreatingCaret = true;
+
+    try {
+        // Clean up existing renderer
+        if (currentRenderer && currentRenderer instanceof DOMCaretRenderer) {
+            debug("createCustomCaret: destroying existing renderer");
+            (currentRenderer as DOMCaretRenderer).destroy();
+            currentRenderer = null;
+        }
+        if (customCaret) {
+            customCaret.remove();
+            customCaret = null;
+        }
+
+        // Check if custom caret is disabled via config
+        if (TAMPER_VIM_MODE.disableCustomCaret) {
             debug(
-                "createCustomCaret: canvas not available, keeping native caret",
+                "createCustomCaret: disabled via config, keeping native caret",
             );
             return;
         }
+
+        // Hide native caret
+        input.style.caretColor = "transparent";
+
+        // Use provided renderer or create default DOM renderer
+        if (renderer) {
+            currentRenderer = renderer;
+        } else {
+            const domRenderer = new DOMCaretRenderer();
+            currentRenderer = domRenderer;
+            customCaret = domRenderer["element"]; // For backward compatibility
+        }
+
+        debug("createCustomCaret: created renderer, now updating", {
+            hasRenderer: !!currentRenderer,
+        });
+
+        // Ensure we have a renderer before calling update
+        if (!currentRenderer) {
+            debug("createCustomCaret: ERROR - no renderer after creation!");
+            return;
+        }
+
+        updateCustomCaret(input);
+    } finally {
+        isCreatingCaret = false;
     }
-
-    // Hide native caret
-    input.style.caretColor = "transparent";
-
-    // Use provided renderer or create default DOM renderer
-    if (renderer) {
-        currentRenderer = renderer;
-    } else {
-        const domRenderer = new DOMCaretRenderer();
-        currentRenderer = domRenderer;
-        customCaret = domRenderer["element"]; // For backward compatibility
-    }
-
-    updateCustomCaret(input);
 }
 
 export function updateCustomCaret(
     input: EditableElement,
     metrics?: TextMetrics,
 ): void {
-    if (!currentRenderer) return;
+    if (!currentRenderer) {
+        debug("updateCustomCaret: no renderer, aborting");
+        return;
+    }
 
     // Create metrics if not provided
     const textMetrics = metrics || new DOMTextMetrics(input);
