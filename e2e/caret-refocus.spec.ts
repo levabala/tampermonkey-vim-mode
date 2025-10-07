@@ -19,13 +19,6 @@ test.describe("Caret Appearance After Refocus", () => {
         await textarea.press("Escape");
         await textarea.press("0"); // Move to start
 
-        // Check that custom caret exists and is visible
-        let caret = page.locator("div").filter({
-            hasText: /^$/,
-        }).filter({
-            has: page.locator('[style*="position: absolute"]'),
-        }).first();
-
         // Get caret width in normal mode (should be wide - block cursor)
         let caretStyle = await page.evaluate(() => {
             const caretEl = document.querySelector(
@@ -56,7 +49,7 @@ test.describe("Caret Appearance After Refocus", () => {
 
         // Should be in insert mode, go back to normal mode
         await textarea.press("Escape");
-        await page.waitForTimeout(100);
+        await page.waitForTimeout(200);
 
         // Check caret appearance again
         caretStyle = await page.evaluate(() => {

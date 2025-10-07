@@ -141,6 +141,7 @@
   // src/common.ts
   var customCaret = null;
   var currentRenderer = null;
+  var isCreatingCaret = false;
   var visualSelectionRenderer = null;
   var lineNumbersRenderer = null;
 
@@ -502,38 +503,54 @@
     return { x, y, width: charWidth, height: lineHeight };
   }
   function createCustomCaret(input, renderer) {
-    if (currentRenderer && currentRenderer instanceof DOMCaretRenderer) {
-      currentRenderer.destroy();
-    }
-    if (customCaret) {
-      customCaret.remove();
-      customCaret = null;
-    }
-    if (TAMPER_VIM_MODE.disableCustomCaret) {
-      debug("createCustomCaret: disabled via config, keeping native caret");
+    debug("createCustomCaret: called", {
+      hasCurrentRenderer: !!currentRenderer,
+      isCreating: isCreatingCaret
+    });
+    if (isCreatingCaret) {
+      debug("createCustomCaret: already creating, skipping");
       return;
     }
-    if (!renderer) {
-      const testCanvas = document.createElement("canvas");
-      const testCtx = testCanvas.getContext("2d");
-      if (!testCtx) {
-        debug("createCustomCaret: canvas not available, keeping native caret");
+    isCreatingCaret = true;
+    try {
+      if (currentRenderer && currentRenderer instanceof DOMCaretRenderer) {
+        debug("createCustomCaret: destroying existing renderer");
+        currentRenderer.destroy();
+        currentRenderer = null;
+      }
+      if (customCaret) {
+        customCaret.remove();
+        customCaret = null;
+      }
+      if (TAMPER_VIM_MODE.disableCustomCaret) {
+        debug("createCustomCaret: disabled via config, keeping native caret");
         return;
       }
+      input.style.caretColor = "transparent";
+      if (renderer) {
+        currentRenderer = renderer;
+      } else {
+        const domRenderer = new DOMCaretRenderer;
+        currentRenderer = domRenderer;
+        customCaret = domRenderer["element"];
+      }
+      debug("createCustomCaret: created renderer, now updating", {
+        hasRenderer: !!currentRenderer
+      });
+      if (!currentRenderer) {
+        debug("createCustomCaret: ERROR - no renderer after creation!");
+        return;
+      }
+      updateCustomCaret(input);
+    } finally {
+      isCreatingCaret = false;
     }
-    input.style.caretColor = "transparent";
-    if (renderer) {
-      currentRenderer = renderer;
-    } else {
-      const domRenderer = new DOMCaretRenderer;
-      currentRenderer = domRenderer;
-      customCaret = domRenderer["element"];
-    }
-    updateCustomCaret(input);
   }
   function updateCustomCaret(input, metrics) {
-    if (!currentRenderer)
+    if (!currentRenderer) {
+      debug("updateCustomCaret: no renderer, aborting");
       return;
+    }
     const textMetrics = metrics || new DOMTextMetrics(input);
     const position = calculateCaretPosition(input, textMetrics);
     currentRenderer.show(position);
@@ -2508,6 +2525,9 @@
         }
         updateIndicator(vimState.getMode(), el);
         updateLineNumbers(el);
+        if (vimState.getMode() === "normal") {
+          createCustomCaret(el);
+        }
         debug("Attaching direct keydown listener to element");
         const originalOnKeyDown = el.onkeydown;
         el.onkeydown = (event) => {
@@ -2546,14 +2566,15 @@
           savedCursorPos: vimState.getSavedCursorPos()
         });
         updateIndicator(vimState.getMode(), el);
+        updateLineNumbers(el);
+        if (vimState.getMode() === "normal") {
+          createCustomCaret(el);
+        }
         const savedCursorPos = vimState.getSavedCursorPos();
         if (savedCursorPos !== null) {
           debug("Restoring saved cursor position", savedCursorPos);
           setCursorPos(el, savedCursorPos);
           vimState.setSavedCursorPos(null);
-        }
-        if (vimState.getMode() === "normal") {
-          createCustomCaret(el);
         }
       }
     }
@@ -2613,7 +2634,9 @@
       }
       debug("handleBlur: allowing blur", { mode, allowBlur });
       vimState.setAllowBlur(false);
-      removeCustomCaret(currentInput);
+      if (mode !== "normal") {
+        removeCustomCaret(currentInput);
+      }
       removeLineNumbers();
       clearVisualSelection();
       vimState.setCurrentInput(null);
