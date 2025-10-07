@@ -646,7 +646,10 @@ export function removeCustomCaret(input: EditableElement | null): void {
  * - insert/visual modes: native caret (no custom caret)
  * - no input: remove any existing caret
  */
-export function syncCaretToMode(input: EditableElement | null, mode: string): void {
+export function syncCaretToMode(
+    input: EditableElement | null,
+    mode: string,
+): void {
     debug("syncCaretToMode", { hasInput: !!input, mode });
 
     if (!input) {
