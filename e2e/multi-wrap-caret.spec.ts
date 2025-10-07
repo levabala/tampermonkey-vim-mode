@@ -29,10 +29,6 @@ test.describe("Multi-Wrap Line Caret Position", () => {
         const line2Index = lines[0].length + 1; // After line 1 + newline
         const line2 = lines[1];
 
-        console.log(`\n=== Testing Line 2 (wraps multiple times) ===`);
-        console.log(`Line 2: "${line2}"`);
-        console.log(`Length: ${line2.length} characters\n`);
-
         // Helper function to create mirror element and measure position
         const getMirrorPosition = async (charIndex: number) => {
             return await page.evaluate(
@@ -165,15 +161,9 @@ test.describe("Multi-Wrap Line Caret Position", () => {
             }
 
             // Verify cursor position matches expected
-            const actualPos = await textarea.evaluate(
-                (el) => (el as HTMLTextAreaElement).selectionStart,
-            );
-
-            if (actualPos !== globalIndex) {
-                console.log(
-                    `Warning: Expected cursor at ${globalIndex}, but got ${actualPos} (char ${i})`,
-                );
-            }
+            // const actualPos = await textarea.evaluate(
+            //     (el) => (el as HTMLTextAreaElement).selectionStart,
+            // );
 
             const mirrorPos = await getMirrorPosition(globalIndex);
             const caretPos = await getCaretPosition();
@@ -193,7 +183,6 @@ test.describe("Multi-Wrap Line Caret Position", () => {
         }
 
         // Detect wrap points (mirror-based = actual text wraps)
-        console.log("=== Mirror Wrap Points (Actual Text Wraps) ===");
         const mirrorWrapPoints: number[] = [];
         let currentMirrorY = positions[0]?.mirrorY;
 
@@ -201,46 +190,10 @@ test.describe("Multi-Wrap Line Caret Position", () => {
             if (Math.abs(positions[i].mirrorY - currentMirrorY) > 5) {
                 mirrorWrapPoints.push(i);
                 currentMirrorY = positions[i].mirrorY;
-
-                // Show context around wrap
-                const beforeIdx = Math.max(0, i - 10);
-                const afterIdx = Math.min(positions.length - 1, i + 5);
-
-                console.log(`\nMirror wrap at character ${i}:`);
-                console.log(`  Before wrap (chars ${beforeIdx}-${i - 1}):`);
-                for (let j = beforeIdx; j < i; j++) {
-                    const p = positions[j];
-                    const charDisplay =
-                        p.char === " "
-                            ? "SPACE"
-                            : p.char === "\n"
-                              ? "\\n"
-                              : p.char;
-                    console.log(
-                        `    [${j}] '${charDisplay}': mirror=(${p.mirrorX.toFixed(1)}, ${p.mirrorY.toFixed(1)}) caret=(${p.caretX.toFixed(1)}, ${p.caretY.toFixed(1)})`,
-                    );
-                }
-
-                console.log(`  After wrap (chars ${i}-${afterIdx}):`);
-                for (let j = i; j <= afterIdx; j++) {
-                    const p = positions[j];
-                    const charDisplay =
-                        p.char === " "
-                            ? "SPACE"
-                            : p.char === "\n"
-                              ? "\\n"
-                              : p.char;
-                    console.log(
-                        `    [${j}] '${charDisplay}': mirror=(${p.mirrorX.toFixed(1)}, ${p.mirrorY.toFixed(1)}) caret=(${p.caretX.toFixed(1)}, ${p.caretY.toFixed(1)})`,
-                    );
-                }
             }
         }
 
         // Detect when caret Y position changes
-        console.log(
-            "\n=== Caret Wrap Points (When Caret Jumps to Next Line) ===",
-        );
         const caretWrapPoints: number[] = [];
         let currentCaretY = positions[0]?.caretY;
 
@@ -248,65 +201,6 @@ test.describe("Multi-Wrap Line Caret Position", () => {
             if (Math.abs(positions[i].caretY - currentCaretY) > 5) {
                 caretWrapPoints.push(i);
                 currentCaretY = positions[i].caretY;
-
-                const beforeIdx = Math.max(0, i - 10);
-                const afterIdx = Math.min(positions.length - 1, i + 5);
-
-                console.log(`\nCaret wrap at character ${i}:`);
-                console.log(
-                    `  Before caret wrap (chars ${beforeIdx}-${i - 1}):`,
-                );
-                for (let j = beforeIdx; j < i; j++) {
-                    const p = positions[j];
-                    const charDisplay =
-                        p.char === " "
-                            ? "SPACE"
-                            : p.char === "\n"
-                              ? "\\n"
-                              : p.char;
-                    console.log(
-                        `    [${j}] '${charDisplay}': mirror=(${p.mirrorX.toFixed(1)}, ${p.mirrorY.toFixed(1)}) caret=(${p.caretX.toFixed(1)}, ${p.caretY.toFixed(1)})`,
-                    );
-                }
-
-                console.log(`  After caret wrap (chars ${i}-${afterIdx}):`);
-                for (let j = i; j <= afterIdx; j++) {
-                    const p = positions[j];
-                    const charDisplay =
-                        p.char === " "
-                            ? "SPACE"
-                            : p.char === "\n"
-                              ? "\\n"
-                              : p.char;
-                    console.log(
-                        `    [${j}] '${charDisplay}': mirror=(${p.mirrorX.toFixed(1)}, ${p.mirrorY.toFixed(1)}) caret=(${p.caretX.toFixed(1)}, ${p.caretY.toFixed(1)})`,
-                    );
-                }
-            }
-        }
-
-        console.log(`\n=== Summary ===`);
-        console.log(
-            `Mirror wraps at character indices: [${mirrorWrapPoints.join(", ")}]`,
-        );
-        console.log(
-            `Caret wraps at character indices: [${caretWrapPoints.join(", ")}]`,
-        );
-
-        // Calculate lag
-        if (mirrorWrapPoints.length > 0 && caretWrapPoints.length > 0) {
-            console.log(`\n=== Wrap Lag Analysis ===`);
-            for (
-                let i = 0;
-                i < Math.min(mirrorWrapPoints.length, caretWrapPoints.length);
-                i++
-            ) {
-                const mirrorWrap = mirrorWrapPoints[i];
-                const caretWrap = caretWrapPoints[i];
-                const lag = caretWrap - mirrorWrap;
-                console.log(
-                    `Wrap ${i + 1}: Text wraps at char ${mirrorWrap}, caret wraps at char ${caretWrap} (lag: ${lag} characters)`,
-                );
             }
         }
 
@@ -316,9 +210,6 @@ test.describe("Multi-Wrap Line Caret Position", () => {
         expect(singleIndex).toBeGreaterThan(-1);
 
         const singleEndIndex = singleIndex + "'single'".length;
-        console.log(
-            `\n=== Checking area around 'single' (ends at char ${singleEndIndex}) ===`,
-        );
 
         // Check 20 characters after 'single'
         const checkStart = singleEndIndex;
@@ -327,15 +218,6 @@ test.describe("Multi-Wrap Line Caret Position", () => {
         for (let i = checkStart; i <= checkEnd; i++) {
             const p = positions[i];
             if (!p) continue;
-
-            const charDisplay =
-                p.char === " " ? "SPACE" : p.char === "\n" ? "\\n" : p.char;
-            const deltaY = Math.abs(p.caretY - p.mirrorY);
-            const mismatch = deltaY > 5 ? " ❌ MISMATCH" : "";
-
-            console.log(
-                `  [${i}] '${charDisplay}': mirror=(${p.mirrorX.toFixed(1)}, ${p.mirrorY.toFixed(1)}) caret=(${p.caretX.toFixed(1)}, ${p.caretY.toFixed(1)})${mismatch}`,
-            );
         }
 
         // Verify that caret Y matches mirror Y at each position (with tolerance)
@@ -356,19 +238,6 @@ test.describe("Multi-Wrap Line Caret Position", () => {
                     caretY: pos.caretY,
                 });
             }
-        }
-
-        if (yMismatches.length > 0) {
-            console.log(
-                `\n=== Found ${yMismatches.length} Y-position mismatches ===`,
-            );
-            // Show first 10 mismatches
-            yMismatches.slice(0, 10).forEach((m) => {
-                const charDisplay = m.char === " " ? "SPACE" : m.char;
-                console.log(
-                    `  Char ${m.idx} '${charDisplay}': expected Y=${m.mirrorY.toFixed(1)}, got Y=${m.caretY.toFixed(1)}`,
-                );
-            });
         }
 
         // Assert that there should be no Y mismatches (caret should jump to next line at wrap point)

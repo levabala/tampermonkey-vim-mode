@@ -104,3 +104,4 @@ This ensures the test actually catches the bug and isn't a false positive.
 - call tests only with existing "bun run" commands (you can add more args to them)
 - all the custom temporary scripts/shell commands must be run with a timeout
 - you must run build before e2e tests
+- before running e2e you must `bun run build`

@@ -26,11 +26,6 @@ test.describe("Cursor Position with Mirror Element", () => {
         const lines = fullContent.split("\n");
         const first5Lines = lines.slice(0, 5);
 
-        console.log("\n=== First 5 Lines ===");
-        first5Lines.forEach((line, idx) => {
-            console.log(`Line ${idx + 1}: "${line}" (${line.length} chars)`);
-        });
-
         // Helper function to create mirror element and measure position
         const getMirrorPosition = async (charIndex: number) => {
             return await page.evaluate(
@@ -145,12 +140,9 @@ test.describe("Cursor Position with Mirror Element", () => {
 
         let globalIndex = 0;
 
-        console.log("\n=== Walking Through Lines ===");
-
         // Walk through first 5 lines, checking every character
         for (let lineIdx = 0; lineIdx < 5; lineIdx++) {
             const line = first5Lines[lineIdx];
-            console.log(`\n--- Line ${lineIdx + 1} ---`);
 
             // Check every character position to detect wraps precisely
             for (let charIdx = 0; charIdx < line.length; charIdx++) {
@@ -190,7 +182,6 @@ test.describe("Cursor Position with Mirror Element", () => {
         }
 
         // Analyze wrap positions with context
-        console.log("\n=== Wrap Analysis ===");
         const wrapPositions: {
             line: number;
             charIndex: number;
@@ -261,34 +252,16 @@ test.describe("Cursor Position with Mirror Element", () => {
             }
         }
 
-        console.log(`Detected ${wrapPositions.length} wrap positions:`);
-        wrapPositions.forEach((wrap, idx) => {
-            console.log(
-                `  Wrap ${idx + 1}: Line ${wrap.line} at (${wrap.x.toFixed(1)}, ${wrap.y.toFixed(1)}) - "${wrap.beforeWord}" | "${wrap.afterWord}"`,
-            );
-        });
-
         // Verify we found positions
         expect(positions.length).toBeGreaterThan(0);
 
         // Check if positions match (with tolerance)
-        const tolerance = 2; // pixels
-        const mismatches = positions.filter(
-            (pos) =>
-                Math.abs(pos.caretX - pos.mirrorX) > tolerance ||
-                Math.abs(pos.caretY - pos.mirrorY) > tolerance,
-        );
-
-        if (mismatches.length > 0) {
-            console.log(
-                `\n=== Found ${mismatches.length} position mismatches ===`,
-            );
-            mismatches.forEach((pos) => {
-                console.log(
-                    `  Line ${pos.line} char ${pos.charIndex}: mirror=(${pos.mirrorX.toFixed(1)}, ${pos.mirrorY.toFixed(1)}) caret=(${pos.caretX.toFixed(1)}, ${pos.caretY.toFixed(1)})`,
-                );
-            });
-        }
+        // const tolerance = 2; // pixels
+        // const mismatches = positions.filter(
+        //     (pos) =>
+        //         Math.abs(pos.caretX - pos.mirrorX) > tolerance ||
+        //         Math.abs(pos.caretY - pos.mirrorY) > tolerance,
+        // );
 
         // For now, just verify we collected data - remove assertion until bug is fixed
         // expect(mismatches.length).toBe(0);
