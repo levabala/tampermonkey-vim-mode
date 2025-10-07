@@ -375,6 +375,35 @@ test.describe("Vim Operations", () => {
             const value = await textarea.inputValue();
             expect(value).toContain("line2");
         });
+
+        test("should select lines correctly when going up with V and k", async ({
+            page,
+        }) => {
+            const textarea = page.locator("#large-textarea");
+            await textarea.click();
+            await textarea.fill("line1\nline2\nline3\nline4");
+            await textarea.press("Escape");
+
+            // Start on line3 (position 12, which is 'l' in line3)
+            await textarea.evaluate((el: HTMLTextAreaElement) => {
+                el.selectionStart = 12;
+                el.selectionEnd = 12;
+            });
+
+            // Enter visual line mode
+            await textarea.press("V");
+
+            // Move up twice - should select line2 and line3
+            await textarea.press("k");
+            await textarea.press("k");
+
+            // Delete the selection
+            await textarea.press("d");
+
+            const value = await textarea.inputValue();
+            // Should delete line1, line2, and line3, leaving only line4
+            expect(value).toBe("line4");
+        });
     });
 
     test.describe("Visual Mode with Find Motions", () => {
