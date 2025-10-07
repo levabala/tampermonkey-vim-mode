@@ -43,6 +43,12 @@ This is a Tampermonkey userscript that adds Vim-like modal editing to all text i
 
 **Testing**: Using Playwright for E2E browser-based integration testing. Test files are in the `e2e/` directory.
 
+**Performance tests**: Performance tests in `e2e/performance.spec.ts` are excluded from the default `bun run test:e2e` run. To run them:
+
+```bash
+INCLUDE_PERF=1 bunx playwright test --reporter=list e2e/performance.spec.ts
+```
+
 **Writing E2E tests**:
 
 - All tests use `file://` protocol (NOT `http://localhost`)
@@ -95,7 +101,7 @@ This ensures the test actually catches the bug and isn't a false positive.
 **Running performance tests**:
 
 ```bash
-bun run build && bun run test:e2e e2e/performance.spec.ts
+bun run build && INCLUDE_PERF=1 bunx playwright test --reporter=list e2e/performance.spec.ts
 ```
 
 **Performance targets**:
@@ -115,7 +121,7 @@ When making changes that could impact performance (motion handling, text process
 2. **Run performance test on new code** - Measure performance with your changes:
 
     ```bash
-    bun run build && bun run test:e2e e2e/performance.spec.ts 2>&1 | tee perf-after.txt
+    bun run build && INCLUDE_PERF=1 bunx playwright test --reporter=list e2e/performance.spec.ts 2>&1 | tee perf-after.txt
     ```
 
 3. **Temporarily revert the commit** - Go back to the previous state:
@@ -127,7 +133,7 @@ When making changes that could impact performance (motion handling, text process
 4. **Run performance test on old code** - Measure baseline performance:
 
     ```bash
-    bun run build && bun run test:e2e e2e/performance.spec.ts 2>&1 | tee perf-baseline.txt
+    bun run build && INCLUDE_PERF=1 bunx playwright test --reporter=list e2e/performance.spec.ts 2>&1 | tee perf-baseline.txt
     ```
 
 5. **Compare results** - Review the timing differences in the console output:
