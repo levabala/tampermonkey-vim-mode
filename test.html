@@ -317,7 +317,12 @@ Test visual mode and scrolling:
         <h3>
             Performance Test Textarea (1500 lines for j/k performance testing)
         </h3>
-        <textarea id="performance-textarea" rows="30" cols="80"></textarea>
+        <textarea
+            id="performance-textarea"
+            rows="30"
+            cols="80"
+            style="margin-left: 20px"
+        ></textarea>
         <script>
             // Generate 1500 lines for performance testing (10x from original 150)
             // 10% of lines should be long enough to wrap

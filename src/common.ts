@@ -10,6 +10,8 @@ import type {
     VisualSelectionRenderer,
     LineNumbersRenderer,
 } from "./types.js";
+import { ChunkedLineNumbersRenderer } from "./chunked-line-numbers-renderer.js";
+import { createSmartDebounce } from "./debounce.js";
 
 // Custom caret management
 let customCaret: HTMLDivElement | null = null;
@@ -22,17 +24,10 @@ let visualSelectionRenderer: VisualSelectionRenderer | null = null;
 // Line numbers management
 let lineNumbersRenderer: LineNumbersRenderer | null = null;
 
-// Cache for visual rows calculation
-let visualRowsCache: {
-    text: string;
-    inputElement: EditableElement;
-    clientWidth: number;
-    rows: { logicalLine: number; visualRow: number; totalVisualRows: number }[];
-} | null = null;
-
+// Note: visualRowsCache has been moved to chunked-line-numbers-renderer.ts
 // Clear visual rows cache (useful for testing and when input changes)
 export function clearVisualRowsCache(): void {
-    visualRowsCache = null;
+    // This is now a no-op, kept for backwards compatibility
 }
 
 // DOM-based text metrics implementation
@@ -163,300 +158,7 @@ export class DOMVisualSelectionRenderer implements VisualSelectionRenderer {
     }
 }
 
-// Calculate visual row information for word-wrapped text
-function calculateVisualRows(
-    input: EditableElement,
-): { logicalLine: number; visualRow: number; totalVisualRows: number }[] {
-    if (input.tagName !== "TEXTAREA") {
-        // Single-line inputs don't wrap
-        const lines = input.value.split("\n");
-        return lines.map((_, i) => ({
-            logicalLine: i + 1,
-            visualRow: 1,
-            totalVisualRows: 1,
-        }));
-    }
-
-    const text = input.value;
-    const clientWidth = input.clientWidth;
-
-    // Check cache first
-    if (
-        visualRowsCache &&
-        visualRowsCache.text === text &&
-        visualRowsCache.inputElement === input &&
-        visualRowsCache.clientWidth === clientWidth
-    ) {
-        return visualRowsCache.rows;
-    }
-
-    const lines = text.split("\n");
-    const result: {
-        logicalLine: number;
-        visualRow: number;
-        totalVisualRows: number;
-    }[] = [];
-
-    // Create a mirror element to measure wrapping
-    const mirror = document.createElement("div");
-    mirror.style.position = "absolute";
-    mirror.style.visibility = "hidden";
-    mirror.style.whiteSpace = "pre-wrap";
-    mirror.style.wordWrap = "break-word";
-    mirror.style.overflowWrap = "break-word";
-
-    const computedStyle = window.getComputedStyle(input);
-
-    // Use clientWidth which automatically excludes scrollbar width
-    // clientWidth = width - vertical scrollbar - borders
-    const paddingLeft = parseFloat(computedStyle.paddingLeft);
-    const paddingRight = parseFloat(computedStyle.paddingRight);
-    const contentWidth = clientWidth - paddingLeft - paddingRight;
-
-    mirror.style.width = `${contentWidth}px`;
-
-    const stylesToCopy = [
-        "font-family",
-        "font-size",
-        "font-weight",
-        "font-style",
-        "letter-spacing",
-        "text-transform",
-        "word-spacing",
-        "text-indent",
-        "line-height",
-    ];
-
-    stylesToCopy.forEach((prop) => {
-        const value =
-            typeof computedStyle.getPropertyValue === "function"
-                ? computedStyle.getPropertyValue(prop)
-                : (computedStyle as unknown as Record<string, string>)[
-                      prop.replace(/-([a-z])/g, (g) => g[1].toUpperCase())
-                  ];
-        mirror.style.setProperty(prop, value);
-    });
-
-    document.body.appendChild(mirror);
-
-    const lineHeight = parseFloat(computedStyle.lineHeight);
-    const fontSize = parseFloat(computedStyle.fontSize);
-    const effectiveLineHeight = isNaN(lineHeight) ? fontSize * 1.2 : lineHeight;
-
-    lines.forEach((line, index) => {
-        // Measure this line
-        mirror.textContent = line || " "; // Use space for empty lines
-
-        // Force a reflow to get accurate measurements
-        const mirrorHeight = mirror.offsetHeight;
-        const visualRows = Math.max(
-            1,
-            Math.round(mirrorHeight / effectiveLineHeight),
-        );
-
-        // Add entry for each visual row of this logical line
-        for (let vRow = 1; vRow <= visualRows; vRow++) {
-            result.push({
-                logicalLine: index + 1,
-                visualRow: vRow,
-                totalVisualRows: visualRows,
-            });
-        }
-    });
-
-    mirror.remove();
-
-    // Cache the result
-    visualRowsCache = {
-        text,
-        inputElement: input,
-        clientWidth,
-        rows: result,
-    };
-
-    return result;
-}
-
-// DOM-based line numbers renderer
-export class DOMLineNumbersRenderer implements LineNumbersRenderer {
-    private container: HTMLDivElement;
-    private currentInput: EditableElement | null = null;
-
-    constructor() {
-        this.container = document.createElement("div");
-        this.container.setAttribute("data-vim-line-numbers", "true");
-        this.container.style.position = "absolute";
-        this.container.style.pointerEvents = "none";
-        this.container.style.zIndex = "9997"; // Below visual selection
-        this.container.style.backgroundColor = "rgba(0, 0, 0, 0.7)";
-        this.container.style.color = "rgba(255, 255, 255, 0.6)";
-        this.container.style.fontFamily = "monospace";
-        this.container.style.textAlign = "right";
-        this.container.style.whiteSpace = "pre";
-        this.container.style.padding = "0 8px 0 4px";
-        this.container.style.borderRadius = "2px";
-        this.container.style.boxSizing = "border-box";
-        document.body.appendChild(this.container);
-    }
-
-    render(
-        input: EditableElement,
-        currentLine: number,
-        totalLines: number,
-    ): void {
-        if (!TAMPER_VIM_MODE.showLineNumbers) {
-            this.hide();
-            return;
-        }
-
-        // Calculate visual rows to detect text wrapping
-        const visualRowsInfo = calculateVisualRows(input);
-        const hasWrappedLines = visualRowsInfo.some(
-            (row) => row.totalVisualRows > 1,
-        );
-
-        // Don't show line numbers for textareas with 5 or fewer lines
-        // unless there is text wrapping
-        if (totalLines <= 5 && !hasWrappedLines) {
-            this.hide();
-            return;
-        }
-
-        debug("DOMLineNumbersRenderer.render", {
-            currentLine,
-            totalLines,
-            cursorPos: getCursorPos(input),
-        });
-
-        this.currentInput = input;
-        const rect = input.getBoundingClientRect();
-        const computedStyle = window.getComputedStyle(input);
-        const paddingTop = parseFloat(computedStyle.paddingTop);
-        const paddingBottom = parseFloat(computedStyle.paddingBottom);
-        const borderTop = parseFloat(computedStyle.borderTopWidth);
-        const borderBottom = parseFloat(computedStyle.borderBottomWidth);
-
-        // Match the input's font properties exactly
-        const fontSize = computedStyle.fontSize;
-        const fontFamily = computedStyle.fontFamily;
-        const lineHeightStr = computedStyle.lineHeight;
-
-        this.container.style.fontSize = fontSize;
-        this.container.style.fontFamily = fontFamily;
-        this.container.style.lineHeight = lineHeightStr;
-
-        // Position the container to the left of the input, accounting for padding and border
-        this.container.style.display = "block";
-        this.container.style.top = `${rect.top + window.scrollY + paddingTop + borderTop}px`;
-        this.container.style.right = `${window.innerWidth - (rect.left + window.scrollX) + 2}px`; // 2px gap from textarea
-        this.container.style.left = "auto";
-        this.container.style.height = `${rect.height - paddingTop - paddingBottom - borderTop - borderBottom}px`;
-        this.container.style.width = "auto";
-        this.container.style.minWidth = "40px";
-
-        // Reuse visual rows calculation from earlier (already calculated to check for wrapping)
-
-        // Find the visual row index for the current logical line
-        // We use the currentLine parameter instead of trying to calculate it from cursor position
-        // to avoid interfering with focus and selection
-        const currentVisualRow = visualRowsInfo.findIndex(
-            (r) => r.logicalLine === currentLine && r.visualRow === 1,
-        );
-
-        debug("DOMLineNumbersRenderer visual rows", {
-            visualRowsCount: visualRowsInfo.length,
-            currentVisualRow,
-            currentLine,
-        });
-
-        // Generate line numbers for each visual row
-        const lines: string[] = [];
-        const useRelative = TAMPER_VIM_MODE.relativeLineNumbers;
-
-        // Use simple line numbering if visual rows calculation failed
-        // OR if we're using simple line-based highlighting
-        const useSimpleMode = visualRowsInfo.length === 0;
-
-        if (useSimpleMode) {
-            for (let i = 1; i <= totalLines; i++) {
-                let lineNum: string;
-                if (useRelative) {
-                    if (i === currentLine) {
-                        lineNum = String(i);
-                    } else {
-                        lineNum = String(Math.abs(i - currentLine));
-                    }
-                } else {
-                    lineNum = String(i);
-                }
-
-                // Highlight current line
-                if (i === currentLine) {
-                    lines.push(
-                        `<span style="color: rgba(255, 255, 255, 1); font-weight: bold; background-color: rgba(255, 255, 255, 0.2); display: inline-block; width: 100%; padding: 0 2px;">${lineNum.padStart(3, " ")}</span>`,
-                    );
-                } else {
-                    lines.push(lineNum.padStart(3, " "));
-                }
-            }
-        } else {
-            visualRowsInfo.forEach((rowInfo, idx) => {
-                let lineNum: string;
-
-                // Only show line number on the first visual row of each logical line
-                if (rowInfo.visualRow === 1) {
-                    const logicalLine = rowInfo.logicalLine;
-                    if (useRelative) {
-                        if (logicalLine === currentLine) {
-                            lineNum = String(logicalLine);
-                        } else {
-                            lineNum = String(
-                                Math.abs(logicalLine - currentLine),
-                            );
-                        }
-                    } else {
-                        lineNum = String(logicalLine);
-                    }
-                } else {
-                    // Continuation of wrapped line - show empty space
-                    lineNum = "";
-                }
-
-                // Highlight current visual row
-                if (idx === currentVisualRow) {
-                    lines.push(
-                        `<span style="color: rgba(255, 255, 255, 1); font-weight: bold; background-color: rgba(255, 255, 255, 0.2); display: inline-block; width: 100%; padding: 0 2px;">${lineNum.padStart(3, " ")}</span>`,
-                    );
-                } else {
-                    lines.push(lineNum.padStart(3, " "));
-                }
-            });
-        }
-
-        // Sync scroll position
-        if (input.tagName === "TEXTAREA") {
-            this.container.style.overflow = "hidden";
-            // Always wrap in a div to handle scrolling and avoid applying transform to individual elements
-            const wrapper = document.createElement("div");
-            wrapper.innerHTML = lines.join("\n");
-            wrapper.style.transform = `translateY(-${input.scrollTop}px)`;
-            this.container.innerHTML = "";
-            this.container.appendChild(wrapper);
-        } else {
-            this.container.innerHTML = lines.join("\n");
-        }
-    }
-
-    hide(): void {
-        this.container.style.display = "none";
-        this.currentInput = null;
-    }
-
-    destroy(): void {
-        this.container.remove();
-        this.currentInput = null;
-    }
-}
+// Note: calculateVisualRows has been moved to chunked-line-numbers-renderer.ts
 
 // Calculate caret position (pure function, no side effects)
 export function calculateCaretPosition(
@@ -872,11 +574,22 @@ export function createLineNumbers(): void {
     if (lineNumbersRenderer) {
         lineNumbersRenderer.destroy();
     }
-    lineNumbersRenderer = new DOMLineNumbersRenderer();
+    lineNumbersRenderer = new ChunkedLineNumbersRenderer();
 }
 
-// Debounce timer for line number updates
-let lineNumbersDebounceTimer: number | null = null;
+// Internal function to render line numbers
+function renderLineNumbers(input: EditableElement): void {
+    const text = input.value;
+    const pos = getCursorPos(input);
+    const textBeforeCursor = text.substring(0, pos);
+    const currentLine = (textBeforeCursor.match(/\n/g) || []).length + 1;
+    const totalLines = (text.match(/\n/g) || []).length + 1;
+
+    lineNumbersRenderer?.render(input, currentLine, totalLines);
+}
+
+// Create debounced version (50ms debounce - batches rapid ops)
+const debouncedRenderLineNumbers = createSmartDebounce(renderLineNumbers, 50);
 
 export function updateLineNumbers(input: EditableElement): void {
     if (!TAMPER_VIM_MODE.showLineNumbers) {
@@ -888,23 +601,7 @@ export function updateLineNumbers(input: EditableElement): void {
         createLineNumbers();
     }
 
-    // Cancel any pending debounced update
-    if (lineNumbersDebounceTimer !== null) {
-        clearTimeout(lineNumbersDebounceTimer);
-    }
-
-    // Debounce the update to batch rapid changes (e.g., holding 'p' to paste)
-    lineNumbersDebounceTimer = window.setTimeout(() => {
-        lineNumbersDebounceTimer = null;
-
-        const text = input.value;
-        const pos = getCursorPos(input);
-        const textBeforeCursor = text.substring(0, pos);
-        const currentLine = (textBeforeCursor.match(/\n/g) || []).length + 1;
-        const totalLines = (text.match(/\n/g) || []).length + 1;
-
-        lineNumbersRenderer?.render(input, currentLine, totalLines);
-    }, 50); // 50ms debounce - feels instant for single ops, batches rapid ops
+    debouncedRenderLineNumbers(input);
 }
 
 export function hideLineNumbers(): void {

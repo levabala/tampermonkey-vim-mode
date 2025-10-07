@@ -146,9 +146,8 @@ test.describe("Line Numbers Column Alignment", () => {
             (el) => (el as HTMLTextAreaElement).scrollTop,
         );
 
-        // Line numbers wrapper should have transform to match scroll
-        const wrapper = lineNumbersContainer.locator("> div").first();
-        const transform = await wrapper.evaluate((el) =>
+        // Line numbers container should have transform to match scroll (with chunked rendering)
+        const transform = await lineNumbersContainer.evaluate((el) =>
             window.getComputedStyle(el).getPropertyValue("transform"),
         );
 
