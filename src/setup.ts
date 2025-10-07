@@ -128,6 +128,7 @@ let modeText: HTMLDivElement | undefined;
 
 if (typeof document !== "undefined") {
     indicator = document.createElement("div");
+    indicator.id = "vim-mode-indicator";
     indicator.style.cssText = `
         position: fixed;
         bottom: 10px;
