@@ -424,13 +424,19 @@ export function calculateSelectionRects(
 
     if (input.tagName === "TEXTAREA") {
         // Multi-line: calculate rectangles for each line in selection
-        // Use mirror technique similar to caret positioning
+        // Use mirror technique similar to calculateVisualRows for accurate wrapping detection
         const mirror = document.createElement("div");
         mirror.style.position = "absolute";
         mirror.style.visibility = "hidden";
         mirror.style.whiteSpace = "pre-wrap";
         mirror.style.wordWrap = "break-word";
-        mirror.style.width = `${rect.width}px`;
+        mirror.style.overflowWrap = "break-word";
+
+        // Calculate content width (exclude padding from textarea)
+        const paddingLeft = parseFloat(computedStyle.paddingLeft);
+        const paddingRight = parseFloat(computedStyle.paddingRight);
+        const contentWidth = input.clientWidth - paddingLeft - paddingRight;
+        mirror.style.width = `${contentWidth}px`;
 
         const stylesToCopy = [
             "font-family",
@@ -441,6 +447,49 @@ export function calculateSelectionRects(
             "text-transform",
             "word-spacing",
             "text-indent",
+            "line-height",
+        ];
+
+        stylesToCopy.forEach((prop) => {
+            const value =
+                typeof computedStyle.getPropertyValue === "function"
+                    ? computedStyle.getPropertyValue(prop)
+                    : (computedStyle as unknown as Record<string, string>)[
+                          prop.replace(/-([a-z])/g, (g) => g[1].toUpperCase())
+                      ];
+            mirror.style.setProperty(prop, value);
+        });
+
+        document.body.appendChild(mirror);
+
+        const fontSize = parseFloat(computedStyle.fontSize);
+        const lineHeight = parseFloat(computedStyle.lineHeight);
+        const effectiveLineHeight = isNaN(lineHeight)
+            ? fontSize * 1.2
+            : lineHeight;
+
+        // Split selection into lines
+        const selectedText = text.substring(selStart, selEnd);
+        const textBeforeSelection = text.substring(0, selStart);
+
+        // Create a positioning mirror for accurate Y positioning
+        const posMirror = document.createElement("div");
+        posMirror.style.position = "absolute";
+        posMirror.style.visibility = "hidden";
+        posMirror.style.whiteSpace = "pre-wrap";
+        posMirror.style.wordWrap = "break-word";
+        posMirror.style.width = `${rect.width}px`;
+
+        const posStylesToCopy = [
+            "font-family",
+            "font-size",
+            "font-weight",
+            "font-style",
+            "letter-spacing",
+            "text-transform",
+            "word-spacing",
+            "text-indent",
+            "line-height",
             "padding-left",
             "padding-top",
             "padding-right",
@@ -450,18 +499,14 @@ export function calculateSelectionRects(
             "box-sizing",
         ];
 
-        stylesToCopy.forEach((prop) => {
-            mirror.style.setProperty(
+        posStylesToCopy.forEach((prop) => {
+            posMirror.style.setProperty(
                 prop,
                 computedStyle.getPropertyValue(prop),
             );
         });
 
-        document.body.appendChild(mirror);
-
-        // Split selection into lines
-        const selectedText = text.substring(selStart, selEnd);
-        const textBeforeSelection = text.substring(0, selStart);
+        document.body.appendChild(posMirror);
 
         // Find line breaks in selection
         let lineStartInSelection = 0;
@@ -479,32 +524,63 @@ export function calculateSelectionRects(
                       lineEndInSelection,
                   );
 
-            // Measure this line's selection
-            mirror.textContent =
+            // Measure this line IN ISOLATION to detect wrapping correctly
+            mirror.textContent = lineText || " ";
+            const isolatedHeight = mirror.offsetHeight;
+            const visualRows = Math.max(
+                1,
+                Math.round(isolatedHeight / effectiveLineHeight),
+            );
+
+            // Get Y position using positioning mirror with context
+            posMirror.textContent =
                 textBeforeSelection +
                 selectedText.substring(0, lineStartInSelection);
 
             const lineStartSpan = document.createElement("span");
             lineStartSpan.textContent = lineText || " ";
-            mirror.appendChild(lineStartSpan);
+            posMirror.appendChild(lineStartSpan);
 
             const lineStartRect = lineStartSpan.getBoundingClientRect();
-            const mirrorRect = mirror.getBoundingClientRect();
+            const posMirrorRect = posMirror.getBoundingClientRect();
 
             const x =
                 rect.left +
                 window.scrollX +
-                (lineStartRect.left - mirrorRect.left) -
+                (lineStartRect.left - posMirrorRect.left) -
                 input.scrollLeft;
-            const y =
+            const baseY =
                 rect.top +
                 window.scrollY +
-                (lineStartRect.top - mirrorRect.top) -
+                (lineStartRect.top - posMirrorRect.top) -
                 input.scrollTop;
-            const width = lineStartRect.width;
-            const height = lineStartRect.height;
 
-            rects.push({ x, y, width, height });
+            // If line wraps, create multiple rectangles (one per visual row)
+            if (visualRows > 1) {
+                for (let vRow = 0; vRow < visualRows; vRow++) {
+                    rects.push({
+                        x:
+                            rect.left +
+                            window.scrollX +
+                            paddingLeft -
+                            input.scrollLeft,
+                        y: baseY + vRow * effectiveLineHeight,
+                        width: contentWidth,
+                        height: effectiveLineHeight,
+                    });
+                }
+            } else {
+                // Single row: use measured width
+                rects.push({
+                    x,
+                    y: baseY,
+                    width: lineStartRect.width,
+                    height: effectiveLineHeight,
+                });
+            }
+
+            // Clean up for next iteration
+            posMirror.innerHTML = "";
 
             if (isLastLine) break;
 
@@ -513,6 +589,7 @@ export function calculateSelectionRects(
         }
 
         mirror.remove();
+        posMirror.remove();
     } else {
         // Single-line: simple rectangle calculation
         const textBeforeSelection = text.substring(0, selStart);
