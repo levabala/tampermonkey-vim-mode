@@ -550,6 +550,7 @@ function handleKeyDown(e: KeyboardEvent): void {
         e.preventDefault();
         const moveCaret = mode === "normal" || mode === "visual";
         scrollTextarea(currentInput, 1, moveCaret);
+        updateLineNumbers(currentInput);
         return;
     }
 
@@ -558,6 +559,7 @@ function handleKeyDown(e: KeyboardEvent): void {
         e.preventDefault();
         const moveCaret = mode === "normal" || mode === "visual";
         scrollTextarea(currentInput, -1, moveCaret);
+        updateLineNumbers(currentInput);
         return;
     }
 
@@ -566,6 +568,7 @@ function handleKeyDown(e: KeyboardEvent): void {
         e.preventDefault();
         const moveCaret = mode === "normal" || mode === "visual";
         scrollHalfPage(currentInput, true, moveCaret);
+        updateLineNumbers(currentInput);
         return;
     }
 
@@ -574,6 +577,7 @@ function handleKeyDown(e: KeyboardEvent): void {
         e.preventDefault();
         const moveCaret = mode === "normal" || mode === "visual";
         scrollHalfPage(currentInput, false, moveCaret);
+        updateLineNumbers(currentInput);
         return;
     }
 
