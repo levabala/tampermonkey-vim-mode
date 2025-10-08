@@ -391,6 +391,9 @@ function handleBlur(e: FocusEvent): void {
             removeLineNumbers();
             clearVisualSelection();
 
+            // Reset to insert mode (like double ESC)
+            vimState.setMode("insert");
+
             // Don't reset currentInput - keep it so we can detect refocus of same element
             updateIndicator(vimState.getMode(), currentInput);
             // Keep savedCursorPos in case we refocus later
@@ -458,7 +461,20 @@ function handleBlur(e: FocusEvent): void {
             return;
         }
 
-        // Scenario 4: Allowed blur (e.g., ESC in normal mode to unfocus)
+        // Scenario 4: Blur from normal mode without explicit permission
+        // This happens when clicking outside while in normal mode
+        // Reset to insert mode (like double ESC behavior)
+        if (mode === "normal" && !allowBlur) {
+            debug("handleBlur: blur from normal mode, resetting to insert");
+            vimState.setMode("insert");
+            syncCaretToMode(null, "insert");
+            removeLineNumbers();
+            clearVisualSelection();
+            updateIndicator("insert", currentInput);
+            return;
+        }
+
+        // Scenario 5: Allowed blur (e.g., ESC in normal mode to unfocus)
         debug("handleBlur: allowing blur", { mode, allowBlur });
         vimState.setAllowBlur(false);
 
@@ -689,6 +705,27 @@ if (typeof window === "undefined" || typeof document === "undefined") {
     document.addEventListener("focusout", handleBlur, true);
     document.addEventListener("keydown", testListener, true);
     document.addEventListener("keydown", handleKeyDown, true);
+
+    // Handle clicks outside to clear vim mode
+    document.addEventListener(
+        "mousedown",
+        (e: MouseEvent) => {
+            const currentInput = vimState.getCurrentInput();
+            if (!currentInput || vimState.getMode() !== "normal") {
+                return;
+            }
+
+            const target = e.target as HTMLElement;
+            // If clicking outside the current input, blur it (which will trigger handleBlur)
+            if (target !== currentInput && !target.contains(currentInput)) {
+                // Switch to insert mode BEFORE blur so handleBlur doesn't prevent it
+                vimState.setMode("insert");
+                // Now blur to unfocus
+                currentInput.blur();
+            }
+        },
+        true,
+    );
 
     // Update line numbers on input in insert mode
     document.addEventListener(
