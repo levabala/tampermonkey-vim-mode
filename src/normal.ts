@@ -278,6 +278,77 @@ export function yankRange(
     clipboard.linewise = linewise;
 }
 
+// Helper function to yank to a specific register
+function yankToRegister(
+    currentInput: EditableElement,
+    clipboard: { content: string; linewise: boolean },
+    registers: Map<string, { content: string; linewise: boolean }>,
+    registerName: string | null,
+    start: number,
+    end: number,
+    linewise = false,
+): void {
+    const yanked = currentInput.value.substring(start, end);
+    debug("yankToRegister", { registerName, start, end, yanked, linewise });
+
+    // Default register (") or null means use clipboard
+    const reg = registerName || '"';
+
+    if (reg === '"') {
+        clipboard.content = yanked;
+        clipboard.linewise = linewise;
+    } else {
+        // Store in named register
+        registers.set(reg, { content: yanked, linewise });
+        // Also update default register
+        clipboard.content = yanked;
+        clipboard.linewise = linewise;
+    }
+
+    // If using + register, copy to system clipboard
+    if (reg === "+") {
+        try {
+            navigator.clipboard.writeText(yanked);
+            debug("yankToRegister: copied to system clipboard");
+        } catch (err) {
+            debug("yankToRegister: failed to copy to system clipboard", { error: err });
+        }
+    }
+}
+
+// Helper function to get content from a register
+async function getRegisterContent(
+    clipboard: { content: string; linewise: boolean },
+    registers: Map<string, { content: string; linewise: boolean }>,
+    registerName: string | null,
+): Promise<{ content: string; linewise: boolean }> {
+    const reg = registerName || '"';
+    debug("getRegisterContent", { register: reg });
+
+    // Default register (")
+    if (reg === '"') {
+        return { content: clipboard.content, linewise: clipboard.linewise };
+    }
+
+    // System clipboard register (+)
+    if (reg === "+") {
+        try {
+            const content = await navigator.clipboard.readText();
+            debug("getRegisterContent: read from system clipboard");
+            return { content, linewise: false };
+        } catch (err) {
+            debug("getRegisterContent: failed to read system clipboard", { error: err });
+            // Fall back to stored register if clipboard access fails
+            const stored = registers.get(reg);
+            return stored || { content: "", linewise: false };
+        }
+    }
+
+    // Named register
+    const stored = registers.get(reg);
+    return stored || { content: "", linewise: false };
+}
+
 export function changeRange(
     currentInput: EditableElement,
     undoStack: UndoState[],
@@ -352,9 +423,11 @@ export function processNormalCommand(key: string, state: State): boolean {
         countBuffer,
         commandBuffer,
         operatorPending,
+        registerPrefix,
         undoStack,
         redoStack,
         clipboard,
+        registers,
         enterInsertMode,
         enterVisualMode,
     } = state;
@@ -373,7 +446,25 @@ export function processNormalCommand(key: string, state: State): boolean {
         countBuffer,
         commandBuffer,
         operatorPending,
+        registerPrefix,
     });
+
+    // Handle register prefix - waiting for register name
+    if (commandBuffer === '"') {
+        // Valid register names: a-z, A-Z, 0-9, ", +
+        if (/[a-zA-Z0-9"+]/.test(key)) {
+            state.registerPrefix = key;
+            state.commandBuffer = "";
+            debug("processNormalCommand: set registerPrefix", {
+                register: key,
+            });
+            return true;
+        } else {
+            // Invalid register name, clear command buffer
+            state.commandBuffer = "";
+            return false;
+        }
+    }
 
     // Handle operators
     if (operatorPending) {
@@ -382,6 +473,7 @@ export function processNormalCommand(key: string, state: State): boolean {
             debug("processCommand: double operator", {
                 operator: operatorPending,
                 count,
+                registerPrefix,
             });
             const line = getLine(currentInput, getCursorPos(currentInput));
             const start = line.start;
@@ -393,7 +485,15 @@ export function processNormalCommand(key: string, state: State): boolean {
                 line.end < currentInput.value.length ? line.end + 1 : line.end;
 
             if (operatorPending === "d") {
-                yankRange(currentInput, clipboard, start, yankEnd, true);
+                yankToRegister(
+                    currentInput,
+                    clipboard,
+                    registers,
+                    registerPrefix,
+                    start,
+                    yankEnd,
+                    true,
+                );
                 deleteRange(
                     currentInput,
                     undoStack,
@@ -403,10 +503,26 @@ export function processNormalCommand(key: string, state: State): boolean {
                 );
                 state.lastChange = { operator: "d", motion: "d", count };
             } else if (operatorPending === "y") {
-                yankRange(currentInput, clipboard, start, yankEnd, true);
+                yankToRegister(
+                    currentInput,
+                    clipboard,
+                    registers,
+                    registerPrefix,
+                    start,
+                    yankEnd,
+                    true,
+                );
                 state.lastChange = { operator: "y", motion: "y", count };
             } else if (operatorPending === "c") {
-                yankRange(currentInput, clipboard, start, yankEnd, true);
+                yankToRegister(
+                    currentInput,
+                    clipboard,
+                    registers,
+                    registerPrefix,
+                    start,
+                    yankEnd,
+                    true,
+                );
                 // cc should delete line content but preserve the line (newline)
                 changeRange(
                     currentInput,
@@ -421,6 +537,7 @@ export function processNormalCommand(key: string, state: State): boolean {
 
             state.operatorPending = null;
             state.countBuffer = "";
+            state.registerPrefix = null;
             return true;
         }
 
@@ -478,7 +595,14 @@ export function processNormalCommand(key: string, state: State): boolean {
             };
 
             if (operatorPending === "d") {
-                yankRange(currentInput, clipboard, range.start, range.end);
+                yankToRegister(
+                    currentInput,
+                    clipboard,
+                    registers,
+                    registerPrefix,
+                    range.start,
+                    range.end,
+                );
                 deleteRange(
                     currentInput,
                     undoStack,
@@ -492,14 +616,28 @@ export function processNormalCommand(key: string, state: State): boolean {
                     count,
                 };
             } else if (operatorPending === "y") {
-                yankRange(currentInput, clipboard, range.start, range.end);
+                yankToRegister(
+                    currentInput,
+                    clipboard,
+                    registers,
+                    registerPrefix,
+                    range.start,
+                    range.end,
+                );
                 state.lastChange = {
                     operator: "y",
                     motion: commandBuffer + key,
                     count,
                 };
             } else if (operatorPending === "c") {
-                yankRange(currentInput, clipboard, range.start, range.end);
+                yankToRegister(
+                    currentInput,
+                    clipboard,
+                    registers,
+                    registerPrefix,
+                    range.start,
+                    range.end,
+                );
                 changeRange(
                     currentInput,
                     undoStack,
@@ -518,6 +656,7 @@ export function processNormalCommand(key: string, state: State): boolean {
             state.operatorPending = null;
             state.commandBuffer = "";
             state.countBuffer = "";
+            state.registerPrefix = null;
             return true;
         }
 
@@ -532,7 +671,14 @@ export function processNormalCommand(key: string, state: State): boolean {
             const range = findTextObject(currentInput, key, inner);
 
             if (operatorPending === "d") {
-                yankRange(currentInput, clipboard, range.start, range.end);
+                yankToRegister(
+                    currentInput,
+                    clipboard,
+                    registers,
+                    registerPrefix,
+                    range.start,
+                    range.end,
+                );
                 deleteRange(
                     currentInput,
                     undoStack,
@@ -546,14 +692,28 @@ export function processNormalCommand(key: string, state: State): boolean {
                     count,
                 };
             } else if (operatorPending === "y") {
-                yankRange(currentInput, clipboard, range.start, range.end);
+                yankToRegister(
+                    currentInput,
+                    clipboard,
+                    registers,
+                    registerPrefix,
+                    range.start,
+                    range.end,
+                );
                 state.lastChange = {
                     operator: "y",
                     textObject: commandBuffer + key,
                     count,
                 };
             } else if (operatorPending === "c") {
-                yankRange(currentInput, clipboard, range.start, range.end);
+                yankToRegister(
+                    currentInput,
+                    clipboard,
+                    registers,
+                    registerPrefix,
+                    range.start,
+                    range.end,
+                );
                 changeRange(
                     currentInput,
                     undoStack,
@@ -572,6 +732,7 @@ export function processNormalCommand(key: string, state: State): boolean {
             state.operatorPending = null;
             state.commandBuffer = "";
             state.countBuffer = "";
+            state.registerPrefix = null;
             return true;
         }
 
@@ -584,7 +745,14 @@ export function processNormalCommand(key: string, state: State): boolean {
         const range = getMotionRange(currentInput, key, count);
 
         if (operatorPending === "d") {
-            yankRange(currentInput, clipboard, range.start, range.end);
+            yankToRegister(
+                currentInput,
+                clipboard,
+                registers,
+                registerPrefix,
+                range.start,
+                range.end,
+            );
             deleteRange(
                 currentInput,
                 undoStack,
@@ -594,10 +762,24 @@ export function processNormalCommand(key: string, state: State): boolean {
             );
             state.lastChange = { operator: "d", motion: key, count };
         } else if (operatorPending === "y") {
-            yankRange(currentInput, clipboard, range.start, range.end);
+            yankToRegister(
+                currentInput,
+                clipboard,
+                registers,
+                registerPrefix,
+                range.start,
+                range.end,
+            );
             state.lastChange = { operator: "y", motion: key, count };
         } else if (operatorPending === "c") {
-            yankRange(currentInput, clipboard, range.start, range.end);
+            yankToRegister(
+                currentInput,
+                clipboard,
+                registers,
+                registerPrefix,
+                range.start,
+                range.end,
+            );
             changeRange(
                 currentInput,
                 undoStack,
@@ -612,6 +794,7 @@ export function processNormalCommand(key: string, state: State): boolean {
         state.operatorPending = null;
         state.commandBuffer = "";
         state.countBuffer = "";
+        state.registerPrefix = null;
         return true;
     }
 
@@ -825,14 +1008,22 @@ export function processNormalCommand(key: string, state: State): boolean {
             saveState(currentInput, undoStack, redoStack);
             const posX = getCursorPos(currentInput);
             const endX = Math.min(posX + count, currentInput.value.length);
-            clipboard.content = currentInput.value.substring(posX, endX);
-            clipboard.linewise = false;
+            yankToRegister(
+                currentInput,
+                clipboard,
+                registers,
+                registerPrefix,
+                posX,
+                endX,
+                false,
+            );
             currentInput.value =
                 currentInput.value.substring(0, posX) +
                 currentInput.value.substring(endX);
             setCursorPos(currentInput, posX);
             state.lastChange = { command: "x", count };
             state.countBuffer = "";
+            state.registerPrefix = null;
             break;
 
         case "X":
@@ -840,8 +1031,15 @@ export function processNormalCommand(key: string, state: State): boolean {
             for (let i = 0; i < count; i++) {
                 const posXb = getCursorPos(currentInput);
                 if (posXb > 0) {
-                    clipboard.content = currentInput.value[posXb - 1];
-                    clipboard.linewise = false;
+                    yankToRegister(
+                        currentInput,
+                        clipboard,
+                        registers,
+                        registerPrefix,
+                        posXb - 1,
+                        posXb,
+                        false,
+                    );
                     currentInput.value =
                         currentInput.value.substring(0, posXb - 1) +
                         currentInput.value.substring(posXb);
@@ -850,6 +1048,7 @@ export function processNormalCommand(key: string, state: State): boolean {
             }
             state.lastChange = { command: "X", count };
             state.countBuffer = "";
+            state.registerPrefix = null;
             break;
 
         case "D":
@@ -857,13 +1056,21 @@ export function processNormalCommand(key: string, state: State): boolean {
             saveState(currentInput, undoStack, redoStack);
             const posD = getCursorPos(currentInput);
             const lineEndD = getLineEnd(currentInput, posD);
-            clipboard.content = currentInput.value.substring(posD, lineEndD);
-            clipboard.linewise = false;
+            yankToRegister(
+                currentInput,
+                clipboard,
+                registers,
+                registerPrefix,
+                posD,
+                lineEndD,
+                false,
+            );
             currentInput.value =
                 currentInput.value.substring(0, posD) +
                 currentInput.value.substring(lineEndD);
             state.lastChange = { command: "D", count };
             state.countBuffer = "";
+            state.registerPrefix = null;
             break;
 
         case "C":
@@ -871,8 +1078,15 @@ export function processNormalCommand(key: string, state: State): boolean {
             saveState(currentInput, undoStack, redoStack);
             const posC = getCursorPos(currentInput);
             const lineEndC = getLineEnd(currentInput, posC);
-            clipboard.content = currentInput.value.substring(posC, lineEndC);
-            clipboard.linewise = false;
+            yankToRegister(
+                currentInput,
+                clipboard,
+                registers,
+                registerPrefix,
+                posC,
+                lineEndC,
+                false,
+            );
             currentInput.value =
                 currentInput.value.substring(0, posC) +
                 currentInput.value.substring(lineEndC);
@@ -880,6 +1094,7 @@ export function processNormalCommand(key: string, state: State): boolean {
             enterInsertMode("C");
             state.lastChange = { command: "C", count };
             state.countBuffer = "";
+            state.registerPrefix = null;
             break;
 
         case "d":
@@ -888,9 +1103,24 @@ export function processNormalCommand(key: string, state: State): boolean {
             state.operatorPending = key;
             break;
 
-        case "p":
+        case '"':
+            // Register prefix command
+            state.commandBuffer = key;
+            break;
+
+        case "p": {
             saveState(currentInput, undoStack, redoStack);
-            if (clipboard.linewise) {
+            const reg = registerPrefix || '"';
+            let pasteContent: { content: string; linewise: boolean };
+
+            if (reg === '"') {
+                pasteContent = { content: clipboard.content, linewise: clipboard.linewise };
+            } else {
+                const stored = registers.get(reg);
+                pasteContent = stored || { content: "", linewise: false };
+            }
+
+            if (pasteContent.linewise) {
                 // Line-wise paste: insert below current line
                 const currentLine = getLine(
                     currentInput,
@@ -900,7 +1130,7 @@ export function processNormalCommand(key: string, state: State): boolean {
                 currentInput.value =
                     currentInput.value.substring(0, insertPos) +
                     "\n" +
-                    clipboard.content +
+                    pasteContent.content +
                     currentInput.value.substring(insertPos);
                 // Set cursor to first character of pasted content
                 setCursorPos(currentInput, insertPos + 1);
@@ -909,17 +1139,29 @@ export function processNormalCommand(key: string, state: State): boolean {
                 const posP = getCursorPos(currentInput) + 1;
                 currentInput.value =
                     currentInput.value.substring(0, posP) +
-                    clipboard.content +
+                    pasteContent.content +
                     currentInput.value.substring(posP);
-                setCursorPos(currentInput, posP + clipboard.content.length - 1);
+                setCursorPos(currentInput, posP + pasteContent.content.length - 1);
             }
             state.lastChange = { command: "p", count };
             state.countBuffer = "";
+            state.registerPrefix = null;
             break;
+        }
 
-        case "P":
+        case "P": {
             saveState(currentInput, undoStack, redoStack);
-            if (clipboard.linewise) {
+            const reg = registerPrefix || '"';
+            let pasteContent: { content: string; linewise: boolean };
+
+            if (reg === '"') {
+                pasteContent = { content: clipboard.content, linewise: clipboard.linewise };
+            } else {
+                const stored = registers.get(reg);
+                pasteContent = stored || { content: "", linewise: false };
+            }
+
+            if (pasteContent.linewise) {
                 // Line-wise paste: insert above current line
                 const currentLine = getLine(
                     currentInput,
@@ -928,7 +1170,7 @@ export function processNormalCommand(key: string, state: State): boolean {
                 const insertPos = currentLine.start;
                 currentInput.value =
                     currentInput.value.substring(0, insertPos) +
-                    clipboard.content +
+                    pasteContent.content +
                     "\n" +
                     currentInput.value.substring(insertPos);
                 // Set cursor to first character of pasted content
@@ -938,16 +1180,18 @@ export function processNormalCommand(key: string, state: State): boolean {
                 const posPb = getCursorPos(currentInput);
                 currentInput.value =
                     currentInput.value.substring(0, posPb) +
-                    clipboard.content +
+                    pasteContent.content +
                     currentInput.value.substring(posPb);
                 setCursorPos(
                     currentInput,
-                    posPb + clipboard.content.length - 1,
+                    posPb + pasteContent.content.length - 1,
                 );
             }
             state.lastChange = { command: "P", count };
             state.countBuffer = "";
+            state.registerPrefix = null;
             break;
+        }
 
         case "u":
             undo(currentInput, undoStack, redoStack);

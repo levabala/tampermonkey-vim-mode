@@ -610,8 +610,50 @@ function handleKeyDown(e: KeyboardEvent): void {
         return;
     }
 
-    // Insert mode - allow normal typing
+    // Insert mode - handle Ctrl-R for register paste
     if (mode === "insert") {
+        // Ctrl-R in insert mode: paste from register
+        if (e.ctrlKey && e.key === "r") {
+            debug("handleKeyDown: Ctrl-r in insert mode - awaiting register");
+            e.preventDefault();
+            vimState.setAwaitingRegisterPaste(true);
+            return;
+        }
+
+        // If we're awaiting a register name after Ctrl-R
+        if (vimState.getAwaitingRegisterPaste()) {
+            debug("handleKeyDown: register paste", { key: e.key });
+            e.preventDefault();
+            vimState.setAwaitingRegisterPaste(false);
+
+            // Get register content
+            const reg = e.key;
+            const registers = vimState.getLegacyState().registers;
+            const clipboard = vimState.getClipboard();
+
+            let pasteContent: string = "";
+            if (reg === '"') {
+                pasteContent = clipboard.content;
+            } else {
+                const stored = registers.get(reg);
+                pasteContent = stored?.content || "";
+            }
+
+            // Insert the content at cursor position
+            if (pasteContent) {
+                const pos = getCursorPos(currentInput);
+                const text = currentInput.value;
+                currentInput.value =
+                    text.substring(0, pos) +
+                    pasteContent +
+                    text.substring(pos);
+                setCursorPos(currentInput, pos + pasteContent.length);
+                updateLineNumbers(currentInput);
+            }
+
+            return;
+        }
+
         debug("handleKeyDown: insert mode, passing through");
         return;
     }

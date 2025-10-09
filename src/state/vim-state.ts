@@ -1,5 +1,11 @@
 import { debug } from "../setup.js";
-import type { EditableElement, Mode, UndoState, LastChange } from "../types.js";
+import type {
+    EditableElement,
+    Mode,
+    UndoState,
+    LastChange,
+    Register,
+} from "../types.js";
 
 /**
  * Per-input state - each input element has its own instance
@@ -11,6 +17,7 @@ interface InputState {
     commandBuffer: string;
     countBuffer: string;
     operatorPending: string | null;
+    registerPrefix: string | null;
 
     // Find state (f/F/t/T commands)
     lastFindChar: string;
@@ -26,6 +33,7 @@ interface InputState {
     insertStartPos: number | null;
     insertStartValue: string | null;
     insertCommand: string | null;
+    awaitingRegisterPaste: boolean;
 
     // History
     undoStack: UndoState[];
@@ -45,6 +53,7 @@ interface InputState {
 interface GlobalState {
     currentInput: EditableElement | null;
     clipboard: { content: string; linewise: boolean };
+    registers: Map<string, Register>;
     allowBlur: boolean;
     escapePressed: boolean;
 }
@@ -58,6 +67,7 @@ function createInputState(mode: Mode = "insert"): InputState {
         commandBuffer: "",
         countBuffer: "",
         operatorPending: null,
+        registerPrefix: null,
         lastFindChar: "",
         lastFindDirection: false,
         lastFindType: "",
@@ -67,6 +77,7 @@ function createInputState(mode: Mode = "insert"): InputState {
         insertStartPos: null,
         insertStartValue: null,
         insertCommand: null,
+        awaitingRegisterPaste: false,
         undoStack: [],
         redoStack: [],
         lastChange: null,
@@ -87,6 +98,7 @@ export class VimState {
     private global: GlobalState = {
         currentInput: null,
         clipboard: { content: "", linewise: false },
+        registers: new Map<string, Register>(),
         allowBlur: false,
         escapePressed: false,
     };
@@ -193,7 +205,26 @@ export class VimState {
             state.commandBuffer = "";
             state.countBuffer = "";
             state.operatorPending = null;
+            state.registerPrefix = null;
         }
+    }
+
+    getRegisterPrefix(): string | null {
+        return this.getCurrentState()?.registerPrefix ?? null;
+    }
+
+    setRegisterPrefix(value: string | null): void {
+        const state = this.getCurrentState();
+        if (state) state.registerPrefix = value;
+    }
+
+    getAwaitingRegisterPaste(): boolean {
+        return this.getCurrentState()?.awaitingRegisterPaste ?? false;
+    }
+
+    setAwaitingRegisterPaste(value: boolean): void {
+        const state = this.getCurrentState();
+        if (state) state.awaitingRegisterPaste = value;
     }
 
     // ===== Find State =====
@@ -394,6 +425,65 @@ export class VimState {
         this.global.clipboard = { content, linewise };
     }
 
+    // ===== Registers =====
+
+    getRegister(name: string): Register | undefined {
+        // " is the default register, use clipboard
+        if (name === '"') {
+            return {
+                content: this.global.clipboard.content,
+                linewise: this.global.clipboard.linewise,
+            };
+        }
+        // + is the system clipboard
+        if (name === "+") {
+            return this.global.registers.get(name);
+        }
+        // Named registers a-z
+        return this.global.registers.get(name);
+    }
+
+    async setRegister(
+        name: string,
+        content: string,
+        linewise = false,
+    ): Promise<void> {
+        debug("VimState.setRegister", { name, content, linewise });
+
+        // " is the default register, use clipboard
+        if (name === '"') {
+            this.global.clipboard = { content, linewise };
+            return;
+        }
+
+        // + is the system clipboard
+        if (name === "+") {
+            try {
+                await navigator.clipboard.writeText(content);
+                debug("VimState.setRegister: wrote to system clipboard");
+            } catch (err) {
+                debug("VimState.setRegister: failed to write to system clipboard", {
+                    error: err,
+                });
+            }
+        }
+
+        // Store in registers map for all named registers (including +)
+        this.global.registers.set(name, { content, linewise });
+    }
+
+    async loadSystemClipboard(): Promise<void> {
+        try {
+            const content = await navigator.clipboard.readText();
+            this.global.registers.set("+", { content, linewise: false });
+            debug("VimState.loadSystemClipboard: loaded from system clipboard");
+        } catch (err) {
+            debug("VimState.loadSystemClipboard: failed to read system clipboard", {
+                error: err,
+            });
+        }
+    }
+
     // ===== Blur/Focus State =====
 
     getAllowBlur(): boolean {
@@ -431,10 +521,12 @@ export class VimState {
         commandBuffer: string;
         countBuffer: string;
         operatorPending: string | null;
+        registerPrefix: string | null;
         lastFindChar: string;
         lastFindDirection: boolean;
         lastFindType: string;
         clipboard: { content: string; linewise: boolean };
+        registers: Map<string, Register>;
         undoStack: UndoState[];
         redoStack: UndoState[];
         lastChange: LastChange | null;
@@ -450,10 +542,12 @@ export class VimState {
             commandBuffer: this.getCommandBuffer(),
             countBuffer: this.getCountBuffer(),
             operatorPending: this.getOperatorPending(),
+            registerPrefix: this.getRegisterPrefix(),
             lastFindChar: this.getLastFindChar(),
             lastFindDirection: this.getLastFindDirection(),
             lastFindType: this.getLastFindType(),
             clipboard: this.getClipboard(),
+            registers: this.global.registers,
             undoStack: stacks.undoStack,
             redoStack: stacks.redoStack,
             lastChange: this.getLastChange(),
@@ -472,6 +566,7 @@ export class VimState {
         countBuffer?: string;
         commandBuffer?: string;
         operatorPending?: string | null;
+        registerPrefix?: string | null;
         lastFindChar?: string;
         lastFindDirection?: boolean;
         lastFindType?: string;
@@ -488,6 +583,9 @@ export class VimState {
         }
         if (legacyState.operatorPending !== undefined) {
             this.setOperatorPending(legacyState.operatorPending);
+        }
+        if (legacyState.registerPrefix !== undefined) {
+            this.setRegisterPrefix(legacyState.registerPrefix);
         }
         if (legacyState.lastFindChar !== undefined) {
             this.setLastFindChar(legacyState.lastFindChar);
