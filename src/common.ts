@@ -436,6 +436,7 @@ export function calculateSelectionRects(
         const paddingLeft = parseFloat(computedStyle.paddingLeft);
         const paddingRight = parseFloat(computedStyle.paddingRight);
         const contentWidth = input.clientWidth - paddingLeft - paddingRight;
+
         mirror.style.width = `${contentWidth}px`;
 
         const stylesToCopy = [
@@ -473,12 +474,13 @@ export function calculateSelectionRects(
         const textBeforeSelection = text.substring(0, selStart);
 
         // Create a positioning mirror for accurate Y positioning
+        // Must use same width as mirror to ensure text wraps identically
         const posMirror = document.createElement("div");
         posMirror.style.position = "absolute";
         posMirror.style.visibility = "hidden";
         posMirror.style.whiteSpace = "pre-wrap";
         posMirror.style.wordWrap = "break-word";
-        posMirror.style.width = `${rect.width}px`;
+        posMirror.style.width = `${contentWidth}px`;
 
         const posStylesToCopy = [
             "font-family",
@@ -490,13 +492,6 @@ export function calculateSelectionRects(
             "word-spacing",
             "text-indent",
             "line-height",
-            "padding-left",
-            "padding-top",
-            "padding-right",
-            "padding-bottom",
-            "border-left-width",
-            "border-top-width",
-            "box-sizing",
         ];
 
         posStylesToCopy.forEach((prop) => {
@@ -544,14 +539,17 @@ export function calculateSelectionRects(
             const lineStartRect = lineStartSpan.getBoundingClientRect();
             const posMirrorRect = posMirror.getBoundingClientRect();
 
+            // Add padding to position since posMirror doesn't have padding
             const x =
                 rect.left +
                 window.scrollX +
+                paddingLeft +
                 (lineStartRect.left - posMirrorRect.left) -
                 input.scrollLeft;
             const baseY =
                 rect.top +
                 window.scrollY +
+                paddingTop +
                 (lineStartRect.top - posMirrorRect.top) -
                 input.scrollTop;
 

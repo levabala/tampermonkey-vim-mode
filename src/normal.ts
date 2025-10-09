@@ -862,6 +862,15 @@ export function processNormalCommand(key: string, state: State): boolean {
 
     // Single key commands
     let handled = true; // Track if we handled the command
+
+    // Special handling for "0" - it's a motion only when count buffer is empty
+    // Otherwise it's part of the count (e.g., "10j")
+    if (key === "0" && countBuffer === "") {
+        executeMotion(currentInput, "0", 1);
+        state.countBuffer = "";
+        return true;
+    }
+
     switch (key) {
         case "h":
         case "j":
@@ -873,7 +882,6 @@ export function processNormalCommand(key: string, state: State): boolean {
         case "B":
         case "e":
         case "E":
-        case "0":
         case "^":
         case "$":
         case "G":

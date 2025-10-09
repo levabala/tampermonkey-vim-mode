@@ -337,6 +337,25 @@ export function processVisualCommand(
         state.commandBuffer = "";
     }
 
+    // Special handling for "0" - it's a motion only when count buffer is empty
+    // Otherwise it's part of the count (e.g., "10j")
+    if (key === "0" && countBuffer === "") {
+        executeMotion(currentInput, "0", 1);
+        const newPos = getCursorPos(currentInput);
+        const newSelection = extendVisualSelection(
+            currentInput,
+            mode,
+            visualStart,
+            visualEnd,
+            newPos,
+            visualAnchor,
+        );
+        state.visualStart = newSelection.visualStart;
+        state.visualEnd = newSelection.visualEnd;
+        state.countBuffer = "";
+        return true;
+    }
+
     // Handle motions - extend selection
     const motionKeys = [
         "h",
@@ -346,7 +365,6 @@ export function processVisualCommand(
         "w",
         "b",
         "e",
-        "0",
         "^",
         "$",
         "G",
