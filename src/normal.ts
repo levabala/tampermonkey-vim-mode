@@ -346,7 +346,7 @@ export function repeatLastChange(state: State): void {
     }
 }
 
-export function processNormalCommand(key: string, state: State): void {
+export function processNormalCommand(key: string, state: State): boolean {
     const {
         currentInput,
         countBuffer,
@@ -359,11 +359,11 @@ export function processNormalCommand(key: string, state: State): void {
         enterVisualMode,
     } = state;
 
-    if (!currentInput) return;
+    if (!currentInput) return false;
 
     // Ignore modifier keys
     if (["Shift", "Control", "Alt", "Meta"].includes(key)) {
-        return;
+        return false;
     }
 
     const count = parseInt(countBuffer) || 1;
@@ -420,19 +420,19 @@ export function processNormalCommand(key: string, state: State): void {
 
             state.operatorPending = null;
             state.countBuffer = "";
-            return;
+            return true;
         }
 
         // Check if user is starting a text object (pressing 'i' or 'a')
         if (key === "i" || key === "a") {
             state.commandBuffer = key;
-            return;
+            return true;
         }
 
         // Check if user is starting a find motion (pressing 'f', 'F', 't', or 'T')
         if (["f", "F", "t", "T"].includes(key)) {
             state.commandBuffer = key;
-            return;
+            return true;
         }
 
         // Find motions (f, F, t, T followed by a character)
@@ -517,7 +517,7 @@ export function processNormalCommand(key: string, state: State): void {
             state.operatorPending = null;
             state.commandBuffer = "";
             state.countBuffer = "";
-            return;
+            return true;
         }
 
         // Text objects
@@ -571,7 +571,7 @@ export function processNormalCommand(key: string, state: State): void {
             state.operatorPending = null;
             state.commandBuffer = "";
             state.countBuffer = "";
-            return;
+            return true;
         }
 
         // Motion-based operations
@@ -611,7 +611,7 @@ export function processNormalCommand(key: string, state: State): void {
         state.operatorPending = null;
         state.commandBuffer = "";
         state.countBuffer = "";
-        return;
+        return true;
     }
 
     // Handle command sequences
@@ -622,14 +622,14 @@ export function processNormalCommand(key: string, state: State): void {
             executeMotion(currentInput, "gg", count);
             state.commandBuffer = "";
             state.countBuffer = "";
-            return;
+            return true;
         }
 
         if (commandBuffer === "g" && key === "e") {
             executeMotion(currentInput, "ge", count);
             state.commandBuffer = "";
             state.countBuffer = "";
-            return;
+            return true;
         }
 
         // f, F, t, T commands
@@ -653,7 +653,7 @@ export function processNormalCommand(key: string, state: State): void {
 
             state.commandBuffer = "";
             state.countBuffer = "";
-            return;
+            return true;
         }
 
         if (commandBuffer === "r") {
@@ -666,13 +666,14 @@ export function processNormalCommand(key: string, state: State): void {
             state.lastChange = { command: "r", char: key, count };
             state.commandBuffer = "";
             state.countBuffer = "";
-            return;
+            return true;
         }
 
         state.commandBuffer = "";
     }
 
     // Single key commands
+    let handled = true; // Track if we handled the command
     switch (key) {
         case "h":
         case "j":
@@ -976,6 +977,9 @@ export function processNormalCommand(key: string, state: State): void {
                 state.commandBuffer = "";
                 state.countBuffer = "";
                 state.operatorPending = null;
+                handled = false; // Not handled - unknown key
             }
     }
+
+    return handled;
 }

@@ -142,7 +142,7 @@ export function getCurrentRange(
 export function processVisualCommand(
     key: string,
     state: State & { exitVisualMode: () => void },
-): void {
+): boolean {
     const {
         currentInput,
         countBuffer,
@@ -159,11 +159,11 @@ export function processVisualCommand(
         enterVisualMode,
     } = state;
 
-    if (!currentInput) return;
+    if (!currentInput) return false;
 
     // Ignore modifier keys
     if (["Shift", "Control", "Alt", "Meta"].includes(key)) {
-        return;
+        return false;
     }
 
     const count = parseInt(countBuffer) || 1;
@@ -190,7 +190,7 @@ export function processVisualCommand(
             state.visualEnd = newSelection.visualEnd;
             state.commandBuffer = "";
             state.countBuffer = "";
-            return;
+            return true;
         }
 
         if (commandBuffer === "g" && key === "e") {
@@ -208,7 +208,7 @@ export function processVisualCommand(
             state.visualEnd = newSelection.visualEnd;
             state.commandBuffer = "";
             state.countBuffer = "";
-            return;
+            return true;
         }
 
         // f, F, t, T commands
@@ -243,7 +243,7 @@ export function processVisualCommand(
             state.visualEnd = newSelection.visualEnd;
             state.commandBuffer = "";
             state.countBuffer = "";
-            return;
+            return true;
         }
 
         // Text objects (i or a followed by pair character)
@@ -266,7 +266,7 @@ export function processVisualCommand(
             );
             state.commandBuffer = "";
             state.countBuffer = "";
-            return;
+            return true;
         }
 
         state.commandBuffer = "";
@@ -303,7 +303,7 @@ export function processVisualCommand(
         state.visualStart = newSelection.visualStart;
         state.visualEnd = newSelection.visualEnd;
         state.countBuffer = "";
-        return;
+        return true;
     }
 
     // Handle operators - operate on visual selection then exit
@@ -319,7 +319,7 @@ export function processVisualCommand(
         deleteRange(currentInput, undoStack, redoStack, range.start, range.end);
         exitVisualMode();
         state.countBuffer = "";
-        return;
+        return true;
     }
 
     if (key === "y") {
@@ -333,7 +333,7 @@ export function processVisualCommand(
         yankRange(currentInput, clipboard, range.start, range.end, linewise);
         exitVisualMode();
         state.countBuffer = "";
-        return;
+        return true;
     }
 
     if (key === "c") {
@@ -348,7 +348,7 @@ export function processVisualCommand(
         deleteRange(currentInput, undoStack, redoStack, range.start, range.end);
         enterInsertMode("c");
         state.countBuffer = "";
-        return;
+        return true;
     }
 
     // Handle visual mode toggles
@@ -360,7 +360,7 @@ export function processVisualCommand(
             enterVisualMode(false);
         }
         state.countBuffer = "";
-        return;
+        return true;
     }
 
     if (key === "V") {
@@ -371,7 +371,7 @@ export function processVisualCommand(
             enterVisualMode(true);
         }
         state.countBuffer = "";
-        return;
+        return true;
     }
 
     // Handle ; and , for repeating find
@@ -401,7 +401,7 @@ export function processVisualCommand(
             state.visualEnd = newSelection.visualEnd;
         }
         state.countBuffer = "";
-        return;
+        return true;
     }
 
     if (key === ",") {
@@ -430,10 +430,11 @@ export function processVisualCommand(
             state.visualEnd = newSelection.visualEnd;
         }
         state.countBuffer = "";
-        return;
+        return true;
     }
 
     // Handle other keys
+    let handled = true; // Track if we handled the command
     switch (key) {
         case "g":
         case "f":
@@ -504,6 +505,9 @@ export function processVisualCommand(
             } else {
                 state.commandBuffer = "";
                 state.countBuffer = "";
+                handled = false; // Not handled - unknown key
             }
     }
+
+    return handled;
 }

@@ -185,7 +185,8 @@ function exitVisualMode(): void {
 }
 
 // Command processing - dispatch to mode-specific handlers
-function processCommand(key: string): void {
+// Returns true if the command was handled, false otherwise
+function processCommand(key: string): boolean {
     const mode = vimState.getMode();
     debug("processCommand", {
         key,
@@ -210,10 +211,11 @@ function processCommand(key: string): void {
 
     const oldMode = mode;
 
+    let handled: boolean;
     if (mode === "visual" || mode === "visual-line") {
-        processVisualCommand(key, state);
+        handled = processVisualCommand(key, state);
     } else {
-        processNormalCommand(key, state);
+        handled = processNormalCommand(key, state);
     }
 
     // Update VimState from mutations
@@ -248,6 +250,8 @@ function processCommand(key: string): void {
         visualStart: vimState.getVisualStart(),
         visualEnd: vimState.getVisualEnd(),
     });
+
+    return handled;
 }
 
 // Event handlers
@@ -614,10 +618,28 @@ function handleKeyDown(e: KeyboardEvent): void {
 
     // Normal/Visual mode commands
     debug("handleKeyDown: normal/visual mode, processing command");
-    e.preventDefault();
+
+    // Allow browser shortcuts (Command/Ctrl + key) to pass through
+    // unless it's one of our vim commands
+    if (
+        e.metaKey ||
+        (e.ctrlKey && !["e", "y", "d", "u", "r"].includes(e.key))
+    ) {
+        debug("handleKeyDown: allowing browser shortcut to pass through", {
+            key: e.key,
+            metaKey: e.metaKey,
+            ctrlKey: e.ctrlKey,
+        });
+        return;
+    }
 
     // Mode-specific command handling
-    processCommand(e.key);
+    const handled = processCommand(e.key);
+
+    // Only prevent default if we handled the command
+    if (handled) {
+        e.preventDefault();
+    }
 }
 
 // Initialize
