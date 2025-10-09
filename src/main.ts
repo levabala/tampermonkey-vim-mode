@@ -855,6 +855,28 @@ if (typeof window === "undefined" || typeof document === "undefined") {
         subtree: true,
     });
 
+    // Update mode indicator when focus changes anywhere in the document
+    // This ensures the indicator hides when an input loses focus
+    document.addEventListener(
+        "focusin",
+        () => {
+            const currentInput = vimState.getCurrentInput();
+            const mode = vimState.getMode();
+            updateIndicator(mode, currentInput);
+        },
+        true,
+    );
+
+    document.addEventListener(
+        "focusout",
+        () => {
+            const currentInput = vimState.getCurrentInput();
+            const mode = vimState.getMode();
+            updateIndicator(mode, currentInput);
+        },
+        true,
+    );
+
     // Update custom caret and visual selection on scroll and resize
     window.addEventListener(
         "scroll",

@@ -197,5 +197,13 @@ export function updateIndicator(
     }
     modeText.textContent = text;
     indicator.style.background = color;
-    indicator.style.display = currentInput ? "block" : "none";
+
+    // Only show indicator if input exists, is focused, visible, and in the DOM
+    const shouldShow =
+        currentInput &&
+        document.activeElement === currentInput &&
+        document.contains(currentInput) &&
+        getComputedStyle(currentInput).display !== "none";
+
+    indicator.style.display = shouldShow ? "block" : "none";
 }
