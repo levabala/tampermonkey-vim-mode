@@ -462,9 +462,12 @@ export class VimState {
                 await navigator.clipboard.writeText(content);
                 debug("VimState.setRegister: wrote to system clipboard");
             } catch (err) {
-                debug("VimState.setRegister: failed to write to system clipboard", {
-                    error: err,
-                });
+                debug(
+                    "VimState.setRegister: failed to write to system clipboard",
+                    {
+                        error: err,
+                    },
+                );
             }
         }
 
@@ -478,9 +481,12 @@ export class VimState {
             this.global.registers.set("+", { content, linewise: false });
             debug("VimState.loadSystemClipboard: loaded from system clipboard");
         } catch (err) {
-            debug("VimState.loadSystemClipboard: failed to read system clipboard", {
-                error: err,
-            });
+            debug(
+                "VimState.loadSystemClipboard: failed to read system clipboard",
+                {
+                    error: err,
+                },
+            );
         }
     }
 

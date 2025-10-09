@@ -1,6 +1,6 @@
 // Register operations module
 import { debug } from "./setup.js";
-import type { EditableElement, Register } from "./types.js";
+import type { Register } from "./types.js";
 import { VimState } from "./state/vim-state.js";
 
 /**

@@ -621,7 +621,7 @@ function handleKeyDown(e: KeyboardEvent): void {
             const registers = vimState.getLegacyState().registers;
             const clipboard = vimState.getClipboard();
 
-            let pasteContent: string = "";
+            let pasteContent = "";
             if (reg === '"') {
                 pasteContent = clipboard.content;
             } else {
@@ -634,9 +634,7 @@ function handleKeyDown(e: KeyboardEvent): void {
                 const pos = getCursorPos(currentInput);
                 const text = currentInput.value;
                 currentInput.value =
-                    text.substring(0, pos) +
-                    pasteContent +
-                    text.substring(pos);
+                    text.substring(0, pos) + pasteContent + text.substring(pos);
                 setCursorPos(currentInput, pos + pasteContent.length);
                 updateLineNumbers(currentInput);
             }

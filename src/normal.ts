@@ -311,13 +311,15 @@ function yankToRegister(
             navigator.clipboard.writeText(yanked);
             debug("yankToRegister: copied to system clipboard");
         } catch (err) {
-            debug("yankToRegister: failed to copy to system clipboard", { error: err });
+            debug("yankToRegister: failed to copy to system clipboard", {
+                error: err,
+            });
         }
     }
 }
 
 // Helper function to get content from a register
-async function getRegisterContent(
+export async function getRegisterContent(
     clipboard: { content: string; linewise: boolean },
     registers: Map<string, { content: string; linewise: boolean }>,
     registerName: string | null,
@@ -337,7 +339,9 @@ async function getRegisterContent(
             debug("getRegisterContent: read from system clipboard");
             return { content, linewise: false };
         } catch (err) {
-            debug("getRegisterContent: failed to read system clipboard", { error: err });
+            debug("getRegisterContent: failed to read system clipboard", {
+                error: err,
+            });
             // Fall back to stored register if clipboard access fails
             const stored = registers.get(reg);
             return stored || { content: "", linewise: false };
@@ -1114,7 +1118,10 @@ export function processNormalCommand(key: string, state: State): boolean {
             let pasteContent: { content: string; linewise: boolean };
 
             if (reg === '"') {
-                pasteContent = { content: clipboard.content, linewise: clipboard.linewise };
+                pasteContent = {
+                    content: clipboard.content,
+                    linewise: clipboard.linewise,
+                };
             } else {
                 const stored = registers.get(reg);
                 pasteContent = stored || { content: "", linewise: false };
@@ -1141,7 +1148,10 @@ export function processNormalCommand(key: string, state: State): boolean {
                     currentInput.value.substring(0, posP) +
                     pasteContent.content +
                     currentInput.value.substring(posP);
-                setCursorPos(currentInput, posP + pasteContent.content.length - 1);
+                setCursorPos(
+                    currentInput,
+                    posP + pasteContent.content.length - 1,
+                );
             }
             state.lastChange = { command: "p", count };
             state.countBuffer = "";
@@ -1155,7 +1165,10 @@ export function processNormalCommand(key: string, state: State): boolean {
             let pasteContent: { content: string; linewise: boolean };
 
             if (reg === '"') {
-                pasteContent = { content: clipboard.content, linewise: clipboard.linewise };
+                pasteContent = {
+                    content: clipboard.content,
+                    linewise: clipboard.linewise,
+                };
             } else {
                 const stored = registers.get(reg);
                 pasteContent = stored || { content: "", linewise: false };

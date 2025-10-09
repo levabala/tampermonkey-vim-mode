@@ -12,7 +12,7 @@ import {
     findTextObject,
 } from "./common.js";
 import { executeMotion } from "./normal.js";
-import { yankRange, deleteRange } from "./normal.js";
+import { deleteRange } from "./normal.js";
 import type { EditableElement, Mode, State, TextRange } from "./types.js";
 
 // Helper function to yank to a specific register
@@ -26,7 +26,13 @@ function yankToRegister(
     linewise = false,
 ): void {
     const yanked = currentInput.value.substring(start, end);
-    debug("yankToRegister (visual)", { registerName, start, end, yanked, linewise });
+    debug("yankToRegister (visual)", {
+        registerName,
+        start,
+        end,
+        yanked,
+        linewise,
+    });
 
     // Default register (") or null means use clipboard
     const reg = registerName || '"';
@@ -48,7 +54,9 @@ function yankToRegister(
             navigator.clipboard.writeText(yanked);
             debug("yankToRegister: copied to system clipboard");
         } catch (err) {
-            debug("yankToRegister: failed to copy to system clipboard", { error: err });
+            debug("yankToRegister: failed to copy to system clipboard", {
+                error: err,
+            });
         }
     }
 }
