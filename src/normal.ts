@@ -407,12 +407,13 @@ export function processNormalCommand(key: string, state: State): boolean {
                 state.lastChange = { operator: "y", motion: "y", count };
             } else if (operatorPending === "c") {
                 yankRange(currentInput, clipboard, start, yankEnd, true);
+                // cc should delete line content but preserve the line (newline)
                 changeRange(
                     currentInput,
                     undoStack,
                     redoStack,
                     start,
-                    deleteEnd,
+                    yankEnd,
                     enterInsertMode,
                 );
                 state.lastChange = { operator: "c", motion: "c", count };
