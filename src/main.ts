@@ -395,8 +395,7 @@ function handleBlur(e: FocusEvent): void {
             removeLineNumbers();
             clearVisualSelection();
 
-            // Reset to insert mode (like double ESC)
-            vimState.setMode("insert");
+            // Don't change mode - preserve it for when user returns to this input
 
             // Don't reset currentInput - keep it so we can detect refocus of same element
             updateIndicator(vimState.getMode(), currentInput);
@@ -409,18 +408,9 @@ function handleBlur(e: FocusEvent): void {
         const escapePressed = vimState.getEscapePressed();
 
         // Scenario 2: ESC caused the blur
-        // Detect via: global ESC listener flag or blur pattern
-        // Note: mode might already be "normal" if handleKeyDown changed it before blur fired
-        const isEscapeBlur =
-            // ESC pressed recently and blur is unexpected (not explicitly allowed, no focus transfer)
-            (escapePressed && !e.relatedTarget && !allowBlur) ||
-            // Blur pattern for modes that shouldn't blur without explicit action
-            ((mode === "insert" ||
-                mode === "visual" ||
-                mode === "visual-line") &&
-                !allowBlur &&
-                !e.relatedTarget &&
-                e.isTrusted);
+        // Only detect ESC blur via the explicit escapePressed flag
+        // Don't guess based on mode/blur pattern - that catches legitimate blurs like alt+tab
+        const isEscapeBlur = escapePressed && !e.relatedTarget && !allowBlur;
 
         if (isEscapeBlur) {
             debug("handleBlur: ESC caused blur, switching to normal mode");
@@ -444,37 +434,37 @@ function handleBlur(e: FocusEvent): void {
             return;
         }
 
-        // Scenario 3: Unexpected blur in insert/visual mode
-        // This shouldn't happen often, but prevent it for safety
+        // Scenario 3: Unexpected blur in insert/visual mode without relatedTarget
+        // Allow blur (e.g., alt+tab, window switching) but preserve mode
+        // The mode will be restored when the input regains focus
         if (
             (mode === "insert" ||
                 mode === "visual" ||
                 mode === "visual-line") &&
-            !allowBlur
+            !allowBlur &&
+            !e.relatedTarget
         ) {
             debug(
-                "handleBlur: unexpected blur in insert/visual mode, preventing",
+                "handleBlur: blur from insert/visual mode (likely alt+tab), preserving mode",
             );
-            e.preventDefault();
-            e.stopPropagation();
-            const input = currentInput!;
-            setTimeout(() => {
-                debug("handleBlur: refocusing element");
-                input.focus();
-            }, 0);
+            // Clean up UI elements but preserve mode state
+            syncCaretToMode(null, mode);
+            removeLineNumbers();
+            clearVisualSelection();
+            updateIndicator(mode, currentInput);
             return;
         }
 
         // Scenario 4: Blur from normal mode without explicit permission
-        // This happens when clicking outside while in normal mode
-        // Reset to insert mode (like double ESC behavior)
-        if (mode === "normal" && !allowBlur) {
-            debug("handleBlur: blur from normal mode, resetting to insert");
-            vimState.setMode("insert");
-            syncCaretToMode(null, "insert");
+        // Allow blur (e.g., alt+tab, window switching) but preserve mode
+        if (mode === "normal" && !allowBlur && !e.relatedTarget) {
+            debug(
+                "handleBlur: blur from normal mode (likely alt+tab), preserving mode",
+            );
+            syncCaretToMode(null, "normal");
             removeLineNumbers();
             clearVisualSelection();
-            updateIndicator("insert", currentInput);
+            updateIndicator("normal", currentInput);
             return;
         }
 
