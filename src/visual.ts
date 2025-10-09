@@ -15,6 +15,44 @@ import { executeMotion } from "./normal.js";
 import { yankRange, deleteRange } from "./normal.js";
 import type { EditableElement, Mode, State, TextRange } from "./types.js";
 
+// Helper function to yank to a specific register
+function yankToRegister(
+    currentInput: EditableElement,
+    clipboard: { content: string; linewise: boolean },
+    registers: Map<string, { content: string; linewise: boolean }>,
+    registerName: string | null,
+    start: number,
+    end: number,
+    linewise = false,
+): void {
+    const yanked = currentInput.value.substring(start, end);
+    debug("yankToRegister (visual)", { registerName, start, end, yanked, linewise });
+
+    // Default register (") or null means use clipboard
+    const reg = registerName || '"';
+
+    if (reg === '"') {
+        clipboard.content = yanked;
+        clipboard.linewise = linewise;
+    } else {
+        // Store in named register
+        registers.set(reg, { content: yanked, linewise });
+        // Also update default register
+        clipboard.content = yanked;
+        clipboard.linewise = linewise;
+    }
+
+    // If using + register, copy to system clipboard
+    if (reg === "+") {
+        try {
+            navigator.clipboard.writeText(yanked);
+            debug("yankToRegister: copied to system clipboard");
+        } catch (err) {
+            debug("yankToRegister: failed to copy to system clipboard", { error: err });
+        }
+    }
+}
+
 // Visual selection management (now using virtual selection, not native)
 export function updateVisualSelection(
     currentInput: EditableElement | null,
@@ -147,6 +185,7 @@ export function processVisualCommand(
         currentInput,
         countBuffer,
         commandBuffer,
+        registerPrefix,
         mode,
         visualStart,
         visualEnd,
@@ -154,6 +193,7 @@ export function processVisualCommand(
         undoStack,
         redoStack,
         clipboard,
+        registers,
         enterInsertMode,
         exitVisualMode,
         enterVisualMode,
@@ -167,7 +207,24 @@ export function processVisualCommand(
     }
 
     const count = parseInt(countBuffer) || 1;
-    debug("processVisualCommand", { key, count, mode });
+    debug("processVisualCommand", { key, count, mode, registerPrefix });
+
+    // Handle register prefix - waiting for register name
+    if (commandBuffer === '"') {
+        // Valid register names: a-z, A-Z, 0-9, ", +
+        if (/[a-zA-Z0-9"+]/.test(key)) {
+            state.registerPrefix = key;
+            state.commandBuffer = "";
+            debug("processVisualCommand: set registerPrefix", {
+                register: key,
+            });
+            return true;
+        } else {
+            // Invalid register name, clear command buffer
+            state.commandBuffer = "";
+            return false;
+        }
+    }
 
     // Handle command sequences FIRST (gg, ge, f, t, F, T, etc.)
     // This must come before motion keys check because some motion keys
@@ -315,10 +372,19 @@ export function processVisualCommand(
             currentInput,
         );
         const linewise = mode === "visual-line";
-        yankRange(currentInput, clipboard, range.start, range.end, linewise);
+        yankToRegister(
+            currentInput,
+            clipboard,
+            registers,
+            registerPrefix,
+            range.start,
+            range.end,
+            linewise,
+        );
         deleteRange(currentInput, undoStack, redoStack, range.start, range.end);
         exitVisualMode();
         state.countBuffer = "";
+        state.registerPrefix = null;
         return true;
     }
 
@@ -330,9 +396,18 @@ export function processVisualCommand(
             currentInput,
         );
         const linewise = mode === "visual-line";
-        yankRange(currentInput, clipboard, range.start, range.end, linewise);
+        yankToRegister(
+            currentInput,
+            clipboard,
+            registers,
+            registerPrefix,
+            range.start,
+            range.end,
+            linewise,
+        );
         exitVisualMode();
         state.countBuffer = "";
+        state.registerPrefix = null;
         return true;
     }
 
@@ -344,10 +419,19 @@ export function processVisualCommand(
             currentInput,
         );
         const linewise = mode === "visual-line";
-        yankRange(currentInput, clipboard, range.start, range.end, linewise);
+        yankToRegister(
+            currentInput,
+            clipboard,
+            registers,
+            registerPrefix,
+            range.start,
+            range.end,
+            linewise,
+        );
         deleteRange(currentInput, undoStack, redoStack, range.start, range.end);
         enterInsertMode("c");
         state.countBuffer = "";
+        state.registerPrefix = null;
         return true;
     }
 
@@ -436,6 +520,11 @@ export function processVisualCommand(
     // Handle other keys
     let handled = true; // Track if we handled the command
     switch (key) {
+        case '"':
+            // Register prefix command
+            state.commandBuffer = key;
+            break;
+
         case "g":
         case "f":
         case "F":
@@ -455,9 +544,11 @@ export function processVisualCommand(
                 currentInput,
             );
             const linewiseX = mode === "visual-line";
-            yankRange(
+            yankToRegister(
                 currentInput,
                 clipboard,
+                registers,
+                registerPrefix,
                 range.start,
                 range.end,
                 linewiseX,
@@ -471,10 +562,11 @@ export function processVisualCommand(
             );
             exitVisualMode();
             state.countBuffer = "";
+            state.registerPrefix = null;
             break;
 
         case "p":
-        case "P":
+        case "P": {
             // Paste over selection
             saveState(currentInput, undoStack, redoStack);
             const range2 = getCurrentRange(
@@ -483,6 +575,18 @@ export function processVisualCommand(
                 visualEnd,
                 currentInput,
             );
+            const reg = registerPrefix || '"';
+            let pasteContent: { content: string; linewise: boolean };
+
+            if (reg === '"') {
+                pasteContent = {
+                    content: clipboard.content,
+                    linewise: clipboard.linewise,
+                };
+            } else {
+                const stored = registers.get(reg);
+                pasteContent = stored || { content: "", linewise: false };
+            }
             deleteRange(
                 currentInput,
                 undoStack,
@@ -492,12 +596,14 @@ export function processVisualCommand(
             );
             currentInput.value =
                 currentInput.value.substring(0, range2.start) +
-                clipboard.content +
+                pasteContent.content +
                 currentInput.value.substring(range2.start);
             setCursorPos(currentInput, range2.start);
             exitVisualMode();
             state.countBuffer = "";
+            state.registerPrefix = null;
             break;
+        }
 
         default:
             if (/\d/.test(key)) {

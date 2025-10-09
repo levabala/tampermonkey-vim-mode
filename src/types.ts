@@ -82,6 +82,11 @@ export interface TextMetrics {
     getLineHeight(): number;
 }
 
+export interface Register {
+    content: string;
+    linewise: boolean;
+}
+
 export interface State {
     mode: Mode;
     currentInput: EditableElement | null;
@@ -89,6 +94,8 @@ export interface State {
     countBuffer: string;
     operatorPending: string | null;
     clipboard: { content: string; linewise: boolean };
+    registers: Map<string, Register>;
+    registerPrefix: string | null;
     undoStack: UndoState[];
     redoStack: UndoState[];
     lastChange: LastChange | null;

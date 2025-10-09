@@ -329,6 +329,11 @@ test.describe("Nvim Parity Tests", () => {
             keystrokes: "llllllCtest\x1b",
         },
         {
+            description: "cc should change current line",
+            input: "line1\nline2\nline3",
+            keystrokes: "jccnew\x1b",
+        },
+        {
             description: "s should substitute character",
             input: "hello",
             keystrokes: "sX\x1b",
