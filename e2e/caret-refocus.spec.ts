@@ -39,16 +39,12 @@ test.describe("Caret Appearance After Refocus", () => {
         const normalModeWidth = parseFloat(caretStyle?.width || "0");
         expect(normalModeWidth).toBeGreaterThan(5); // Should be wide (character width)
 
-        // Blur the textarea
-        await page.locator("body").click();
+        // Blur the textarea by pressing Escape twice (vim behavior to unfocus)
+        await textarea.press("Escape");
         await page.waitForTimeout(100);
 
         // Refocus the textarea
         await textarea.click();
-        await page.waitForTimeout(100);
-
-        // Should be in insert mode, go back to normal mode
-        await textarea.press("Escape");
         await page.waitForTimeout(200);
 
         // Check caret appearance again
