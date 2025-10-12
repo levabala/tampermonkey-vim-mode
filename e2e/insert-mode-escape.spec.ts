@@ -36,8 +36,7 @@ test.describe("Insert Mode - Escape Key", () => {
 
         // Verify the textarea is still focused
         const isFocused = await textarea.evaluate(
-            (el: HTMLTextAreaElement) =>
-                document.activeElement === el,
+            (el: HTMLTextAreaElement) => document.activeElement === el,
         );
         expect(isFocused).toBe(true);
     });
@@ -70,8 +69,7 @@ test.describe("Insert Mode - Escape Key", () => {
 
         // Verify the textarea is still focused
         const isFocused = await textarea.evaluate(
-            (el: HTMLTextAreaElement) =>
-                document.activeElement === el,
+            (el: HTMLTextAreaElement) => document.activeElement === el,
         );
         expect(isFocused).toBe(true);
     });
