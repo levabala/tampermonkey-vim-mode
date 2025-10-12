@@ -64,10 +64,7 @@ test.describe("Count Commands with Zero Digit", () => {
 
             let charCount = 0;
             for (let i = 0; i < lines.length; i++) {
-                if (
-                    pos >= charCount &&
-                    pos <= charCount + lines[i].length
-                ) {
+                if (pos >= charCount && pos <= charCount + lines[i].length) {
                     return { lineNumber: i + 1, lineContent: lines[i] };
                 }
                 charCount += lines[i].length + 1;
@@ -103,10 +100,7 @@ test.describe("Count Commands with Zero Digit", () => {
 
             let charCount = 0;
             for (let i = 0; i < lines.length; i++) {
-                if (
-                    pos >= charCount &&
-                    pos <= charCount + lines[i].length
-                ) {
+                if (pos >= charCount && pos <= charCount + lines[i].length) {
                     return i + 1;
                 }
                 charCount += lines[i].length + 1;
@@ -185,10 +179,7 @@ test.describe("Count Commands with Zero Digit", () => {
 
             let charCount = 0;
             for (let i = 0; i < lines.length; i++) {
-                if (
-                    pos >= charCount &&
-                    pos <= charCount + lines[i].length
-                ) {
+                if (pos >= charCount && pos <= charCount + lines[i].length) {
                     return i + 1;
                 }
                 charCount += lines[i].length + 1;
@@ -232,9 +223,7 @@ test.describe("Count Commands with Zero Digit", () => {
         expect(newLines.length).toBeGreaterThan(originalLines.length - 12);
     });
 
-    test("count with 0 in middle (e.g., 105) should work", async ({
-        page,
-    }) => {
+    test("count with 0 in middle (e.g., 105) should work", async ({ page }) => {
         const textarea = page.locator("#large-textarea");
         await textarea.click();
         await page.keyboard.press("Escape");
@@ -252,10 +241,7 @@ test.describe("Count Commands with Zero Digit", () => {
 
             let charCount = 0;
             for (let i = 0; i < lines.length; i++) {
-                if (
-                    pos >= charCount &&
-                    pos <= charCount + lines[i].length
-                ) {
+                if (pos >= charCount && pos <= charCount + lines[i].length) {
                     return i + 1;
                 }
                 charCount += lines[i].length + 1;
