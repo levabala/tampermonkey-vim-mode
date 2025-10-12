@@ -306,9 +306,11 @@ function handleFocus(e: FocusEvent): void {
                             event.key === "u"))
                 ) {
                     debug("Special key in onkeydown - calling handleKeyDown");
-                    event.preventDefault(); // Mark as handled
+                    // Don't call preventDefault here - let handleKeyDown do it
+                    // so that handleKeyDown's defaultPrevented check works correctly
                     handleKeyDown(event);
-                    return false; // Prevent default
+                    // Check if handleKeyDown prevented default
+                    return !event.defaultPrevented;
                 }
                 if (originalOnKeyDown) {
                     return originalOnKeyDown.call(el, event);
