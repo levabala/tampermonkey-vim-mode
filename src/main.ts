@@ -506,20 +506,8 @@ function handleKeyDown(e: KeyboardEvent): void {
         return;
     }
 
-    // Skip if event was already handled (by onkeydown property or earlier listener)
-    if (e.defaultPrevented) {
-        debug("handleKeyDown: event already handled, skipping");
-        return;
-    }
-
-    debug("handleKeyDown", {
-        key: e.key,
-        ctrl: e.ctrlKey,
-        mode,
-        target: (e.target as HTMLElement).tagName,
-    });
-
-    // Handle ESC/Ctrl-[ early to prevent default blur behavior
+    // Handle ESC/Ctrl-[ first, even if defaultPrevented is true
+    // (other code may have prevented default to avoid blur, which is what we want too)
     if (isEscapeKey(e)) {
         debug("handleKeyDown: ESC/Ctrl-[ pressed", {
             mode,
@@ -554,6 +542,19 @@ function handleKeyDown(e: KeyboardEvent): void {
         debug("handleKeyDown: ESC handling complete, returning");
         return;
     }
+
+    // Skip other keys if event was already handled (by onkeydown property or earlier listener)
+    if (e.defaultPrevented) {
+        debug("handleKeyDown: event already handled, skipping");
+        return;
+    }
+
+    debug("handleKeyDown", {
+        key: e.key,
+        ctrl: e.ctrlKey,
+        mode,
+        target: (e.target as HTMLElement).tagName,
+    });
 
     // Scrolling commands (work in all modes - insert, normal, and visual)
     // In normal and visual modes, move the caret with the scroll
