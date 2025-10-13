@@ -761,6 +761,26 @@ if (typeof window === "undefined" || typeof document === "undefined") {
     document.addEventListener("keydown", testListener, true);
     document.addEventListener("keydown", handleKeyDown, true);
 
+    // Vimium blocks keydown for Escape but allows keyup to pass through (issue #733)
+    // Listen to keyup as a fallback to handle Escape when Vimium is active
+    document.addEventListener(
+        "keyup",
+        (e: KeyboardEvent) => {
+            if (isEscapeKey(e)) {
+                debug("keyup Escape handler (Vimium workaround)", {
+                    key: e.key,
+                    target: (e.target as HTMLElement).tagName,
+                    defaultPrevented: e.defaultPrevented,
+                });
+                // Call handleKeyDown with the keyup event
+                // This works because handleKeyDown only checks the key and mode,
+                // it doesn't rely on keydown-specific behavior for Escape
+                handleKeyDown(e);
+            }
+        },
+        true,
+    );
+
     // Handle clicks outside to clear vim mode
     document.addEventListener(
         "mousedown",
