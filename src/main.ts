@@ -330,15 +330,15 @@ function handleFocus(e: FocusEvent): void {
                         propagationStopped: kbEvent.cancelBubble,
                     });
                     // Handle ESC/Ctrl-[ and scrolling commands
-                    // Skip if already handled by onkeydown property
+                    // Don't check defaultPrevented for these special keys - we want to handle them
+                    // even if another extension (like Vimium) called preventDefault
                     if (
-                        !kbEvent.defaultPrevented &&
-                        (isEscapeKey(kbEvent) ||
-                            (kbEvent.ctrlKey &&
-                                (kbEvent.key === "e" ||
-                                    kbEvent.key === "y" ||
-                                    kbEvent.key === "d" ||
-                                    kbEvent.key === "u")))
+                        isEscapeKey(kbEvent) ||
+                        (kbEvent.ctrlKey &&
+                            (kbEvent.key === "e" ||
+                                kbEvent.key === "y" ||
+                                kbEvent.key === "d" ||
+                                kbEvent.key === "u"))
                     ) {
                         debug(
                             "DIRECT special key on element - calling handleKeyDown",
@@ -782,7 +782,7 @@ if (typeof window === "undefined" || typeof document === "undefined") {
         true,
     );
 
-    // Update line numbers on input in insert mode + handle jj escape
+    // Update line numbers on input in insert mode
     document.addEventListener(
         "input",
         (e: Event) => {
@@ -792,26 +792,6 @@ if (typeof window === "undefined" || typeof document === "undefined") {
                 e.target === currentInput &&
                 vimState.getMode() === "insert"
             ) {
-                // Check for 'jj' escape sequence (workaround for Vimium/browser extensions blocking Escape)
-                const pos = getCursorPos(currentInput);
-                if (pos >= 2) {
-                    const textBefore = currentInput.value.substring(
-                        pos - 2,
-                        pos,
-                    );
-                    if (textBefore === "jj") {
-                        debug("input event: detected jj escape sequence");
-                        // Delete the 'jj' characters
-                        const text = currentInput.value;
-                        currentInput.value =
-                            text.substring(0, pos - 2) + text.substring(pos);
-                        setCursorPos(currentInput, pos - 2);
-                        // Switch to normal mode
-                        enterNormalMode();
-                        return;
-                    }
-                }
-
                 debug("input event: updating line numbers");
                 // Use requestAnimationFrame to ensure DOM has reflowed
                 requestAnimationFrame(() => {
