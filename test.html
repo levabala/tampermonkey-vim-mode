@@ -114,7 +114,10 @@
             <h2>Test Visual Mode Selection</h2>
             <ol>
                 <li>Click in the textarea below</li>
-                <li>Press <kbd>ESC</kbd> to enter normal mode</li>
+                <li>
+                    Press <kbd>ESC</kbd> to enter normal mode (or type
+                    <kbd>jj</kbd> quickly if using Vimium)
+                </li>
                 <li>
                     Move cursor to middle of line (e.g., press <kbd>5l</kbd>)
                 </li>
@@ -133,6 +136,18 @@
                     or <kbd>c</kbd> to change
                 </li>
             </ol>
+            <p
+                style="
+                    background: #ffffcc;
+                    padding: 10px;
+                    border-left: 4px solid #ffaa00;
+                "
+            >
+                <strong>Note for Vimium users:</strong> If you have the Vimium
+                browser extension installed, it may intercept the Escape key.
+                Use <kbd>jj</kbd> (type two j's quickly) as an alternative
+                escape sequence to exit insert mode.
+            </p>
             <h3>Test Text Objects</h3>
             <ul>
                 <li><kbd>di(</kbd> - delete inside parentheses</li>
@@ -323,6 +338,56 @@ Test visual mode and scrolling:
             cols="80"
             style="margin-left: 20px"
         ></textarea>
+
+        <h3 style="color: red; margin-top: 40px">
+            GitHub-style Textarea (Escape is prevented by site code)
+        </h3>
+        <p
+            style="
+                background: #fff3cd;
+                padding: 10px;
+                border-left: 4px solid #ffc107;
+            "
+        >
+            <strong>Test case:</strong> This textarea simulates GitHub's
+            behavior where the site calls <code>preventDefault()</code> on
+            Escape keys before our handler runs. <br /><strong
+                >Expected:</strong
+            >
+            Pressing Escape in insert mode should still switch to normal mode
+            (not blur the input).
+        </p>
+        <textarea
+            id="github-style-textarea"
+            rows="10"
+            cols="80"
+            style="margin-left: 20px"
+        >
+Line 1: Test content for GitHub-style textarea
+Line 2: Try entering insert mode with 'i'
+Line 3: Type some text
+Line 4: Then press Escape
+Line 5: It should switch to normal mode, not blur!</textarea
+        >
+        <script>
+            // Simulate GitHub's behavior: prevent default on Escape BEFORE our handler
+            const githubTextarea = document.getElementById(
+                "github-style-textarea",
+            );
+            githubTextarea.addEventListener(
+                "keydown",
+                (e) => {
+                    if (e.key === "Escape" || (e.ctrlKey && e.key === "[")) {
+                        console.log(
+                            "GitHub-style handler: preventing default on Escape",
+                        );
+                        e.preventDefault();
+                    }
+                },
+                true,
+            ); // Use capture phase to run before our handler
+        </script>
+
         <script>
             // Generate 1500 lines for performance testing (10x from original 150)
             // 10% of lines should be long enough to wrap
